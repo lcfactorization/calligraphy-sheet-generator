@@ -1,0 +1,40 @@
+/* ── 字帖显示区 ── */
+#grid-container{
+    display:flex;flex-direction:column;align-items:center;
+    margin-top:20px;
+}
+.row{display:flex;position:relative;width:660px}
+.pinyin-row{height:28.8px;display:flex;align-items:center}
+.pinyin-cell{width:60px;height:28.8px;display:flex;justify-content:center;align-items:center}
+.stroke-container{display:flex;flex-wrap:nowrap;overflow-x:auto;height:28.8px;align-items:center;margin-left:6px}
+.stroke-svg{width:18.72px;height:18.72px;margin-right:4.68px;z-index:1}
+.pinyin-row.page-first::before{content:'';position:absolute;width:660px;height:0;left:0;top:0;border:0.15px solid var(--green);z-index:0}
+.pinyin-row::after{content:'';position:absolute;width:660px;height:0;left:0;bottom:0;border:0.15px solid var(--green);z-index:0}
+.pinyin-row .line1,.pinyin-row .line2{content:'';position:absolute;height:0;border:0.15px solid var(--green);z-index:0;opacity:0.25;width:60px;left:0}
+.pinyin-row .line1{top:9.6px;border-style:dashed}
+.pinyin-row .line2{top:19.2px}
+.pinyin-cell span{font-family:'TeXGyreAdventor' !important;font-size:16.8px;position:relative;z-index:1}
+.black span{color:black;opacity:1}
+.gray span{color:#ccc;opacity:0.35}
+.char-row{margin-top:-1px;border-bottom:0.15px solid var(--green)}
+.cell{width:60px;height:60px;border-right:0.15px solid var(--green);border-left:0.15px solid var(--green);position:relative;display:flex;justify-content:center;align-items:center;font-size:43.2px}
+.cell:not(:first-child){border-left:none}
+.char-row .cell{border-top:0.15px solid var(--green)}
+.cell::before,.cell::after{content:'';position:absolute;border:0.15px dashed var(--green);z-index:0;opacity:0.5}
+.cell::before{width:100%;height:0;top:50%;left:0;transform:translateY(-50%)}
+.cell::after{width:0;height:100%;left:50%;top:0;transform:translateX(-50%)}
+.diagonal1,.diagonal2{position:absolute;width:80px;height:0;border:0.15px dashed var(--green);z-index:0;opacity:0.25}
+.diagonal1{top:0;left:0;transform:rotate(48deg);transform-origin:0 0}
+.diagonal2{bottom:0;left:0;transform:rotate(-48deg);transform-origin:0 100%}
+.cell span{position:relative;z-index:1}
+.tianzi-cell{width:60px;height:60px;position:relative;display:grid;grid-template-columns:repeat(2,30px);grid-template-rows:repeat(2,30px);border:0.15px solid var(--green)}
+.tianzi-cell::before,.tianzi-cell::after{content:'';position:absolute;border:0.15px dashed var(--green);opacity:0.5}
+.tianzi-cell::before{width:100%;height:0;top:50%;left:0;transform:translateY(-50%)}
+.tianzi-cell::after{width:0;height:100%;left:50%;top:0;transform:translateX(-50%)}
+.tianzi-cell .sub-cell{display:flex;justify-content:center;align-items:center;font-size:30px;transform:scale(0.9)}
+.tianzi-cell .sub-cell.top{font-family:'TeXGyreAdventor',serif;font-size:12px}
+.tianzi-cell .black-char{position:absolute;bottom:0;width:30px;height:30px;display:flex;justify-content:center;align-items:center;font-size:24px;color:black;opacity:1;z-index:1}
+.tianzi-cell .black-char.left{left:0}
+.tianzi-cell .black-char.right{left:30px}
+.tianzi-cell .red-char{position:absolute;top:0;left:0;width:60px;height:60px;display:flex;justify-content:center;align-items:center;font-size:43.2px;color:red;opacity:0.06;z-index:1}
+.char-row.page-break{page-break-after:always}
