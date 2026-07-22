@@ -1,20 +1,24 @@
-# 字帖生成器 — Vite工程化 + PWA离线 + Puppeteer PDF 矢量生成
+# 字帖生成器 — Vite工程化 + PWA离线 + 学习闭环 + Puppeteer PDF 矢量生成
 
-> TRAE AI 创造力大赛复赛作品 | 双轨方案：浏览器直接打印（全平台） + Puppeteer 命令行批量生成（桌面端）
+> TRAE AI 创造力大赛复赛作品 | 从"字帖生成工具"升级为"汉字学习闭环平台"
+> 双轨方案：浏览器直接打印（全平台） + Puppeteer 命令行批量生成（桌面端）
 > 在线体验：https://lcfactorization.github.io/calligraphy-sheet-generator/
 
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
 
 - **在线访问**：https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
-- **构建状态**：✅ 通过（build 32s + deploy 2s）
+- **构建状态**：✅ 通过（build 1.65s + 0错误0警告）
 - **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
-- **最新部署**：commit `8e3fd2e`（Run ID 29955797610）
+- **最新版本**：v2.1.0（学习闭环 + 界面辅助 + 内容增强）
+- **最新部署**：commit `a83db54`
+- **模块总数**：36 个源文件（16 JS + 17 CSS + 3 数据）
 
 ## 目录结构
 
@@ -28,9 +32,17 @@ distribution/
 ├── .github/workflows/       ← GitHub Pages自动部署
 ├── src/
 │   ├── main.js              ← 入口：CSS导入 + 模块导入 + 事件绑定
-│   ├── styles/              ← CSS模块（7个 + tailwind.css）
-│   ├── data/customZuCi.js   ← 1719条自定义组词字典
-│   └── modules/             ← JS模块（10个）
+│   ├── styles/              ← CSS模块（17个）
+│   │   ├── base.css / components.css / grid.css / theme.css
+│   │   ├── print.css / fab.css / tailwind.css
+│   │   └── [v2.1.0新增] history / feedback / review / settingsCenter
+│   │                        / onboarding / demoMode / difficulty
+│   │                        / grid-styles / report  共9个
+│   ├── data/                ← 数据文件（3个）
+│   │   ├── customZuCi.js    ← 1719条自定义组词字典
+│   │   ├── templates.js     ← [v2.1.0] 20个预设模板（唐诗/三字经/千字文等）
+│   │   └── vocabulary.js    ← [v2.1.0] 3级18分类分级字库
+│   └── modules/             ← JS模块（15个）
 │       ├── fontManager.js   ← FontFace加载 + base64拼音字体
 │       ├── pinyin.js        ← pinyin-pro封装
 │       ├── zuci.js          ← 组词（customZuCi + cnchar）
@@ -38,7 +50,14 @@ distribution/
 │       ├── gridRenderer.js  ← 字帖生成核心
 │       ├── settings.js      ← 主题/计数器/页眉页脚
 │       ├── pdfExport.js     ← PDF导出
-│       └── puppeteerClient.js
+│       ├── puppeteerClient.js
+│       ├── history.js       ← [v2.1.0] 历史记录（localStorage 20条）
+│       ├── feedback.js      ← [v2.1.0] 练习反馈（整体+单字，状态色环）
+│       ├── review.js        ← [v2.1.0] 复习计划（艾宾浩斯 7/3/1天）
+│       ├── settingsCenter.js← [v2.1.0] 设置中心（4滑块+4开关+3主题）
+│       ├── onboarding.js    ← [v2.1.0] 新手引导（3步聚光灯）
+│       ├── demoMode.js      ← [v2.1.0] 演示模式（自动加载示例）
+│       └── difficulty.js    ← [v2.1.0] 难度评估（cnchar笔画数+5级星级）
 ├── public/
 │   ├── fonts/               ← 6个开源字体
 │   │   ├── LXGWWenKai-Regular.ttf   ← 霞鹜文楷（SIL OFL）
@@ -69,6 +88,55 @@ npm run preview      # 预览构建结果
 直接访问 https://lcfactorization.github.io/calligraphy-sheet-generator/
 - 支持PWA安装到桌面/手机
 - 离线可用（Service Worker缓存）
+
+---
+
+## 功能特性
+
+### 核心功能（v2.0）
+
+| # | 功能 | 说明 |
+|:--:|:-----|:-----|
+| 1 | 智能描红字帖生成 | 输入汉字自动生成田字格描红字帖 |
+| 2 | 拼音自动标注 | pinyin-pro 引擎，带声调显示 |
+| 3 | 组词辅助 | 1719条自定义词典 + cnchar 回退 |
+| 4 | 笔画分解 | hanzi-writer SVG 笔画渲染 |
+| 5 | 矢量 PDF 导出 | 浏览器打印 + Puppeteer 双轨方案 |
+| 6 | 日间/夜间主题 | CSS 变量驱动，Lucide 图标 |
+| 7 | 字体上传 | 用户自定义字体 |
+| 8 | PWA 离线安装 | Service Worker 缓存，安装到桌面/主屏 |
+| 9 | 开源字体（版权合规） | 霞鹜文楷/思源宋体/文鼎楷体等6款 |
+| 10 | Vite 工程化构建 | ES Module 模块化 |
+| 11 | CI/CD 自动部署 | GitHub Actions 自动构建部署到 Pages |
+| 12 | Tailwind CSS v4 | 现代化 UI 框架集成 |
+| 13 | Lucide Icons | 现代化 SVG 图标库 |
+| 14 | 单文件构建能力 | vite-plugin-singlefile 生成可离线分发单HTML |
+| 15 | GitHub Pages 在线访问 | 评审可直接打开体验 |
+
+### v2.1.0 新增功能 — 学习闭环 + 界面辅助 + 内容增强
+
+| # | 功能 | 模块 | 说明 |
+|:--:|:-----|:-----|:-----|
+| 16 | **历史记录** | history.js | 每次生成自动保存到 localStorage（最多20条），右侧可折叠侧边栏，支持重新生成/删除/清空 |
+| 17 | **练习反馈闭环** | feedback.js | 整体反馈三按钮（很轻松/有点难/需要继续）+ 单字反馈悬停图标（掌握/复习/错字），状态色环（绿/黄/红） |
+| 18 | **复习计划** | review.js | 基于艾宾浩斯遗忘曲线（mastered→7天 / review→3天 / error→1天），首页"今日待复习"区域，一键加载 |
+| 19 | **设置中心** | settingsCenter.js | 模态框含 4 滑块 + 4 开关 + 3 主题选项，实时更新预览 |
+| 20 | **新手引导** | onboarding.js | 3 步聚光灯引导，首次打开自动触发 |
+| 21 | **演示模式** | demoMode.js | 50% 千字文 + 50% 随机模板，自动生成+滚动+提示 |
+| 22 | **难度评估** | difficulty.js | cnchar.stroke() 笔画数，5 级星级，实时评估 |
+| 23 | **内置模板库** | templates.js | 20 个预设模板（唐诗宋词8+三字经2+千字文2+常用字3+成语3+节日2） |
+| 24 | **分级字库** | vocabulary.js | 3 级 18 分类（初级1-5画/中级6-10画/高级10+画） |
+| 25 | **米字格/回宫格** | grid-styles.css | 米字格（十字+对角线虚线）+ 回宫格（内外框），打印友好 |
+| 26 | **学习报告样式** | report.css | 报告卡片/统计/柱状图/进度条样式 |
+
+### 技术亮点（v2.1.0）
+
+- **跨模块通信**：自定义事件 `calligraphy:history-updated`、`calligraphy:char-feedback-updated`、`calligraphy:settings-updated`
+- **单字反馈**：DOM 事件委托，不修改 gridRenderer.js，悬停显示 Lucide 图标
+- **主题协同**：settingsCenter 通过 `toggleTheme()` 与现有 settings.js 的 isDark 状态同步
+- **打印友好**：所有新 UI 在 `@media print` 下隐藏，不影响 PDF 导出
+- **localStorage 规范**：所有 key 使用 `calligraphy_` 前缀（history / char_feedback / settings / onboarded）
+- **多 Agent 并行开发**：通过 TraeCN IDE 多 Agent 并行执行，新增 18 个文件，构建 1.65s 0 错误
 
 ---
 
