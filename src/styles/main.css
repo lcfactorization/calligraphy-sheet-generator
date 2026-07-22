@@ -1,0 +1,7 @@
+@import './tailwind.css';
+@import './theme.css';
+@import './base.css';
+@import './components.css';
+@import './grid.css';
+@import './print.css';
+@import './fab.css';
