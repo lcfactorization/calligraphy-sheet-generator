@@ -1,0 +1,26 @@
+{
+  "name": "zhitie-generator",
+  "version": "1.0.0",
+  "description": "字帖生成器 — 独立HTML + Puppeteer PDF矢量生成工具（双轨方案）",
+  "scripts": {
+    "pdf": "node puppeteer-pdf.js",
+    "pdf:help": "node puppeteer-pdf.js --help",
+    "pdf:test": "node puppeteer-pdf.js --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"
+  },
+  "dependencies": {
+    "puppeteer": "^24.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "字帖",
+    "pinyin",
+    "pdf",
+    "puppeteer",
+    "矢量",
+    "字体练习",
+    "书法"
+  ],
+  "license": "MIT"
+}

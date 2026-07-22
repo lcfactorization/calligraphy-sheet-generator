@@ -1,0 +1,279 @@
+# 更新日志
+
+所有 notable 变更记录在此文件中。
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
+
+---
+
+## [1.0.0] — 2026-07-05
+
+### 🎉 首次完整发布
+
+#### 新增
+- **独立HTML打包**：将字帖生成器从混合项目中剥离，纯前端离线版
+- **JS全部内嵌**：pinyin-pro.js、hanzi-writer.min.js、cnchar.min.js、cnchar.words.min.js 全部内联到HTML
+- **拼音字体base64内嵌**：texgyreadventor-regular.otf 以base64编码嵌入HTML，确保拼音100%正确显示
+- **字体文件夹开放**：9个字体文件保持开放状态，支持添加自定义字体
+- **双轨PDF方案**：
+  - 方案一：浏览器 `window.print()` 直接打印为PDF（全平台含Android）
+  - 方案二：Puppeteer 命令行脚本批量生成矢量PDF（桌面端自动化）
+
+#### UI美化
+- 生成按钮 → 绿色渐变 (`#22c55e → #16a34a`)
+- 清除按钮 → 灰色渐变 (`#64748b → #475569`)
+- 打印按钮 → 橙色渐变 (`#f59e0b → #d97706`)
+- 打印加载提示 → 橙色渐变主题（与打印按钮一致）
+- 极光风格背景动画
+- Obsidian Callout 风格面板设计
+
+#### 打印功能增强
+- 字体加载超时机制（每个字体5秒超时）
+- 关键字体验证（`document.fonts.check()` 验证拼音+汉字字体）
+- 字体未就绪时自动重试等待（额外3秒）
+- 控制台输出字体加载状态日志（成功/失败数量、就绪状态）
+- 打印窗口字体完整加载提示
+
+#### Puppeteer脚本功能
+- 支持命令行参数：`--text`、`--input`、`--output`、`--font`、`--format`
+- 支持页眉页脚自定义（`--header`、`--footer`，支持 `{page}` `{total}` 页码变量）
+- 支持横向/纵向打印（`--landscape`）
+- 支持自定义边距（`--margin`）
+- 字体加载验证（等待 `document.fonts.ready` + 额外2秒缓冲）
+- 打印媒体类型模拟（`emulateMediaType('print')`）
+- 8种汉字字体可选
+- 帮助文档（`--help`）
+
+#### 技术修复（历史迭代）
+- ✅ 修复 `${pageContent}` 模板字面量未正确替换问题（改用字符串拼接）
+- ✅ 修复 Python 转义 `${}` 和反引号导致模板字符串损坏问题
+- ✅ 修复 `</script>` 导致浏览器提前闭合主标签问题（自动转义为 `<\/script>`）
+- ✅ 移除 server.js 依赖，纯前端离线运行
+
+#### 文档
+- README.md：双轨方案完整文档（安装、使用、参数、FAQ、技术说明）
+- CHANGELOG.md：更新日志
+
+---
+
+## [1.0.1] — 2026-07-06
+
+### 🐛 问题修复
+
+#### 1. Windows 启动脚本编码问题
+
+**问题描述：**
+- 双击运行 `启动Puppeteer.bat` 时报错：`'powershell' is not recognized as an internal or external command`
+- 中文注释被错误解析，导致命令被截断
+
+**根本原因：**
+- Windows cmd.exe 默认使用 GBK（代码页 936）编码读取批处理文件
+- .bat 文件包含中文字符，UTF-8 编码的中文字节在 GBK 下被错误解析
+- 导致 `powershell` 命令被截断为 `rshell` 等乱码
+
+**解决方案：**
+在 `启动Puppeteer.bat` 中添加 `chcp 65001 >nul`，将 cmd.exe 代码页切换到 UTF-8：
+
+```batch
+@echo off
+chcp 65001 >nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0启动Puppeteer.ps1"
+if errorlevel 1 pause
+```
+
+**编码一致性保证：**
+- ✅ Windows .bat 文件：使用 `chcp 65001` 切换到 UTF-8
+- ✅ PowerShell .ps1 文件：设置 `[Console]::OutputEncoding = UTF8`
+- ✅ Linux .sh 文件：bash 默认 UTF-8，无需额外处理
+
+#### 2. PowerShell 安全警告问题
+
+**问题描述：**
+- 每次运行 PowerShell 脚本时弹出安全警告：`Invoke-WebRequest分析页面时可能会运行网页中的脚本代码，存在安全风险！`
+
+**解决方案：**
+在 `启动Puppeteer.ps1` 中设置全局参数，强制使用 `-UseBasicParsing`：
+
+```powershell
+$global:PSDefaultParameterValues = @{
+    'Invoke-WebRequest:UseBasicParsing' = $true
+    'Invoke-RestMethod:UseBasicParsing' = $true
+}
+$global:ProgressPreference = 'SilentlyContinue'
+```
+
+#### 3. PDF 生成时 JSON 解析错误
+
+**问题描述：**
+- 服务器日志显示多次错误：`Unexpected non-whitespace character after JSON at position 372`
+- 第一个 PDF 生成成功（10MB），但后续出现 6 次 JSON 解析错误
+
+**根本原因：**
+- HTTP keep-alive 连接上浏览器重复发送请求
+- 多个 JSON 请求体被合并为一个，导致 `JSON.parse()` 失败
+
+**解决方案：**
+在 `字帖生成器.html` 的服务器代码中添加三层防御：
+
+1. **Connection: close 响应头**：强制每次请求后关闭连接
+2. **safeJsonParse() 函数**：若 body 含多个 JSON 对象，仅解析第一个
+3. **请求去重机制**：相同文本的请求正在处理时，跳过后续重复请求
+
+```javascript
+// 安全JSON解析
+function safeJsonParse(str) {
+    str = str.trim();
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        // 手动匹配第一个完整的JSON对象
+        let depth = 0, inString = false, escape = false;
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charAt(i);
+            if (escape) { escape = false; continue; }
+            if (c === '\\') { escape = true; continue; }
+            if (c === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (c === '{') depth++;
+            else if (c === '}') {
+                depth--;
+                if (depth === 0) {
+                    return JSON.parse(str.substring(0, i + 1));
+                }
+            }
+        }
+        throw e;
+    }
+}
+
+// 服务器响应头
+res.setHeader('Connection', 'close');
+
+// 请求去重
+let lastRequest = { key: '', active: false };
+if (lastRequest.key === reqKey && lastRequest.active) {
+    res.writeHead(204);
+    res.end();
+    return;
+}
+```
+
+#### 4. PDF 字体乱码问题
+
+**问题描述：**
+- 生成的 PDF 中汉字和拼音显示为乱码
+- 文字无法在 Adobe Reader 中选择/复制
+
+**根本原因：**
+- 服务器使用 `domcontentloaded` 事件（字体加载前触发）
+- 应该使用 `networkidle0` 事件（等待所有资源加载完成）
+
+**解决方案：**
+在 `字帖生成器.html` 的服务器代码中实现字体加载策略：
+
+```javascript
+// 策略：先尝试 networkidle0（最可靠），超时则降级为 domcontentloaded
+try {
+    await page.goto(fileUrl, { waitUntil: 'networkidle0', timeout: 45000 });
+} catch (navErr) {
+    console.warn('networkidle0 timeout, falling back to domcontentloaded...');
+    await page.goto(fileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+}
+
+// 显式等待字体加载
+await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 2000));
+    await document.fonts.ready;
+    
+    var pinyinOk = document.fonts.check('16px TeXGyreAdventor');
+    var cnFont = document.getElementById('font-select').value;
+    var cnOk = document.fonts.check('16px ' + cnFont);
+    
+    if (!pinyinOk || !cnOk) {
+        await new Promise(r => setTimeout(r, 5000));
+        await document.fonts.ready;
+    }
+});
+
+// 切换到打印模式
+await page.emulateMediaType('print');
+await new Promise(r => setTimeout(r, 500));
+```
+
+**验证结果：**
+- ✅ 17 个汉字和 17 个拼音（带声调）全部正确嵌入
+- ✅ PDF 文件 893KB，3 页，文字可选择/复制
+- ✅ Adobe Reader 中验证通过
+
+---
+
+### 交付物清单
+
+| 文件 | 说明 | 大小 |
+|------|------|------|
+| `字帖生成器.html` | 独立HTML主文件（JS+拼音字体内嵌） | ~1.1 MB |
+| `puppeteer-pdf.js` | Puppeteer PDF矢量生成脚本 | ~12 KB |
+| `package.json` | Node.js依赖配置 | ~0.5 KB |
+| `README.md` | 完整使用文档 | ~6 KB |
+| `CHANGELOG.md` | 更新日志 | ~3 KB |
+| `fonts/` | 字体文件夹（9个字体文件） | ~30 MB |
+
+---
+
+### 技术架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    字帖生成器.html                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 内嵌JS (4个库)                                    │    │
+│  │  • pinyin-pro.js    (288 KB)  拼音转换           │    │
+│  │  • hanzi-writer.min.js (36 KB) 汉字笔顺          │    │
+│  │  • cnchar.min.js    (45 KB)  中文处理            │    │
+│  │  • cnchar.words.min.js (65 KB) 词典              │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 内嵌字体 (base64)                                 │    │
+│  │  • texgyreadventor-regular.otf (166 KB → 222 KB) │    │
+│  │    拼音字体，通过 PINYIN_FONT_URI 变量引用        │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 开放字体文件夹 (./fonts/)                         │    │
+│  │  • 姜浩硬笔楷书.ttf (默认汉字字体)                 │    │
+│  │  • STKAITI.TTF / FZFSB.TTF / TW-Kai.ttf 等      │    │
+│  │  • 支持用户添加自定义字体                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 打印功能 (window.print)                           │    │
+│  │  • 字体加载验证 + 超时重试                         │    │
+│  │  • 关键字体验证 (document.fonts.check)            │    │
+│  │  • 打印窗口独立字体加载                            │    │
+│  └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+         │
+         │ file:// 协议打开
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│                   浏览器 (全平台)                         │
+│  Windows / Linux / macOS / Android                      │
+│  打印 → 另存为PDF → 矢量PDF（文字可选择+字体嵌入）       │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│                puppeteer-pdf.js (Node.js)                │
+│  • 启动无头Chromium                                    │
+│  • 加载字帖生成器.html                                 │
+│  • 设置文本+字体 → generateGrid()                      │
+│  • 等待字体加载 (document.fonts.ready)                 │
+│  • 模拟打印媒体 (emulateMediaType('print'))             │
+│  • page.pdf() → 矢量PDF                                │
+└─────────────────────────────────────────────────────────┘
+         │
+         │ node puppeteer-pdf.js --text "..."
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│              桌面端 (Windows / Linux / macOS)             │
+│  批量生成 / 自动化集成 / 命令行控制                      │
+│  矢量PDF（文字可选择+字体嵌入+页眉页脚）                 │
+└─────────────────────────────────────────────────────────┘
+```
