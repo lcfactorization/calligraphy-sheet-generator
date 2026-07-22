@@ -22,12 +22,21 @@ if [ ! -f "$FONTS_DIR/LXGWWenKai-Light.ttf" ]; then
 fi
 
 # 思源宋体 SC Regular
+# 注：解压后实际路径为 /tmp/shs/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf
 if [ ! -f "$FONTS_DIR/SourceHanSerifSC-Regular.otf" ]; then
   echo "  Downloading SourceHanSerifSC-Regular.otf..."
   curl -L -o /tmp/shs.zip \
     "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip"
   unzip -o /tmp/shs.zip -d /tmp/shs
-  cp /tmp/shs/SourceHanSerifSC-Regular.otf "$FONTS_DIR/SourceHanSerifSC-Regular.otf"
+  # 兼容两种解压目录结构
+  SHS_FILE=$(find /tmp/shs -name "SourceHanSerifSC-Regular.otf" | head -1)
+  if [ -z "$SHS_FILE" ]; then
+    echo "ERROR: SourceHanSerifSC-Regular.otf not found in extracted archive"
+    ls -R /tmp/shs
+    rm -rf /tmp/shs /tmp/shs.zip
+    exit 1
+  fi
+  cp "$SHS_FILE" "$FONTS_DIR/SourceHanSerifSC-Regular.otf"
   rm -rf /tmp/shs /tmp/shs.zip
 fi
 
