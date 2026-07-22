@@ -1,0 +1,104 @@
+/* ── 控制面板卡片 ── */
+.panel{
+    background:rgba(99,102,241,0.04);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px 22px;
+    margin-bottom:18px;
+    transition:box-shadow .3s var(--ease-out-soft);
+}
+.panel:hover{box-shadow:0 2px 12px rgba(99,102,241,0.06)}
+.panel-title{
+    display:flex;align-items:center;gap:8px;
+    font-weight:700;font-size:14px;color:var(--title-color);
+    margin-bottom:14px;
+}
+.panel-title svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 输入控件 ── */
+.field-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--desc-color);font-weight:600}
+.field input, .field select{
+    font-size:14px;padding:8px 12px;
+    border:2px solid rgba(99,102,241,0.15);
+    border-radius:8px;background:rgba(255,255,255,0.9);
+    color:var(--text-color);outline:none;
+    transition:border-color .2s,box-shadow .2s;
+    font-family:inherit;
+}
+[data-theme='dark'] .field input,[data-theme='dark'] .field select{background:rgba(30,35,50,0.8);color:var(--text-color)}
+.field input:focus,.field select:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(99,102,241,0.12);
+}
+.field input::placeholder{color:var(--desc-color);opacity:0.6}
+
+/* textarea */
+textarea#inputText{
+    width:100%;min-height:64px;max-height:140px;
+    padding:10px 14px;border:2px solid rgba(99,102,241,0.15);
+    border-radius:10px;font-size:14px;line-height:1.6;
+    resize:vertical;outline:none;
+    transition:border-color .2s,box-shadow .2s;
+    font-family:'LXGWWenKai','SourceHanSerifSC',serif;
+    background:rgba(255,255,255,0.9);color:var(--text-color);
+}
+[data-theme='dark'] textarea#inputText{background:rgba(30,35,50,0.8);color:var(--text-color)}
+textarea#inputText:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,0.12)}
+
+/* ── 按钮 ── */
+.btn{
+    @apply inline-flex items-center gap-1.5 font-semibold cursor-pointer select-none;
+    font-size:14px;
+    padding:9px 18px;border:none;border-radius:10px;
+    transition:all .2s var(--ease-out-soft);
+    outline:none;font-family:inherit;
+    color:#fff;
+}
+.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.btn-primary{background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);box-shadow:0 2px 8px rgba(34,197,94,0.25)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(34,197,94,0.35)}
+.btn-primary:active{transform:translateY(0)}
+.btn-secondary{background:linear-gradient(135deg,#64748b 0%,#475569 100%);box-shadow:0 2px 8px rgba(100,116,139,0.2)}
+.btn-secondary:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(100,116,139,0.3)}
+.btn-secondary:active{transform:translateY(0)}
+.btn-warm{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);box-shadow:0 2px 8px rgba(245,158,11,0.25)}
+.btn-warm:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(245,158,11,0.35)}
+.btn-warm:active{transform:translateY(0)}
+.btn-danger{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);box-shadow:0 2px 8px rgba(239,68,68,0.2)}
+.btn-danger:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(239,68,68,0.3)}
+.btn-danger:active{transform:translateY(0)}
+.btn-ghost{background:rgba(99,102,241,0.08);color:var(--accent);border:1px solid rgba(99,102,241,0.2)}
+.btn-ghost:hover{background:rgba(99,102,241,0.14)}
+.btn-ghost:active{transform:translateY(0)}
+[data-theme='dark'] .btn-ghost{background:rgba(129,140,248,0.1);color:#a5b4fc;border-color:rgba(129,140,248,0.2)}
+
+/* ── 按钮行 ── */
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* ── 字数计数器 ── */
+.char-counter{font-size:12px;color:var(--desc-color);margin-left:auto;align-self:center}
+.char-counter.over{color:#ef4444;font-weight:600}
+
+/* ── 页眉/页脚设置 ── */
+.hf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:680px){.hf-grid{grid-template-columns:1fr}}
+.hf-field{display:flex;flex-direction:column;gap:4px}
+.hf-field label{font-size:12px;color:var(--desc-color);font-weight:600;display:flex;align-items:center;gap:4px}
+.hf-field input{
+    font-size:13px;padding:7px 11px;
+    border:2px solid rgba(99,102,241,0.15);
+    border-radius:8px;background:rgba(255,255,255,0.9);
+    color:var(--text-color);outline:none;
+    transition:border-color .2s;font-family:inherit;
+}
+[data-theme='dark'] .hf-field input{background:rgba(30,35,50,0.8);color:var(--text-color)}
+.hf-field input:focus{border-color:var(--accent)}
+.hf-reset{
+    font-size:11px;padding:3px 10px;
+    background:rgba(239,68,68,0.1);color:#ef4444;
+    border:1px solid rgba(239,68,68,0.2);border-radius:6px;
+    cursor:pointer;transition:all .2s;outline:none;
+}
+.hf-reset:hover{background:rgba(239,68,68,0.18)}
