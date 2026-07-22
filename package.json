@@ -1,14 +1,30 @@
 {
-  "name": "zhitie-generator",
-  "version": "1.0.0",
-  "description": "字帖生成器 — 独立HTML + Puppeteer PDF矢量生成工具（双轨方案）",
+  "name": "calligraphy-sheet-generator",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）",
   "scripts": {
-    "pdf": "node puppeteer-pdf.js",
-    "pdf:help": "node puppeteer-pdf.js --help",
-    "pdf:test": "node puppeteer-pdf.js --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pdf": "node puppeteer-pdf.cjs",
+    "pdf:help": "node puppeteer-pdf.cjs --help",
+    "pdf:test": "node puppeteer-pdf.cjs --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"
   },
   "dependencies": {
-    "puppeteer": "^24.4.0"
+    "cnchar": "^3.0.0",
+    "cnchar-words": "^3.0.0",
+    "hanzi-writer": "^3.5.0",
+    "lucide-static": "^1.25.0",
+    "pinyin-pro": "^3.0.0",
+    "puppeteer": "^23.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vite": "^5.4.0",
+    "vite-plugin-pwa": "^0.20.0",
+    "vite-plugin-singlefile": "^2.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -20,7 +36,8 @@
     "puppeteer",
     "矢量",
     "字体练习",
-    "书法"
+    "书法",
+    "vite"
   ],
   "license": "MIT"
 }
