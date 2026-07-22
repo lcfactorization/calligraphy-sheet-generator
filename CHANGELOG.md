@@ -5,6 +5,39 @@
 
 ---
 
+## [2.0.1] — 2026-07-23
+
+### 🔧 CI/CD部署修复 — GitHub Pages正式上线
+
+#### 修复 — CI构建阻断问题
+1. **思源宋体解压路径错误**：硬编码路径 `/tmp/shs/SourceHanSerifSC-Regular.otf` 改为 `find /tmp/shs -name "SourceHanSerifSC-Regular.otf" | head -1` 动态查找（实际路径为 `/tmp/shs/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf`）— commit `c7d6ea5`
+2. **`src/modules/fontManager.js` 远程缺失**：从 `backup/local_1b8eb4c` 分支恢复，通过 gh api Contents API 推送 — commit `d93e0ea`
+3. **`fontManager.js` UTF-16编码导致JS解析失败**：PowerShell `>` 重定向默认 UTF-16 LE（BOM: FF-FE），改用 `[IO.File]::WriteAllText` + `UTF8Encoding($false)` 重写为 UTF-8（457,850 → 228,957 bytes）— commit `b35c2a6`
+4. **`src/data/customZuCi.js` 远程缺失**：从备份分支恢复，UTF-8编码推送 — commit `8e3fd2e`
+
+#### 变更 — 远程仓库清理
+- 删除 `字帖生成器.html`（965KB，已被Vite项目替代）— commit `dc176e2`
+- 删除 `字帖_2026-07-06.pdf`（10MB，不属于源码）— commit `237b4de`
+- 删除重复的 `puppeteer-pdf.js`（保留 `.cjs` 版本）— commit `16dd6eb`
+
+#### 新增 — 部署权限配置
+- 通过 gh api 添加 `retake` 分支到 `github-pages` environment 的 deployment-branch-policies（原仅允许 `main`）
+- 重新触发失败的 Deploy job（Run ID 29955797610），构建+部署均成功
+
+#### 验证 — GitHub Pages部署成功
+- 访问 URL：https://lcfactorization.github.io/calligraphy-sheet-generator/
+- HTTP 状态码：200
+- 内容长度：879,217 bytes（约 879KB）
+- 构建耗时：32s（build） + 2s（deploy）
+- 最新成功 Run ID：29955797610（head `8e3fd2e`）
+
+#### Git 备份策略
+- `backup/local_1b8eb4c` 分支：保护本地 download-fonts.sh 修复 commit
+- `backup/pre_vite_refactor/20260723_024531` tag：Vite重构前完整快照
+- `master` 分支（0adfade）：初赛版本完整备份
+
+---
+
 ## [2.0.0] — 2026-07-23
 
 ### 🎉 TRAE复赛版本 — Vite工程化 + PWA + 开源字体

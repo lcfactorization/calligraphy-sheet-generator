@@ -3,6 +3,19 @@
 > TRAE AI 创造力大赛复赛作品 | 双轨方案：浏览器直接打印（全平台） + Puppeteer 命令行批量生成（桌面端）
 > 在线体验：https://lcfactorization.github.io/calligraphy-sheet-generator/
 
+[![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
+[![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## 部署状态
+
+- **在线访问**：https://lcfactorization.github.io/calligraphy-sheet-generator/
+- **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
+- **构建状态**：✅ 通过（build 32s + deploy 2s）
+- **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
+- **最新部署**：commit `8e3fd2e`（Run ID 29955797610）
+
 ## 目录结构
 
 ```
@@ -56,6 +69,49 @@ npm run preview      # 预览构建结果
 直接访问 https://lcfactorization.github.io/calligraphy-sheet-generator/
 - 支持PWA安装到桌面/手机
 - 离线可用（Service Worker缓存）
+
+---
+
+## CI/CD 自动部署
+
+### GitHub Actions 工作流
+
+项目通过 `.github/workflows/deploy.yml` 配置了 GitHub Pages 自动部署：
+
+- **触发条件**：push 到 `retake` 分支，或手动 `workflow_dispatch`
+- **构建流程**：`npm ci` → 下载字体 → `npm run build` → 上传 artifact → 部署到 Pages
+- **部署环境**：`github-pages` environment（已配置允许 `main` 和 `retake` 分支部署）
+- **访问 URL**：https://lcfactorization.github.io/calligraphy-sheet-generator/
+
+### CI 字体下载脚本
+
+由于字体文件较大（6个字体共~20MB），未直接提交到仓库，而是通过 `scripts/download-fonts.sh` 在 CI 构建时下载：
+
+| 字体 | 来源 | 协议 |
+|:-----|:-----|:-----|
+| 霞鹜文楷 Regular | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
+| 霞鹜文楷 Light | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
+| 思源宋体 SC | adobe-fonts/source-han-serif releases | SIL OFL 1.1 |
+| 文鼎楷体 | fontworks/onryou releases | ARPH |
+| 我逸清晨体楷书 | 人文开放字体库 | 免费商用 |
+| TeX Gyre Adventor（拼音字体） | base64 内嵌于 fontManager.js | GUST |
+
+> [!NOTE]
+> 思源宋体 zip 解压后实际路径为 `OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf`，脚本使用 `find` 命令动态查找以避免硬编码路径问题（详见 CHANGELOG v2.0.1）。
+
+### 本地开发字体准备
+
+如需本地开发，可手动执行字体下载脚本：
+
+```bash
+# Linux/macOS
+bash scripts/download-fonts.sh
+
+# Windows (Git Bash)
+bash scripts/download-fonts.sh
+```
+
+或从 `public/fonts/` 目录直接复制已下载的字体文件。
 
 ---
 
