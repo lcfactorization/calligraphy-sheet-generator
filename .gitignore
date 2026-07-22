@@ -1,19 +1,4 @@
-# ─── Commercial Fonts (Copyright Protected) ───
-# Do not distribute commercial fonts. Users must provide their own.
-*.ttf
-*.otf
-!fonts/texgyreadventor-regular.otf   # GUST Font License - free to distribute
-
-# ─── Archives ───
+﻿node_modules/
+dist/
+.env
 *.zip
-*.7z
-*.rar
-*.tar.gz
-
-# ─── OS files ───
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ─── Node ───
-node_modules/
