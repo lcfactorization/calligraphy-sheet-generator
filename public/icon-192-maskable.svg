@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#667eea"/>
+      <stop offset="100%" stop-color="#5568d3"/>
+    </linearGradient>
+  </defs>
+  <!-- 全幅背景，无圆角，maskable图标由系统裁剪 -->
+  <rect width="192" height="192" fill="url(#bg)"/>
+  <!-- 内容限制在中心80%安全区域内 -->
+  <text x="96" y="122" font-family="'KaiTi','STKaiti','SimSun',serif" font-size="90" font-weight="bold" text-anchor="middle" fill="#ffffff">字</text>
+</svg>
