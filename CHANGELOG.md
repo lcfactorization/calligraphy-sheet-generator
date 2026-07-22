@@ -5,6 +5,23 @@
 
 ---
 
+## [2.0.2] — 2026-07-23
+
+### 🔧 仓库配置优化
+
+#### 变更 — 默认分支调整
+- 通过 `gh api -X PATCH` 将仓库默认分支从 `main` 改为 `retake`
+- 原因：`retake` 是复赛开发+部署分支，改为默认分支消除"recent pushes"提示
+- `main` 分支保留作为初赛版本历史记录
+- GitHub Pages 部署不受影响（由 deploy.yml 工作流触发，与默认分支无关）
+
+#### 验证 — Pages持续可用
+- HTTP 200，内容长度 879,217 bytes
+- 标题：字帖生成器
+- HTTPS enforced: true
+
+---
+
 ## [2.0.1] — 2026-07-23
 
 ### 🔧 CI/CD部署修复 — GitHub Pages正式上线
