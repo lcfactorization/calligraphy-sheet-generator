@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <title>字帖生成器</title>
+</head>
+<body>
+
+<!-- ══ 浮动按钮 ══ -->
+<button class="fab-theme" id="themeToggle" aria-label="切换主题" title="点击切换日间/夜间模式">☀</button>
+<button class="fab-print" id="printBtn" aria-label="打印/导出PDF" title="打印 / 导出PDF">
+    <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+</button>
+<button class="fab-puppeteer" id="puppeteerBtn" aria-label="Puppeteer矢量PDF" title="Puppeteer 矢量PDF（需先启动本地服务）">
+    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+</button>
+
+<div class="app">
+
+    <!-- ════════ 标题区 ════════ -->
+    <div class="app-header">
+        <h1>✏️ <span class="accent">字帖生成器</span></h1>
+        <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
+    </div>
+
+    <!-- ════════ 输入面板 ════════ -->
+    <div class="panel" id="input-container">
+        <div class="panel-title">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <span>汉字输入 & 字体选择</span>
+        </div>
+        <div style="margin-bottom:12px">
+            <textarea id="inputText" placeholder="输入要练习的汉字..." maxlength="200">融燕鸳鸯惠崇芦芽短梅溪泛减凑拂集聚形掠偶尔沾倦闲纤痕瓣蓬胀裂姿势仿佛随蹈止录凡距款绸膜瞎益约斑守株待宋耕触颈释骄傲谦虚懦弱恼代价塘映欣赏匀致配传哎叹滔涯妇碌遵循尊验暮吟题侧峰庐缘降阁费须逊旧垒判糊嚷篇翻帘创县设横跨案爪贵智慧历史宫唐西艺术显珍品艳内梦醒苏湿娇嫩强适昆播修致论试验袋证概减阻测括确误途陌缸隙掀背膊察隆暗喂盈锐铛奥努茶甚至躲着退暗丈增鞋履袜套裤肩臂触稍墨染竿腾碎拨浪葫爽硬柿泡熟否垫付替骂虽摸染肩担忍酸廊发痒若娇薄颤巍巅婴希奇皂廊碗若透娇扯仰串越婴希蹦耀演奏琴柔感受激幕临曾经若索悬曾奥探索预测评估损控制裁裂催竟商量纳闷刺颠哄悟肩袖筒缘责榜聪职责颈歪承跌</textarea>
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>字体</label>
+                <div class="font-upload-wrap">
+                    <select id="font-select">
+                        <option value="LXGWWenKai" selected>霞鹜文楷</option>
+                        <option value="LXGWWenKaiLight">霞鹜文楷 Light</option>
+                        <option value="SourceHanSerifSC">思源宋体</option>
+                        <option value="TW-Kai">文鼎楷体</option>
+                        <option value="TeXGyreAdventor">TeX Gyre Adventor</option>
+                        <option value="WoYiQingChenTiKaiShu">我逸清晨体楷书</option>
+                    </select>
+                    <label class="font-upload-btn" title="添加自己的字体文件（ttf/otf）">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                        添加字体
+                        <input type="file" id="fontUpload" accept=".ttf,.otf,.woff,.woff2">
+                    </label>
+                </div>
+            </div>
+            <div class="btn-row" style="margin-left:auto">
+                <button class="btn btn-secondary" id="clear-btn">
+                    <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    清除
+                </button>
+                <button class="btn btn-primary" id="generate-btn">
+                    <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                    生成字帖
+                </button>
+            </div>
+            <span class="char-counter" id="charCounter">0 / 200</span>
+        </div>
+    </div>
+
+    <!-- ════════ 页眉页脚设置 ════════ -->
+    <div class="panel">
+        <div class="panel-title">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+            <span>页眉 / 页脚 自定义</span>
+            <button class="hf-reset" id="hf-reset" style="margin-left:auto">重置为默认</button>
+        </div>
+        <div class="hf-grid">
+            <div class="hf-field">
+                <label>📄 页眉左 (日期时间)</label>
+                <input type="text" id="headerLeft" maxlength="30" placeholder="留空使用当前时间">
+            </div>
+            <div class="hf-field">
+                <label>📄 页眉中 (标题)</label>
+                <input type="text" id="headerCenter" maxlength="20" value="练习字帖" placeholder="如：练习字帖">
+            </div>
+            <div class="hf-field">
+                <label>📄 页眉右 (字体名/其它)</label>
+                <input type="text" id="headerRight" maxlength="20" value="字体练习" placeholder="如：楷书练习">
+            </div>
+            <div class="hf-field">
+                <label>📝 页脚 (评语/签名等)</label>
+                <input type="text" id="footerText" maxlength="30" value="评分：☆☆☆☆☆　___年___月___日" placeholder="如：评分：☆☆☆☆☆">
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════ 操作按钮（已移至右上角浮动按钮） ════════ -->
+
+    <!-- ════════ 字帖显示区 ════════ -->
+    <div id="grid-container"></div>
+
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
