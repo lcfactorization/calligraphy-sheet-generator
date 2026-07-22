@@ -1,0 +1,47 @@
+/* ── 浮动按钮（主题切换 + 打印） ── */
+.fab-theme,.fab-print{
+    position:fixed;z-index:9999;
+    width:52px;height:52px;border-radius:50%;
+    border:2px solid var(--toggle-border);
+    background:var(--toggle-bg);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,0.12);
+    transition:all .3s var(--ease-out-soft);
+    user-select:none;outline:none;color:var(--title-color);
+}
+.fab-theme{top:20px;right:20px;font-size:22px}
+.fab-print{top:84px;right:20px}
+.fab-theme:hover,.fab-print:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
+.fab-theme:active,.fab-print:active{transform:scale(0.93)}
+.fab-print{background:linear-gradient(135deg,#f59e0b,#d97706);border-color:transparent}
+.fab-puppeteer{top:148px;right:20px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-color:transparent}
+.fab-puppeteer:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(139,92,246,0.4)}
+.fab-puppeteer:active{transform:scale(0.93)}
+.fab-puppeteer svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab-puppeteer.busy{animation:pulse 1.2s infinite;pointer-events:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.puppeteer-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;padding:14px 24px;border-radius:10px;background:rgba(15,23,42,0.92);color:#fff;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.3);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);max-width:80vw;text-align:center;transition:all .3s ease}
+.puppeteer-toast.error{background:rgba(220,38,38,0.95)}
+.puppeteer-toast.success{background:rgba(16,185,129,0.95)}
+.puppeteer-toast.info{background:rgba(99,102,241,0.95)}
+.fab-print svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 自定义字体上传 ── */
+.font-upload-wrap{display:flex;align-items:center;gap:8px}
+.font-upload-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:12px;padding:6px 12px;
+    background:rgba(16,185,129,0.1);color:#10b981;
+    border:1px solid rgba(16,185,129,0.25);border-radius:8px;
+    cursor:pointer;transition:all .2s;outline:none;font-weight:600;
+}
+.font-upload-btn:hover{background:rgba(16,185,129,0.18);transform:translateY(-1px)}
+.font-upload-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.font-upload-btn input{display:none}
+
+/* ── 滚动条美化 ── */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,0.4)}
