@@ -5,7 +5,57 @@
 
 ---
 
-## [1.0.0] — 2026-07-05
+## [2.0.0] — 2026-07-23
+
+### 🎉 TRAE复赛版本 — Vite工程化 + PWA + 开源字体
+
+#### 新增 — 工程化重构
+- **Vite构建系统**：从单HTML文件重构为Vite工程化项目
+  - 模块化代码：10个JS模块 + 7个CSS文件 + 1个数据文件
+  - ES Module：pinyin-pro/cnchar/hanzi-writer 通过npm管理
+  - 单文件构建：vite-plugin-singlefile 生成可离线使用的单HTML
+- **PWA支持**：vite-plugin-pwa 实现离线可用
+  - Service Worker：预缓存 + 字体CacheFirst策略
+  - manifest.webmanifest：lang=zh-CN, 3图标含maskable
+  - 可安装到桌面/手机主屏
+- **GitHub Pages自动部署**：.github/workflows/deploy.yml
+  - push到retake分支自动构建部署
+  - 访问地址：https://lcfactorization.github.io/calligraphy-sheet-generator/
+
+#### 新增 — Tailwind CSS + Lucide Icons
+- **Tailwind CSS v4**：渐进集成，保留CSS变量主题系统
+- **Lucide Icons**：主题切换(☀☾→sun/moon SVG) + 打印按钮(printer SVG)
+
+#### 变更 — 字体替换（版权合规）
+- **删除6个商业字体**：姜浩硬笔楷书/华文楷体/方正仿宋/方正宋简×2/田英章楷书
+- **新增3个开源字体**：
+  - 霞鹜文楷 LXGWWenKai-Regular.ttf (SIL OFL 1.1)
+  - 霞鹜文楷 Light LXGWWenKai-Light.ttf (SIL OFL 1.1)
+  - 思源宋体 SourceHanSerifSC-Regular.otf (SIL OFL 1.1)
+- **保留3个已有开源字体**：文鼎楷体(TW-Kai) / 拼音字体(TeXGyreAdventor) / 我逸清晨体楷书
+- 同步更新：fontManager.js / index.html / pdfExport.js / components.css / README.md
+
+#### 修复 — 重构过程中的3个问题
+1. Workbox字体文件预缓存超限（2MB→40MB）
+2. puppeteer-pdf.js与ES Module冲突（重命名为.cjs）
+3. puppeteerClient.js顶层return语法错误（改为if包裹）
+
+#### 技术架构变更
+```
+v1.0: 单HTML文件 (943KB, JS+CSS+字体全内嵌)
+v2.0: Vite工程化项目
+      ├── src/modules/ (10个JS模块)
+      ├── src/styles/ (7个CSS + tailwind.css)
+      ├── src/data/customZuCi.js (1719条组词字典)
+      ├── public/fonts/ (6个开源字体)
+      ├── public/icon-*.svg (3个PWA图标)
+      ├── vite.config.js (PWA + SingleFile + Tailwind)
+      └── dist/ (构建产物: 单HTML + PWA文件)
+```
+
+---
+
+## [1.0.1] — 2026-07-06
 
 ### 🎉 首次完整发布
 
