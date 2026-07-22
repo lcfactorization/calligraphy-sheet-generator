@@ -5,6 +5,50 @@
 
 ---
 
+## [2.1.0] — 2026-07-23
+
+### 🚀 学习闭环 + 界面辅助 + 数据样式扩展（方案B核心 + 方案C部分）
+
+通过 TraeCN IDE 多 Agent 并行执行，新增 18 个文件（10 个模块 + 8 个样式），修改 3 个文件（main.js + index.html + main.css），将项目从"字帖生成工具"升级为"汉字学习闭环平台"。
+
+#### 新增 — 学习闭环三件套（Agent A）
+- **历史记录功能**（`src/modules/history.js` + `src/styles/history.css`）：每次生成字帖自动保存到 localStorage（最多 20 条），右侧可折叠侧边栏，支持重新生成/删除/清空，刷新后数据持久化
+- **练习反馈闭环**（`src/modules/feedback.js` + `src/styles/feedback.css`）：整体反馈三按钮（很轻松/有点难/需要继续）+ 单字反馈悬停图标（已掌握/需要复习/总是写错），状态色环显示（绿/黄/红），数据保存到 localStorage
+- **复习计划生成**（`src/modules/review.js` + `src/styles/review.css`）：基于艾宾浩斯遗忘曲线本地规则（mastered→7天 / review→3天 / error→1天），首页顶部"今日待复习"区域，一键加载待复习字到输入框并生成字帖，统计信息（已掌握/待复习/错字数）
+
+#### 新增 — 数据与样式准备（Agent B）
+- **内置模板库**（`src/data/templates.js`）：20 个预设模板（唐诗宋词 8 + 三字经 2 + 千字文 2 + 常用字 3 + 成语 3 + 节日 2），含难度分级和描述
+- **分级字库**（`src/data/vocabulary.js`）：3 个难度级别（初级 1-5画 / 中级 6-10画 / 高级 10+画），每级 6 个分类，每分类 ≥8 字
+- **米字格/回宫格样式**（`src/styles/grid-styles.css`）：米字格（十字+对角线虚线）+ 回宫格（内外框），含打印友好样式
+- **学习报告样式**（`src/styles/report.css`）：报告卡片/统计区域/柱状图/进度条样式，复用项目 CSS 变量
+
+#### 新增 — 界面辅助功能（Agent C）
+- **设置中心面板**（`src/modules/settingsCenter.js` + `src/styles/settingsCenter.css`）：模态框含 4 个滑块（格子大小/每行字数/每页行数/字体大小）+ 4 个 Toggle 开关（拼音/组词/笔画/笔顺编号）+ 3 个主题选项，实时更新预览
+- **新手引导**（`src/modules/onboarding.js` + `src/styles/onboarding.css`）：3 步聚光灯引导（输入框→生成按钮→打印按钮），首次打开自动触发，设置中心可重新查看
+- **演示模式**（`src/modules/demoMode.js` + `src/styles/demoMode.css`）：50% 概率加载千字文段 + 50% 从模板库随机选择，自动生成字帖并滚动，3 秒提示气泡，按钮脉冲动画
+- **难度评估**（`src/modules/difficulty.js` + `src/styles/difficulty.css`）：用 cnchar.stroke() 获取笔画数，按平均笔画映射 5 级星级，实时评估
+
+#### 变更 — 集成入口
+- `src/main.js`：新增 7 个模块 import 与初始化调用，用 `handleGenerate` 包装 `generateGrid` 添加历史保存与反馈显示钩子
+- `index.html`：新增设置浮动按钮、演示按钮、难度评估区域、历史侧边栏、反馈区、复习区 HTML
+- `src/styles/main.css`：新增 9 个样式 import
+
+#### 验证 — 构建与模块
+- 模块数：23 → 28（+5 模块 +4 数据/样式）
+- 构建时间：1.65s
+- 文件大小：679.62 KB → 709.47 KB（gzip: 437.64 KB → 447.18 KB）
+- 0 错误 0 警告
+- PWA precache：9 entries（915.82 KiB）
+
+#### 技术亮点
+- **跨模块通信**：自定义事件 `calligraphy:history-updated`、`calligraphy:char-feedback-updated`、`calligraphy:settings-updated`
+- **单字反馈**：DOM 事件委托，不修改 gridRenderer.js，悬停显示 Lucide 图标，点击弹出气泡选择
+- **主题协同**：settingsCenter 通过 `toggleTheme()` 与现有 settings.js 的 isDark 状态同步
+- **打印友好**：所有新 UI 在 `@media print` 下隐藏，不影响 PDF 导出
+- **localStorage 规范**：所有 key 使用 `calligraphy_` 前缀（history / char_feedback / settings / onboarded）
+
+---
+
 ## [2.0.2] — 2026-07-23
 
 ### 🔧 仓库配置优化

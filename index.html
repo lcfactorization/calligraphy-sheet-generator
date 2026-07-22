@@ -16,6 +16,9 @@
 <button class="fab-puppeteer" id="puppeteerBtn" aria-label="Puppeteer矢量PDF" title="Puppeteer 矢量PDF（需先启动本地服务）">
     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 </button>
+<button class="fab-settings" id="settingsBtn" aria-label="设置" title="设置中心">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+</button>
 
 <div class="app">
 
@@ -23,6 +26,24 @@
     <div class="app-header">
         <h1>✏️ <span class="accent">字帖生成器</span></h1>
         <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
+        <div class="app-header-actions">
+            <button class="demo-btn" id="demoBtn" title="一键加载示例并生成字帖">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                演示模式
+            </button>
+        </div>
+    </div>
+
+    <!-- ════════ 今日待复习区域（A-3） ════════ -->
+    <div class="review-area" id="reviewArea">
+        <div class="review-header">
+            <span>🔁 今日待复习 <span class="review-count" id="reviewCount">0</span></span>
+            <span class="review-stats" id="reviewStats"></span>
+        </div>
+        <div class="review-chars" id="reviewChars"></div>
+        <div class="review-actions">
+            <button class="btn btn-primary" id="reviewStartBtn" disabled>暂无待复习</button>
+        </div>
     </div>
 
     <!-- ════════ 输入面板 ════════ -->
@@ -33,6 +54,9 @@
         </div>
         <div style="margin-bottom:12px">
             <textarea id="inputText" placeholder="输入要练习的汉字..." maxlength="200">融燕鸳鸯惠崇芦芽短梅溪泛减凑拂集聚形掠偶尔沾倦闲纤痕瓣蓬胀裂姿势仿佛随蹈止录凡距款绸膜瞎益约斑守株待宋耕触颈释骄傲谦虚懦弱恼代价塘映欣赏匀致配传哎叹滔涯妇碌遵循尊验暮吟题侧峰庐缘降阁费须逊旧垒判糊嚷篇翻帘创县设横跨案爪贵智慧历史宫唐西艺术显珍品艳内梦醒苏湿娇嫩强适昆播修致论试验袋证概减阻测括确误途陌缸隙掀背膊察隆暗喂盈锐铛奥努茶甚至躲着退暗丈增鞋履袜套裤肩臂触稍墨染竿腾碎拨浪葫爽硬柿泡熟否垫付替骂虽摸染肩担忍酸廊发痒若娇薄颤巍巅婴希奇皂廊碗若透娇扯仰串越婴希蹦耀演奏琴柔感受激幕临曾经若索悬曾奥探索预测评估损控制裁裂催竟商量纳闷刺颠哄悟肩袖筒缘责榜聪职责颈歪承跌</textarea>
+        </div>
+        <div class="diff-area" id="difficultyArea">
+            <span class="diff-empty">输入汉字后将显示难度评估</span>
         </div>
         <div class="field-row">
             <div class="field">
@@ -98,6 +122,36 @@
 
     <!-- ════════ 字帖显示区 ════════ -->
     <div id="grid-container"></div>
+
+    <!-- ════════ 练习反馈区域（A-2） ════════ -->
+    <div class="feedback-area" id="feedbackArea" style="display:none">
+        <div class="feedback-header">
+            <span>💬 练习反馈</span>
+            <span class="feedback-status" id="feedbackStatus"></span>
+        </div>
+        <div class="feedback-overall">
+            <span class="feedback-label">整体感受：</span>
+            <button class="feedback-btn mastered" data-feedback="mastered">😊 很轻松</button>
+            <button class="feedback-btn review" data-feedback="review">🤔 有点难</button>
+            <button class="feedback-btn error" data-feedback="error">😅 需要继续</button>
+        </div>
+        <div class="feedback-hint">提示：悬停字帖首个格子右上角小图标，可标记单字状态（已掌握 / 需要复习 / 总是写错）</div>
+    </div>
+
+    <!-- ════════ 历史记录侧边栏（A-1） ════════ -->
+    <button class="history-fab" id="historyFab" aria-label="历史记录" title="历史记录">
+        <svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+    </button>
+    <aside class="history-sidebar" id="historySidebar" aria-label="历史记录侧边栏">
+        <div class="history-header">
+            <span class="history-title">📋 历史记录</span>
+            <button class="history-toggle" id="historyToggle" title="折叠" aria-label="折叠侧边栏">✕</button>
+        </div>
+        <div class="history-body" id="historyList"></div>
+        <div class="history-footer">
+            <button class="btn btn-danger" id="historyClearBtn">清空全部</button>
+        </div>
+    </aside>
 
 </div>
 

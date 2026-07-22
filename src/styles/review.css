@@ -1,0 +1,77 @@
+/* ── 今日待复习区域（A-3） ── */
+
+.review-area{
+    margin-bottom:18px;
+    padding:14px 18px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:rgba(245,158,11,0.05);
+}
+.review-header{
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:8px;
+    margin-bottom:10px;
+}
+.review-header > span:first-child{
+    font-weight:700;font-size:14px;color:var(--title-color);
+    display:flex;align-items:center;gap:6px;
+}
+.review-count{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:20px;height:20px;padding:0 6px;
+    border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);
+    color:#fff;font-size:11px;font-weight:700;
+}
+.review-stats{font-size:12px;color:var(--desc-color)}
+.review-stats .st{font-weight:700}
+.review-stats .st.mastered{color:#16a34a}
+.review-stats .st.review{color:#d97706}
+.review-stats .st.error{color:#dc2626}
+[data-theme='dark'] .review-stats .st.mastered{color:#4ade80}
+[data-theme='dark'] .review-stats .st.review{color:#fbbf24}
+[data-theme='dark'] .review-stats .st.error{color:#f87171}
+
+.review-chars{
+    display:flex;flex-wrap:wrap;gap:8px;
+    margin-bottom:12px;min-height:32px;
+}
+.review-empty{
+    width:100%;text-align:center;
+    color:var(--desc-color);font-size:13px;
+    padding:8px;
+}
+.review-char{
+    display:inline-flex;flex-direction:column;align-items:center;
+    width:46px;padding:4px 0;
+    border-radius:9px;border:1px solid var(--border);
+    background:rgba(255,255,255,0.6);
+    transition:all .2s var(--ease-out-soft);cursor:default;
+}
+[data-theme='dark'] .review-char{background:rgba(30,35,50,0.6)}
+.review-char:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(0,0,0,0.1)}
+.review-char .rc-char{
+    font-size:20px;font-family:'LXGWWenKai','SourceHanSerifSC',serif;
+    color:var(--text-color);line-height:1.2;
+}
+.review-char .rc-days{font-size:10px;color:var(--desc-color);margin-top:2px}
+
+.review-char.mastered{border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.08)}
+.review-char.mastered .rc-char{color:#16a34a}
+.review-char.review{border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08)}
+.review-char.review .rc-char{color:#d97706}
+.review-char.error{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.08)}
+.review-char.error .rc-char{color:#dc2626}
+[data-theme='dark'] .review-char.mastered .rc-char{color:#4ade80}
+[data-theme='dark'] .review-char.review .rc-char{color:#fbbf24}
+[data-theme='dark'] .review-char.error .rc-char{color:#f87171}
+
+.review-actions{display:flex;justify-content:flex-end}
+.review-actions .btn{font-size:13px;padding:7px 16px}
+.review-actions .btn:disabled{
+    opacity:0.5;cursor:not-allowed;transform:none !important;box-shadow:none;
+}
+
+/* 打印时隐藏复习区 */
+@media print{
+    .review-area{display:none !important}
+}

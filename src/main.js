@@ -4,12 +4,39 @@ import { applyTheme, toggleTheme, updateCharCounter, resetHF } from './modules/s
 import { generateGrid } from './modules/gridRenderer.js';
 import { printToPDF } from './modules/pdfExport.js';
 import './modules/puppeteerClient.js'; // side-effect导入
+import { initHistory, saveHistory } from './modules/history.js';
+import { initFeedback, showFeedbackUI } from './modules/feedback.js';
+import { initReview } from './modules/review.js';
+import { initSettingsCenter } from './modules/settingsCenter.js';
+import { initOnboarding } from './modules/onboarding.js';
+import { initDemoMode } from './modules/demoMode.js';
+import { initDifficulty } from './modules/difficulty.js';
 
 // 初始化
 applyTheme();
+initHistory();
+initFeedback();
+initReview();
+initSettingsCenter();
+initDemoMode();
+initDifficulty();
+initOnboarding();
+
+// 生成字帖钩子：在 generateGrid 后保存历史记录并显示反馈区
+function handleGenerate() {
+    generateGrid();
+    const text = document.getElementById('inputText').value;
+    const fontSelect = document.getElementById('font-select');
+    const fontValue = fontSelect.value;
+    const fontName = fontSelect.options[fontSelect.selectedIndex].text;
+    const recordId = saveHistory(text, fontValue, fontName);
+    showFeedbackUI(recordId);
+}
+
 loadFonts().then(() => {
     updateCharCounter();
     generateGrid();
+    showFeedbackUI(null);
 });
 
 // 事件绑定
@@ -19,7 +46,7 @@ document.getElementById('fontUpload').addEventListener('change', function(e) {
     handleFontUpload(e.target.files[0]);
     e.target.value = '';
 });
-document.getElementById('generate-btn').addEventListener('click', generateGrid);
+document.getElementById('generate-btn').addEventListener('click', handleGenerate);
 document.getElementById('clear-btn').addEventListener('click', function() {
     document.getElementById('inputText').value = '';
     document.getElementById('grid-container').innerHTML = '';

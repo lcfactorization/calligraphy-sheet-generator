@@ -1,0 +1,119 @@
+/* ── 练习反馈区域（A-2） ── */
+
+.feedback-area{
+    margin-top:22px;
+    padding:18px 20px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:rgba(99,102,241,0.04);
+}
+.feedback-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
+    font-weight:700;font-size:14px;color:var(--title-color);
+}
+.feedback-status{font-size:12px;color:var(--accent);font-weight:600}
+.feedback-overall{
+    display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+    margin-bottom:10px;
+}
+.feedback-label{font-size:13px;color:var(--desc-color);font-weight:600;margin-right:4px}
+.feedback-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:13px;padding:7px 14px;
+    border:1px solid var(--border);border-radius:9px;
+    background:rgba(255,255,255,0.7);color:var(--text-color);
+    cursor:pointer;transition:all .2s var(--ease-out-soft);
+    outline:none;font-family:inherit;font-weight:600;
+}
+[data-theme='dark'] .feedback-btn{background:rgba(30,35,50,0.7)}
+.feedback-btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,0.08)}
+.feedback-btn.mastered:hover{border-color:#22c55e;color:#16a34a}
+.feedback-btn.review:hover{border-color:#f59e0b;color:#d97706}
+.feedback-btn.error:hover{border-color:#ef4444;color:#dc2626}
+.feedback-btn.active{color:#fff;border-color:transparent}
+.feedback-btn.mastered.active{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.feedback-btn.review.active{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.feedback-btn.error.active{background:linear-gradient(135deg,#ef4444,#dc2626)}
+[data-theme='dark'] .feedback-btn.mastered.active{color:#fff}
+[data-theme='dark'] .feedback-btn.review.active{color:#fff}
+[data-theme='dark'] .feedback-btn.error.active{color:#fff}
+
+.feedback-hint{
+    font-size:12px;color:var(--desc-color);
+    padding-top:8px;border-top:1px dashed var(--border);
+}
+
+/* ── 单字反馈按钮（字帖格子右上角） ── */
+.char-feedback-btn{
+    position:absolute;
+    top:2px;right:2px;
+    width:16px;height:16px;
+    border:none;border-radius:50%;
+    background:rgba(99,102,241,0.85);
+    color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;opacity:0;
+    transition:opacity .2s,transform .15s;
+    z-index:5;
+}
+.char-feedback-btn svg{width:10px;height:10px}
+.char-feedback-btn:hover{transform:scale(1.15)}
+.cell:hover .char-feedback-btn{opacity:1}
+
+/* 已标记格子：常显按钮 + 状态色环 */
+.cell.char-mastered .char-feedback-btn,
+.cell.char-review .char-feedback-btn,
+.cell.char-error .char-feedback-btn{opacity:1}
+.cell.char-mastered .char-feedback-btn{background:#22c55e}
+.cell.char-review .char-feedback-btn{background:#f59e0b}
+.cell.char-error .char-feedback-btn{background:#ef4444}
+
+.cell.char-mastered{box-shadow:inset 0 0 0 2px #22c55e}
+.cell.char-review{box-shadow:inset 0 0 0 2px #f59e0b}
+.cell.char-error{box-shadow:inset 0 0 0 2px #ef4444}
+
+/* ── 单字反馈弹层 ── */
+.char-feedback-popover{
+    position:absolute;z-index:10002;
+    display:none;
+    min-width:150px;
+    background:var(--toggle-bg);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:0 8px 28px rgba(0,0,0,0.18);
+    padding:6px;
+    font-family:inherit;
+}
+.popover-title{
+    font-size:12px;color:var(--desc-color);
+    padding:4px 8px 6px;font-weight:600;
+    border-bottom:1px solid var(--border);margin-bottom:4px;
+}
+.popover-btn{
+    display:flex;align-items:center;gap:8px;
+    width:100%;padding:7px 10px;
+    border:none;border-radius:7px;background:transparent;
+    color:var(--text-color);cursor:pointer;
+    font-size:13px;font-family:inherit;text-align:left;
+    transition:background .15s;outline:none;
+}
+.popover-btn svg{width:14px;height:14px;flex-shrink:0}
+.popover-btn:hover{background:rgba(99,102,241,0.1)}
+.popover-btn.mastered:hover{background:rgba(34,197,94,0.15);color:#16a34a}
+.popover-btn.review:hover{background:rgba(245,158,11,0.15);color:#d97706}
+.popover-btn.error:hover{background:rgba(239,68,68,0.15);color:#dc2626}
+.popover-btn.active{font-weight:700}
+.popover-btn.mastered.active{background:rgba(34,197,94,0.18);color:#16a34a}
+.popover-btn.review.active{background:rgba(245,158,11,0.18);color:#d97706}
+.popover-btn.error.active{background:rgba(239,68,68,0.18);color:#dc2626}
+[data-theme='dark'] .popover-btn.mastered.active{color:#4ade80}
+[data-theme='dark'] .popover-btn.review.active{color:#fbbf24}
+[data-theme='dark'] .popover-btn.error.active{color:#f87171}
+
+/* 打印时隐藏反馈 UI */
+@media print{
+    .feedback-area,.char-feedback-btn,.char-feedback-popover{display:none !important}
+    .cell.char-mastered,.cell.char-review,.cell.char-error{box-shadow:none !important}
+}

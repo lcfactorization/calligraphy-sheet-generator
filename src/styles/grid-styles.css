@@ -1,0 +1,140 @@
+/**
+ * 米字格 / 回宫格 样式
+ *
+ * 类名前缀：.grid-mizi / .grid-huigong（独立前缀，避免与现有 .cell 冲突）
+ *
+ * 设计要点：
+ *  - 米字格：外框实线 + 内部"米"字（横、竖、两条对角线，均为虚线）
+ *  - 回宫格：外框实线 + 内框（占外框 60%）实线，居中
+ *  - 使用 ::before 与 ::after 伪元素绘制辅助线，避免增加额外 DOM 节点
+ *  - 打印友好模式（.print-friendly）在打印时增强对比度，保留网格
+ */
+
+/* ───────── 米字格 ───────── */
+.grid-mizi {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  border: 1px solid #333;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+/* 十字虚线（横 + 竖）*/
+.grid-mizi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' preserveAspectRatio='none'><line x1='50' y1='0' x2='50' y2='100' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/><line x1='0' y1='50' x2='100' y2='50' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 对角线虚线（左上↔右下 + 右上↔左下）*/
+.grid-mizi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' preserveAspectRatio='none'><line x1='0' y1='0' x2='100' y2='100' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/><line x1='100' y1='0' x2='0' y2='100' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 米字格内的字符显示在网格之上 */
+.grid-mizi > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ───────── 回宫格 ───────── */
+.grid-huigong {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  border: 1px solid #333;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+/* 内框：占外框 60%，居中（top/left 20% + width/height 60%）*/
+.grid-huigong::before {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  width: 60%;
+  height: 60%;
+  border: 1px solid #999;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 内框中心十字辅助线（虚线，浅色），辅助书写时居中 */
+.grid-huigong::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  width: 60%;
+  height: 60%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100' preserveAspectRatio='none'><line x1='50' y1='0' x2='50' y2='100' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/><line x1='0' y1='50' x2='100' y2='50' stroke='%23e0e0e0' stroke-width='1' stroke-dasharray='4 3' vector-effect='non-scaling-stroke'/></svg>");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 回宫格内的字符显示在网格之上 */
+.grid-huigong > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ───────── 打印友好样式 ───────── */
+.grid-mizi.print-friendly,
+.grid-huigong.print-friendly {
+  border-color: #000;
+  background-color: #ffffff;
+}
+
+.grid-mizi.print-friendly::before,
+.grid-mizi.print-friendly::after,
+.grid-huigong.print-friendly::after {
+  /* 打印时增强虚线对比度 */
+  filter: contrast(1.25) brightness(0.85);
+}
+
+.grid-huigong.print-friendly::before {
+  border-color: #555;
+}
+
+/* 打印媒体查询：确保网格在 PDF 导出时保留 */
+@media print {
+  .grid-mizi,
+  .grid-huigong {
+    border-color: #000 !important;
+    background-color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .grid-huigong::before {
+    border-color: #555 !important;
+  }
+  .grid-mizi::before,
+  .grid-mizi::after,
+  .grid-huigong::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
