@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.1.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -16,9 +16,9 @@
 - **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
 - **构建状态**：✅ 通过（build 1.65s + 0错误0警告）
 - **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
-- **最新版本**：v2.1.0（学习闭环 + 界面辅助 + 内容增强）
-- **最新部署**：commit `a83db54`
-- **模块总数**：36 个源文件（16 JS + 17 CSS + 3 数据）
+- **最新版本**：v2.3.0（精简主界面 + 修复致命 bug + UI 优化）
+- **最新部署**：commit `ef76bc0`
+- **模块总数**：30 个源文件（13 JS + 14 CSS + 3 数据）
 
 ## 目录结构
 
@@ -32,17 +32,16 @@ distribution/
 ├── .github/workflows/       ← GitHub Pages自动部署
 ├── src/
 │   ├── main.js              ← 入口：CSS导入 + 模块导入 + 事件绑定
-│   ├── styles/              ← CSS模块（17个）
+│   ├── styles/              ← CSS模块（14个）
 │   │   ├── base.css / components.css / grid.css / theme.css
 │   │   ├── print.css / fab.css / tailwind.css
-│   │   └── [v2.1.0新增] history / feedback / review / settingsCenter
-│   │                        / onboarding / demoMode / difficulty
-│   │                        / grid-styles / report  共9个
+│   │   └── [v2.1.0新增] history / feedback / settingsCenter
+│   │                        / difficulty / grid-styles / report  共6个
 │   ├── data/                ← 数据文件（3个）
 │   │   ├── customZuCi.js    ← 1719条自定义组词字典
 │   │   ├── templates.js     ← [v2.1.0] 20个预设模板（唐诗/三字经/千字文等）
 │   │   └── vocabulary.js    ← [v2.1.0] 3级18分类分级字库
-│   └── modules/             ← JS模块（15个）
+│   └── modules/             ← JS模块（12个）
 │       ├── fontManager.js   ← FontFace加载 + base64拼音字体
 │       ├── pinyin.js        ← pinyin-pro封装
 │       ├── zuci.js          ← 组词（customZuCi + cnchar）
@@ -53,10 +52,7 @@ distribution/
 │       ├── puppeteerClient.js
 │       ├── history.js       ← [v2.1.0] 历史记录（localStorage 20条）
 │       ├── feedback.js      ← [v2.1.0] 练习反馈（整体+单字，状态色环）
-│       ├── review.js        ← [v2.1.0] 复习计划（艾宾浩斯 7/3/1天）
 │       ├── settingsCenter.js← [v2.1.0] 设置中心（4滑块+4开关+3主题）
-│       ├── onboarding.js    ← [v2.1.0] 新手引导（3步聚光灯）
-│       ├── demoMode.js      ← [v2.1.0] 演示模式（自动加载示例）
 │       └── difficulty.js    ← [v2.1.0] 难度评估（cnchar笔画数+5级星级）
 ├── public/
 │   ├── fonts/               ← 5个开源字体
@@ -117,16 +113,12 @@ npm run preview      # 预览构建结果
 | # | 功能 | 模块 | 说明 |
 |:--:|:-----|:-----|:-----|
 | 16 | **历史记录** | history.js | 每次生成自动保存到 localStorage（最多20条），右侧可折叠侧边栏，支持重新生成/删除/清空 |
-| 17 | **练习反馈闭环** | feedback.js | 整体反馈三按钮（很轻松/有点难/需要继续）+ 单字反馈悬停图标（掌握/复习/错字），状态色环（绿/黄/红） |
-| 18 | **复习计划** | review.js | 基于艾宾浩斯遗忘曲线（mastered→7天 / review→3天 / error→1天），首页"今日待复习"区域，一键加载 |
-| 19 | **设置中心** | settingsCenter.js | 模态框含 4 滑块 + 4 开关 + 3 主题选项，实时更新预览 |
-| 20 | **新手引导** | onboarding.js | 3 步聚光灯引导，首次打开自动触发 |
-| 21 | **演示模式** | demoMode.js | 50% 千字文 + 50% 随机模板，自动生成+滚动+提示 |
-| 22 | **难度评估** | difficulty.js | cnchar.stroke() 笔画数，5 级星级，实时评估 |
-| 23 | **内置模板库** | templates.js | 20 个预设模板（唐诗宋词8+三字经2+千字文2+常用字3+成语3+节日2） |
-| 24 | **分级字库** | vocabulary.js | 3 级 18 分类（初级1-5画/中级6-10画/高级10+画） |
-| 25 | **米字格/回宫格** | grid-styles.css | 米字格（十字+对角线虚线）+ 回宫格（内外框），打印友好 |
-| 26 | **学习报告样式** | report.css | 报告卡片/统计/柱状图/进度条样式 |
+| 17 | **设置中心** | settingsCenter.js | 模态框含 4 滑块 + 4 开关 + 3 主题选项，实时更新预览 |
+| 18 | **难度评估** | difficulty.js | cnchar.stroke() 笔画数，5 级星级，实时评估 |
+| 19 | **内置模板库** | templates.js | 20 个预设模板（唐诗宋词8+三字经2+千字文2+常用字3+成语3+节日2） |
+| 20 | **分级字库** | vocabulary.js | 3 级 18 分类（初级1-5画/中级6-10画/高级10+画） |
+| 21 | **米字格/回宫格** | grid-styles.css | 米字格（十字+对角线虚线）+ 回宫格（内外框），打印友好 |
+| 22 | **学习报告样式** | report.css | 报告卡片/统计/柱状图/进度条样式 |
 
 ### 技术亮点（v2.1.0）
 
@@ -134,7 +126,7 @@ npm run preview      # 预览构建结果
 - **单字反馈**：DOM 事件委托，不修改 gridRenderer.js，悬停显示 Lucide 图标
 - **主题协同**：settingsCenter 通过 `toggleTheme()` 与现有 settings.js 的 isDark 状态同步
 - **打印友好**：所有新 UI 在 `@media print` 下隐藏，不影响 PDF 导出
-- **localStorage 规范**：所有 key 使用 `calligraphy_` 前缀（history / char_feedback / settings / onboarded）
+- **localStorage 规范**：所有 key 使用 `calligraphy_` 前缀（history / char_feedback / settings）
 - **多 Agent 并行开发**：通过 TraeCN IDE 多 Agent 并行执行，新增 18 个文件，构建 1.65s 0 错误
 
 ---
@@ -269,7 +261,7 @@ node puppeteer-pdf.js -t "静夜思" --font 思源宋体 --format a3 --landscape
 | `--text` | `-t` | 直接指定文本内容 | — |
 | `--input` | `-i` | 从文本文件读取内容（UTF-8） | — |
 | `--output` | `-o` | 输出PDF文件路径 | 字帖.pdf |
-| `--font` | `-f` | 汉字字体名称 | 霞鹜文楷 |
+| `--font` | `-f` | 汉字字体名称 | 文鼎楷体 |
 | `--format` | | 页面格式: a4/a3/a5/letter/legal | a4 |
 | `--header` | | 页眉文本 | （空） |
 | `--footer` | | 页脚文本（支持 `{page}` `{total}`） | 第 {page} 页 / 共 {total} 页 |
@@ -282,10 +274,10 @@ node puppeteer-pdf.js -t "静夜思" --font 思源宋体 --format a3 --landscape
 
 | 字体名称 | CSS字体族 | 开源协议 |
 |----------|-----------|----------|
-| 霞鹜文楷（默认） | LXGWWenKai | SIL OFL 1.1 |
+| 霞鹜文楷 | LXGWWenKai | SIL OFL 1.1 |
 | 霞鹜文楷 Light | LXGWWenKaiLight | SIL OFL 1.1 |
 | 思源宋体 | SourceHanSerifSC | SIL OFL 1.1 |
-| 文鼎楷体 | TW-Kai | ARPH 公共许可证 |
+| 文鼎楷体（默认） | TW-Kai | ARPH 公共许可证 |
 | TeX Gyre Adventor（拼音字体） | TeXGyreAdventor | GUST 字体许可证 |
 
 #### 使用示例
