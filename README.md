@@ -59,13 +59,12 @@ distribution/
 │       ├── demoMode.js      ← [v2.1.0] 演示模式（自动加载示例）
 │       └── difficulty.js    ← [v2.1.0] 难度评估（cnchar笔画数+5级星级）
 ├── public/
-│   ├── fonts/               ← 6个开源字体
+│   ├── fonts/               ← 5个开源字体
 │   │   ├── LXGWWenKai-Regular.ttf   ← 霞鹜文楷（SIL OFL）
 │   │   ├── LXGWWenKai-Light.ttf     ← 霞鹜文楷 Light（SIL OFL）
 │   │   ├── SourceHanSerifSC-Regular.otf ← 思源宋体（SIL OFL）
 │   │   ├── TW-Kai.ttf               ← 文鼎楷体（ARPH）
-│   │   ├── texgyreadventor-regular.otf ← 拼音字体（GUST）
-│   │   └── 我逸清晨体楷书.ttf        ← 我逸清晨体（免费商用）
+│   │   └── texgyreadventor-regular.otf ← 拼音字体（GUST，仅CI占位，实际base64内嵌）
 │   └── icon-*.svg           ← PWA图标（192/512/maskable）
 └── dist/                    ← 构建产物（npm run build生成）
 ```
@@ -161,7 +160,6 @@ npm run preview      # 预览构建结果
 | 霞鹜文楷 Light | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
 | 思源宋体 SC | adobe-fonts/source-han-serif releases | SIL OFL 1.1 |
 | 文鼎楷体 | fontworks/onryou releases | ARPH |
-| 我逸清晨体楷书 | 人文开放字体库 | 免费商用 |
 | TeX Gyre Adventor（拼音字体） | base64 内嵌于 fontManager.js | GUST |
 
 > [!NOTE]
@@ -289,7 +287,6 @@ node puppeteer-pdf.js -t "静夜思" --font 思源宋体 --format a3 --landscape
 | 思源宋体 | SourceHanSerifSC | SIL OFL 1.1 |
 | 文鼎楷体 | TW-Kai | ARPH 公共许可证 |
 | TeX Gyre Adventor（拼音字体） | TeXGyreAdventor | GUST 字体许可证 |
-| 我逸清晨体楷书 | WoYiQingChenTiKaiShu | 免费商用 |
 
 #### 使用示例
 

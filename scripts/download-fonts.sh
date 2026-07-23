@@ -47,12 +47,8 @@ if [ ! -f "$FONTS_DIR/TW-Kai.ttf" ]; then
     "https://github.com/anthonyfok/TW-Kai/releases/latest/download/TW-Kai.ttf"
 fi
 
-# 拼音字体 (texgyreadventor) - 实际使用base64内嵌，但保留文件以兼容
-if [ ! -f "$FONTS_DIR/texgyreadventor-regular.otf" ]; then
-  echo "  Downloading texgyreadventor-regular.otf..."
-  curl -L -o "$FONTS_DIR/texgyreadventor-regular.otf" \
-    "https://github.com/anthonyfok/TW-Kai/releases/latest/download/texgyreadventor-regular.otf" 2>/dev/null || true
-fi
+# 注：拼音字体 texgyreadventor 已通过 base64 内嵌在 fontManager.js 中，无需下载文件
+# 注：我逸清晨体楷书为商用字体（不符合开源项目版权合规要求），已移除
 
 echo "Font download complete."
 ls -la "$FONTS_DIR/"

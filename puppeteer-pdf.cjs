@@ -35,7 +35,6 @@ const FONT_MAP = {
     '方正宋简大漆':       'FZSJ-DQYBKSJW',
     '方正宋简海豚':       'FZSJ-HAITWY',
     '文鼎楷体':           'TW-Kai',
-    '我逸清晨体楷书':     'WoYiQingChenTiKaiShu',
     '田英章楷书30Light':  'TianYingZhangKaiShuLight',
 };
 
@@ -109,7 +108,7 @@ function parseArgs() {
       可选字体:
         姜浩硬笔楷书        华文楷体            方正仿宋GBK
         方正宋简大漆        方正宋简海豚        文鼎楷体
-        我逸清晨体楷书      田英章楷书30Light
+        田英章楷书30Light
   --format <格式>         页面格式: a4, a3, a5, letter, legal (默认: a4)
   --header <文本>         页眉文本（留空则无页眉）
   --footer <文本>         页脚文本 (支持 {page} 和 {total} 变量)

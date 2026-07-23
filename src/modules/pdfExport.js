@@ -49,7 +49,6 @@ export async function printToPDF() {
             '@font-face{font-family:LXGWWenKaiLight;src:url(./fonts/LXGWWenKai-Light.ttf)format("truetype")}' +
             '@font-face{font-family:SourceHanSerifSC;src:url(./fonts/SourceHanSerifSC-Regular.otf)format("opentype")}' +
             '@font-face{font-family:TW-Kai;src:url(./fonts/TW-Kai.ttf)format("truetype")}' +
-            '@font-face{font-family:WoYiQingChenTiKaiShu;src:url(./fonts/我逸清晨体楷书.ttf)format("truetype")}' +
             'html,body{font-family:TeXGyreAdventor,"' + selectedFont + '",serif;text-align:center;padding:0;margin:0;background:#fff}' +
             '.page{page-break-after:always;position:relative;width:100%;padding-top:30px;padding-bottom:40px}' +
             '.header{position:absolute;top:10px;left:0;width:100%;display:flex;justify-content:space-between;padding:0 20px;font-size:13px;color:#339933;z-index:2}' +
@@ -113,8 +112,7 @@ export async function printToPDF() {
             '["TeXGyreAdventor","' + PINYIN_FONT_URI + '"],' +
             '["LXGWWenKaiLight","./fonts/LXGWWenKai-Light.ttf"],' +
             '["SourceHanSerifSC","./fonts/SourceHanSerifSC-Regular.otf"],' +
-            '["TW-Kai","./fonts/TW-Kai.ttf"],' +
-            '["WoYiQingChenTiKaiShu","./fonts/我逸清晨体楷书.ttf"]];' +
+            '["TW-Kai","./fonts/TW-Kai.ttf"]];' +
             'var loaded=0,failed=0,failedList=[];' +
             'for(var i=0;i<fl.length;i++){' +
                 'try{' +
