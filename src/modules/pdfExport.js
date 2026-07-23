@@ -22,6 +22,17 @@ export async function printToPDF() {
         var hRight = document.getElementById('headerRight').value || fontDisplayName + '字体';
         var footerText = document.getElementById('footerText').value || '评分：☆☆☆☆☆';
 
+        // 截断页眉页脚文本，防止打印时超出 @page margin 造成重叠或裁切
+        function truncateText(text, max){
+            var arr = Array.from(text);
+            if(arr.length > max){ return arr.slice(0, max).join('') + '…'; }
+            return text;
+        }
+        hLeft = truncateText(hLeft, 20);
+        hCenter = truncateText(hCenter, 15);
+        hRight = truncateText(hRight, 20);
+        footerText = truncateText(footerText, 30);
+
         var rows = gridDiv.querySelectorAll('.row');
         var pageContent = '';
         for (var page = 0; page < totalPages; page++) {
@@ -51,11 +62,11 @@ export async function printToPDF() {
             '@font-face{font-family:TW-Kai;src:url(./fonts/TW-Kai.ttf)format("truetype")}' +
             'html,body{font-family:TeXGyreAdventor,"' + selectedFont + '",serif;text-align:center;padding:0;margin:0;background:#fff}' +
             '.page{page-break-after:always;position:relative;width:100%;padding-top:30px;padding-bottom:40px}' +
-            '.header{position:absolute;top:10px;left:0;width:100%;display:flex;justify-content:space-between;padding:0 20px;font-size:13px;color:#339933;z-index:2}' +
-            '.header .hl{flex:1;text-align:left}' +
-            '.header .hc{flex:1;text-align:center;font-weight:600}' +
-            '.header .hr{flex:1;text-align:right}' +
-            '.footer{position:fixed;bottom:15px;left:0;width:100%;text-align:center;color:#339933;font-size:13px;z-index:2}' +
+            '.header{position:absolute;top:10px;left:0;width:100%;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;padding:0 4px;font-size:11px;color:#339933;z-index:2}' +
+            '.header .hl{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}' +
+            '.header .hc{flex:1;min-width:0;text-align:center;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}' +
+            '.header .hr{flex:1;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}' +
+            '.footer{position:fixed;bottom:15px;left:0;width:100%;text-align:center;color:#339933;font-size:11px;z-index:2;box-sizing:border-box;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
             '.grid-container{display:flex;flex-direction:column;align-items:center;margin-top:20px}' +
             '.row{display:flex;position:relative;width:660px}' +
             '.pinyin-row{height:28.8px;display:flex;align-items:center}' +

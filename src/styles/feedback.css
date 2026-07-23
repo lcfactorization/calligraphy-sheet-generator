@@ -114,6 +114,9 @@
 
 /* 打印时隐藏反馈 UI */
 @media print{
-    .feedback-area,.char-feedback-btn,.char-feedback-popover{display:none !important}
+    .feedback-area,.feedback-header,.feedback-status,.feedback-overall,
+    .feedback-label,.feedback-btn,.feedback-hint,
+    .char-feedback-btn,.char-feedback-popover,
+    .popover-title,.popover-btn{display:none !important}
     .cell.char-mastered,.cell.char-review,.cell.char-error{box-shadow:none !important}
 }

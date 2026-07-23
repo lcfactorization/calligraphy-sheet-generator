@@ -3,7 +3,6 @@
 // 设置变更后触发事件 'calligraphy:settings-updated'，通知其他模块更新预览
 
 import { toggleTheme } from './settings.js';
-import { restartOnboarding } from './onboarding.js';
 
 const SETTINGS_KEY = 'calligraphy_settings';
 
@@ -175,10 +174,6 @@ function createPanel() {
                         </label>
                     </div>
                 </div>
-                <div class="sc-section">
-                    <div class="sc-section-title">📖 帮助</div>
-                    <button class="btn btn-ghost sc-restart-ob" id="scRestartOb">重新查看新手引导</button>
-                </div>
                 <div class="sc-footer">
                     <button class="btn btn-ghost" id="scReset">恢复默认</button>
                     <button class="btn btn-primary" id="scDone">完成</button>
@@ -258,12 +253,6 @@ function bindPanelEvents(overlay) {
         overlay.remove();
         createPanel();
         document.getElementById('settingsPanel')._open();
-    });
-
-    // 重新查看新手引导
-    overlay.querySelector('#scRestartOb').addEventListener('click', () => {
-        close();
-        setTimeout(() => restartOnboarding(), 300);
     });
 }
 

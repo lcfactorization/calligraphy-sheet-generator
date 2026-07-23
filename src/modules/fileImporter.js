@@ -13,6 +13,23 @@ const ALLOWED_EXTS = ['txt', 'md', 'csv', 'markdown', 'xlsx', 'docx'];
 const BINARY_EXTS = ['xlsx', 'docx'];
 
 /**
+ * 从文本中过滤出纯汉字字符
+ * 字帖主要支持汉字的米字格、笔画笔顺拆分、组词、描摹等，
+ * 非汉字字符（标点、字母、数字、空格、换行等）统统忽略
+ * @param {string} text - 原始文本
+ * @returns {string} 纯汉字字符串（可能为空字符串）
+ */
+function filterChineseChars(text) {
+    if (!text || typeof text !== 'string') return '';
+    const beforeLen = text.length;
+    // 仅匹配 CJK 基本汉字（U+4E00 ~ U+9FA5），其余字符一律忽略
+    const matches = text.match(/[\u4e00-\u9fa5]/g);
+    const filtered = matches ? matches.join('') : '';
+    console.log('[FileImporter] 汉字过滤：' + beforeLen + ' -> ' + filtered.length + ' 字符');
+    return filtered;
+}
+
+/**
  * 去除 Markdown 标记，保留纯文本
  * 处理：标题、粗体/斜体、删除线、列表、代码、引用、链接、图片、水平线、HTML 标签
  * @param {string} text - 原始 markdown 文本
@@ -204,20 +221,26 @@ function showToast(message, type) {
 
 /**
  * 根据文件扩展名处理内容
+ * txt/md/csv 统一在此走文本解析路径，最后过滤为纯汉字
  * @param {string} name - 文件名
  * @param {string} content - 文件文本内容
- * @returns {string} 处理后的文本
+ * @returns {string} 处理后的纯汉字文本
  */
 function processFileContent(name, content) {
     const ext = name.toLowerCase().split('.').pop();
 
+    let parsed;
     if (ext === 'md' || ext === 'markdown') {
-        return stripMarkdown(content);
+        parsed = stripMarkdown(content);
     } else if (ext === 'csv') {
-        return parseCSV(content);
+        parsed = parseCSV(content);
+    } else {
+        // txt 原样保留
+        parsed = content;
     }
-    // txt 原样返回
-    return content;
+
+    // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
+    return filterChineseChars(parsed);
 }
 
 /**
@@ -331,9 +354,12 @@ class FileImporter {
                     processed = await parseDOCX(arrayBuffer);
                 }
 
-                // 处理后内容有效性检测
+                // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
+                processed = filterChineseChars(processed);
+
+                // 处理后内容有效性检测（无汉字时提示用户）
                 if (!processed || processed.trim() === '') {
-                    showToast('文件处理后无有效内容', 'error');
+                    showToast('文件中未发现汉字字符', 'error');
                     e.target.value = '';
                     return;
                 }
@@ -342,7 +368,7 @@ class FileImporter {
                 this.textarea.value = processed;
                 this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
                 this.textarea.focus();
-                showToast('已导入 ' + processed.length + ' 个字符', 'success');
+                showToast('已导入 ' + processed.length + ' 个汉字', 'success');
             } catch (err) {
                 console.error('[FileImporter] 解析二进制文件失败:', err);
                 showToast('文件解析失败：' + (err.message || '未知错误'), 'error');
@@ -369,12 +395,12 @@ class FileImporter {
             }
 
             try {
-                // 根据文件类型处理内容
+                // 根据文件类型处理内容（内部已过滤为纯汉字）
                 const processed = processFileContent(file.name, content);
 
-                // 处理后内容有效性检测
+                // 处理后内容有效性检测（无汉字时提示用户）
                 if (!processed || processed.trim() === '') {
-                    showToast('文件处理后无有效内容', 'error');
+                    showToast('文件中未发现汉字字符', 'error');
                     e.target.value = '';
                     return;
                 }
@@ -386,7 +412,7 @@ class FileImporter {
                 // 聚焦输入框
                 this.textarea.focus();
 
-                showToast('已导入 ' + processed.length + ' 个字符', 'success');
+                showToast('已导入 ' + processed.length + ' 个汉字', 'success');
             } catch (err) {
                 console.error('[FileImporter] 处理文件失败:', err);
                 showToast('文件处理失败：' + err.message, 'error');

@@ -26,24 +26,6 @@
     <div class="app-header">
         <h1>✏️ <span class="accent">字帖生成器</span></h1>
         <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
-        <div class="app-header-actions">
-            <button class="demo-btn" id="demoBtn" title="一键加载示例并生成字帖">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                演示模式
-            </button>
-        </div>
-    </div>
-
-    <!-- ════════ 今日待复习区域（A-3） ════════ -->
-    <div class="review-area" id="reviewArea">
-        <div class="review-header">
-            <span>🔁 今日待复习 <span class="review-count" id="reviewCount">0</span></span>
-            <span class="review-stats" id="reviewStats"></span>
-        </div>
-        <div class="review-chars" id="reviewChars"></div>
-        <div class="review-actions">
-            <button class="btn btn-primary" id="reviewStartBtn" disabled>暂无待复习</button>
-        </div>
     </div>
 
     <!-- ════════ 输入面板 ════════ -->
@@ -63,10 +45,10 @@
                 <label>字体</label>
                 <div class="font-upload-wrap">
                     <select id="font-select">
-                        <option value="LXGWWenKai" selected>霞鹜文楷</option>
+                        <option value="LXGWWenKai">霞鹜文楷</option>
                         <option value="LXGWWenKaiLight">霞鹜文楷 Light</option>
                         <option value="SourceHanSerifSC">思源宋体</option>
-                        <option value="TW-Kai">文鼎楷体</option>
+                        <option value="TW-Kai" selected>文鼎楷体</option>
                         <option value="TeXGyreAdventor">TeX Gyre Adventor</option>
                     </select>
                     <label class="font-upload-btn" title="添加自己的字体文件（ttf/otf）">
@@ -121,21 +103,6 @@
 
     <!-- ════════ 字帖显示区 ════════ -->
     <div id="grid-container"></div>
-
-    <!-- ════════ 练习反馈区域（A-2） ════════ -->
-    <div class="feedback-area" id="feedbackArea" style="display:none">
-        <div class="feedback-header">
-            <span>💬 练习反馈</span>
-            <span class="feedback-status" id="feedbackStatus"></span>
-        </div>
-        <div class="feedback-overall">
-            <span class="feedback-label">整体感受：</span>
-            <button class="feedback-btn mastered" data-feedback="mastered">😊 很轻松</button>
-            <button class="feedback-btn review" data-feedback="review">🤔 有点难</button>
-            <button class="feedback-btn error" data-feedback="error">😅 需要继续</button>
-        </div>
-        <div class="feedback-hint">提示：悬停字帖首个格子右上角小图标，可标记单字状态（已掌握 / 需要复习 / 总是写错）</div>
-    </div>
 
     <!-- ════════ 历史记录侧边栏（A-1） ════════ -->
     <button class="history-fab" id="historyFab" aria-label="历史记录" title="历史记录">

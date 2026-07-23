@@ -2,4 +2,5 @@
     .app-header,.panel,#input-container,.fab-theme,.fab-print,.fab-puppeteer,.puppeteer-toast{display:none!important}
     .app{box-shadow:none;backdrop-filter:none;border-radius:0;background:#fff;max-width:100%;padding:0}
     body{background:#fff}
+    .black span,.black-char,.cell span,.cell .char{color:#000 !important}
 }

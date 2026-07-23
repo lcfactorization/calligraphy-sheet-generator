@@ -14,7 +14,7 @@
 .pinyin-row .line1{top:9.6px;border-style:dashed}
 .pinyin-row .line2{top:19.2px}
 .pinyin-cell span{font-family:'TeXGyreAdventor' !important;font-size:16.8px;position:relative;z-index:1}
-.black span{color:black;opacity:1}
+.black span{color:var(--text-color, #000);opacity:1}
 .gray span{color:#ccc;opacity:0.35}
 .char-row{margin-top:-1px;border-bottom:0.15px solid var(--green)}
 .cell{width:60px;height:60px;border-right:0.15px solid var(--green);border-left:0.15px solid var(--green);position:relative;display:flex;justify-content:center;align-items:center;font-size:43.2px}
@@ -33,7 +33,7 @@
 .tianzi-cell::after{width:0;height:100%;left:50%;top:0;transform:translateX(-50%)}
 .tianzi-cell .sub-cell{display:flex;justify-content:center;align-items:center;font-size:30px;transform:scale(0.9)}
 .tianzi-cell .sub-cell.top{font-family:'TeXGyreAdventor',serif;font-size:12px}
-.tianzi-cell .black-char{position:absolute;bottom:0;width:30px;height:30px;display:flex;justify-content:center;align-items:center;font-size:24px;color:black;opacity:1;z-index:1}
+.tianzi-cell .black-char{position:absolute;bottom:0;width:30px;height:30px;display:flex;justify-content:center;align-items:center;font-size:24px;color:var(--text-color, #000);opacity:1;z-index:1}
 .tianzi-cell .black-char.left{left:0}
 .tianzi-cell .black-char.right{left:30px}
 .tianzi-cell .red-char{position:absolute;top:0;left:0;width:60px;height:60px;display:flex;justify-content:center;align-items:center;font-size:43.2px;color:red;opacity:0.06;z-index:1}
