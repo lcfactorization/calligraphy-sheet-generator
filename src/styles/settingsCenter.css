@@ -217,7 +217,27 @@ body.sc-hide-stroke-order #grid-container .stroke-container .stroke-svg{display:
 /* 移动端 */
 @media (max-width:680px){
     .fab-settings{top:auto;bottom:84px;right:24px}
-    .sc-modal{width:100%}
+    .sc-overlay{padding:0}
+    .sc-modal{
+        width:100%;max-width:100%;
+        height:100vh;max-height:100vh;
+        border-radius:0;
+    }
+    .sc-header{padding:12px 14px}
+    .sc-title{font-size:14px}
+    .sc-close{width:26px;height:26px}
+    .sc-body{padding:12px 14px}
+    .sc-section{margin-bottom:14px}
+    .sc-section-title{font-size:12px;margin-bottom:8px;padding-bottom:5px}
+    .sc-field{margin-bottom:10px}
+    .sc-field label{font-size:12px;margin-bottom:5px}
+    .sc-value{font-size:11px}
+    .sc-toggle-row{font-size:12px;padding:6px 0}
+    .sc-theme-row{gap:6px}
+    .sc-theme-opt{font-size:11px;padding:8px 4px}
+    .sc-footer{gap:6px;margin-top:14px;padding-top:10px}
+    .sc-footer .btn{font-size:12px;padding:7px 14px}
+    .sc-restart-ob{padding:8px 12px}
 }
 
 /* 打印时隐藏设置按钮 */

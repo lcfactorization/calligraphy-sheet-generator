@@ -1,5 +1,5 @@
-/* ── 浮动按钮（主题切换 + 打印） ── */
-.fab-theme,.fab-print{
+/* ── 浮动按钮（主题切换 + 打印 + Puppeteer） ── */
+.fab-theme,.fab-print,.fab-puppeteer{
     position:fixed;z-index:9999;
     width:52px;height:52px;border-radius:50%;
     border:2px solid var(--toggle-border);
@@ -11,21 +11,61 @@
     user-select:none;outline:none;color:var(--title-color);
 }
 .fab-theme{top:20px;right:20px;font-size:22px}
-.fab-print{top:84px;right:20px}
-.fab-theme:hover,.fab-print:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
-.fab-theme:active,.fab-print:active{transform:scale(0.93)}
-.fab-print{background:linear-gradient(135deg,#f59e0b,#d97706);border-color:transparent}
-.fab-puppeteer{top:148px;right:20px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-color:transparent}
-.fab-puppeteer:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(139,92,246,0.4)}
-.fab-puppeteer:active{transform:scale(0.93)}
-.fab-puppeteer svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab-theme:hover,.fab-print:hover,.fab-puppeteer:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
+.fab-theme:active,.fab-print:active,.fab-puppeteer:active{transform:scale(0.93)}
+
+/* ── 右下角 FAB 垂直按钮组（主打印 + Puppeteer） ── */
+/* 主打印按钮：距底边/右边各 24px */
+.fab-print{
+    bottom:24px;right:24px;top:auto;
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    border-color:transparent;
+}
+/* Puppeteer 按钮：位于打印按钮正上方，间距 12px（24+52+12=88） */
+.fab-puppeteer{
+    bottom:88px;right:24px;top:auto;
+    background:linear-gradient(135deg,#8b5cf6,#7c3aed);
+    border-color:transparent;
+}
+.fab-puppeteer:hover{box-shadow:0 6px 24px rgba(139,92,246,0.4)}
+.fab-puppeteer svg,.fab-print svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .fab-puppeteer.busy{animation:pulse 1.2s infinite;pointer-events:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* ── Tooltip：hover 时显示按钮用途（取自 title 属性） ── */
+.fab-print::after,.fab-puppeteer::after{
+    content:attr(title);
+    position:absolute;right:calc(100% + 10px);top:50%;
+    transform:translateY(-50%);
+    white-space:nowrap;
+    padding:6px 10px;border-radius:6px;
+    background:rgba(15,23,42,0.92);color:#fff;
+    font-size:12px;font-weight:500;line-height:1.4;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    pointer-events:none;opacity:0;
+    transition:opacity .2s var(--ease-out-soft);
+    z-index:10000;
+}
+.fab-print:hover::after,.fab-puppeteer:hover::after{opacity:1}
+
 .puppeteer-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;padding:14px 24px;border-radius:10px;background:rgba(15,23,42,0.92);color:#fff;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.3);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);max-width:80vw;text-align:center;transition:all .3s ease}
 .puppeteer-toast.error{background:rgba(220,38,38,0.95)}
 .puppeteer-toast.success{background:rgba(16,185,129,0.95)}
 .puppeteer-toast.info{background:rgba(99,102,241,0.95)}
-.fab-print svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 移动端：FAB 组缩小到 40px，间距 8px ── */
+/* 避开设置按钮（bottom:84px,52px高,占据84-136px），将 FAB 组置于其上方 */
+@media (max-width:680px){
+    .fab-print,.fab-puppeteer{width:40px;height:40px}
+    .fab-print{bottom:144px;right:24px}
+    .fab-puppeteer{bottom:192px;right:24px}
+    .fab-print svg,.fab-puppeteer svg{width:20px;height:20px}
+}
+
+/* ── 打印时隐藏 FAB ── */
+@media print{
+    .fab-print,.fab-puppeteer,.puppeteer-toast{display:none!important}
+}
 
 /* ── 自定义字体上传 ── */
 .font-upload-wrap{display:flex;align-items:center;gap:8px}

@@ -16,8 +16,10 @@
     "cnchar-words": "^3.0.0",
     "hanzi-writer": "^3.5.0",
     "lucide-static": "^1.25.0",
+    "mammoth": "^1.6.0",
     "pinyin-pro": "^3.0.0",
-    "puppeteer": "^23.0.0"
+    "puppeteer": "^23.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

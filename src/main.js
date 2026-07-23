@@ -11,6 +11,9 @@ import { initSettingsCenter } from './modules/settingsCenter.js';
 import { initOnboarding } from './modules/onboarding.js';
 import { initDemoMode } from './modules/demoMode.js';
 import { initDifficulty } from './modules/difficulty.js';
+import { registerFileImporter } from './modules/fileImporter.js';
+import { registerRecommender } from './modules/recommender.js';
+import { registerReportPanel } from './modules/reportPanel.js';
 
 // 初始化
 applyTheme();
@@ -21,6 +24,9 @@ initSettingsCenter();
 initDemoMode();
 initDifficulty();
 initOnboarding();
+registerFileImporter();
+registerRecommender();
+registerReportPanel();
 
 // 生成字帖钩子：在 generateGrid 后保存历史记录并显示反馈区
 function handleGenerate() {

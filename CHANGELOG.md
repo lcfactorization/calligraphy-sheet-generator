@@ -5,6 +5,71 @@
 
 ---
 
+## [2.2.0] — 2026-07-23
+
+### 🚀 文件导入 + AI推荐 + 学习报告 + UI优化（方案B/C高出彩度合并）
+
+通过 TraeCN IDE 多 Agent 并行执行（5 Agent 并行 + 1 Agent 依赖串行），新增 5 个文件（3 个模块 + 2 个样式），修改 6 个文件（main.js + main.css + fab.css + components.css + grid.css + settingsCenter.css + history.css + package.json），补齐方案 B/C 中高出彩度未完成功能。
+
+#### 新增 — 文件导入功能（Agent D + G）
+- **txt/md/csv 导入**（`src/modules/fileImporter.js` + `src/styles/fileImporter.css`）：在输入框旁添加"📁 导入文件"按钮，支持纯文本/Markdown/CSV 文件导入到输入框
+  - txt 原样填入；md 去除 markdown 标记（#、*、-、`、>、链接、图片等）；csv 按行解析（支持带引号字段）
+  - 文件大小限制：1MB；Toast 提示导入结果
+  - 导入后自动触发 input 事件（联动字数计数器/难度评估），聚焦输入框
+- **xlsx/docx 导入**（扩展 `fileImporter.js`）：动态 import SheetJS + mammoth.js
+  - xlsx：读取第一个 sheet，按行拼接单元格内容
+  - docx：extractRawText 转换为纯文本，回退 mammoth.browser
+  - 文件大小限制：5MB；Loading 状态显示
+  - 新增依赖：xlsx ^0.18.5 + mammoth ^1.6.0
+
+#### 新增 — AI 智能推荐（规则版，离线）（Agent E）
+- **`src/modules/recommender.js` + `src/styles/recommender.css`**：在输入框旁添加"✨ 智能推荐"按钮，弹出推荐面板
+  - 按难度：初级(1-5画)/中级(6-10画)/高级(10+画)，每级按内部分类分组
+  - 按主题：跨难度聚合 13 个主题（数字/自然/动物/植物/人体/颜色等）
+  - 按场景：从 templates.js 按 category 分组（唐诗宋词/三字经/千字文等）
+  - 单字点击追加到输入框（不覆盖）；模板点击覆盖；"一键加载该分类全部"按钮
+  - 完全离线可用，复用 vocabulary.js + templates.js 数据
+
+#### 新增 — 学习报告统计逻辑（Agent F）
+- **`src/modules/reportPanel.js`**：激活 report.css 样式，接入 history.js + feedback.js 数据
+  - 练习统计：累计次数/字数/练习天数
+  - 掌握情况：已掌握/待复习/错字数（Canvas 环形图）
+  - 最近 7 天趋势（Canvas 柱状图）
+  - 字体使用分布（Canvas 横向柱状图）
+  - 操作：导出报告（剪贴板）/ 重置统计数据（二次确认）
+  - 空状态提示；事件监听自动刷新
+
+#### 变更 — UI 优化
+- **PDF 按钮位置优化**（`src/styles/fab.css`）：FAB 组合为右下角垂直按钮组，距底/右各 24px，间距 12px，hover tooltip
+- **移动端布局优化**（4 个 CSS 文件 `@media max-width:680px`）：
+  - 输入框占满宽度；按钮组横向滚动；格子最小 60px + 横向滚动
+  - 设置中心/历史侧边栏移动端全屏；字号/padding 缩小
+
+#### 变更 — 集成入口
+- `src/main.js`：新增 3 个模块 import 与初始化调用（registerFileImporter / registerRecommender / registerReportPanel）
+- `src/styles/main.css`：新增 4 个 @import（grid-styles.css 补齐 + report.css 补齐 + fileImporter.css + recommender.css）
+- `package.json`：新增 xlsx + mammoth 依赖
+
+#### 验证 — 构建与模块
+- 模块数：28 → 463（+431，含 xlsx/mammoth 内部模块）
+- 构建时间：1.65s → 10.96s
+- 文件大小：709.47 KB → 2,185.59 KB（gzip: 447.18 KB → 858.53 KB）
+- 0 错误 0 警告
+- PWA precache：915.82 KiB → 2,363.55 KiB
+
+#### 技术亮点
+- **多 Agent 并行开发**：5 个 Agent 完全并行（D/E/F/H/I），1 个 Agent 依赖串行（G 依赖 D），零文件冲突
+- **动态 import**：xlsx/mammoth 按需加载（虽 singlefile 内联，但保留了按需加载的代码结构）
+- **Canvas 原生图表**：学习报告用纯 Canvas API 绘制环形图/柱状图/横向柱状图，无图表库依赖
+- **CSS 零冲突**：每个 Agent 严格限定文件边界，集成时统一修改 main.js/main.css
+
+#### 已知问题
+- xlsx+mammoth 导致体积 +1.4MB（singlefile 内联动态 import 所致）
+- xlsx 依赖有 4 个 vulnerabilities（不影响功能运行）
+- 功能待用户人工浏览器测试确认
+
+---
+
 ## [2.1.0] — 2026-07-23
 
 ### 🚀 学习闭环 + 界面辅助 + 数据样式扩展（方案B核心 + 方案C部分）

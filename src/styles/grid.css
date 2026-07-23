@@ -38,3 +38,25 @@
 .tianzi-cell .black-char.right{left:30px}
 .tianzi-cell .red-char{position:absolute;top:0;left:0;width:60px;height:60px;display:flex;justify-content:center;align-items:center;font-size:43.2px;color:red;opacity:0.06;z-index:1}
 .char-row.page-break{page-break-after:always}
+
+/* ── 移动端 < 680px 适配 ── */
+@media (max-width:680px){
+    #grid-container{
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+        align-items:flex-start;
+        margin-top:12px;
+        padding-bottom:8px;
+    }
+    .row{width:660px;max-width:660px}
+    .pinyin-row.page-first::before,
+    .pinyin-row::after{width:660px}
+    .cell,.tianzi-cell{width:60px;min-width:60px;height:60px;flex:0 0 60px}
+    .cell{font-size:36px}
+    .tianzi-cell .sub-cell{font-size:24px}
+    .tianzi-cell .sub-cell.top{font-size:11px}
+    .tianzi-cell .black-char{font-size:20px}
+    .tianzi-cell .red-char{font-size:36px}
+    .pinyin-cell span{font-size:14px}
+    .stroke-svg{width:15px;height:15px;margin-right:3px}
+}

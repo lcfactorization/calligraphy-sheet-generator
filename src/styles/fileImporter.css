@@ -1,0 +1,89 @@
+/* ── 文件导入按钮样式 ── */
+/* 按钮基础样式继承 .btn .btn-secondary，此处仅做微调 */
+.file-import-btn {
+    /* 保持与现有按钮一致的交互反馈 */
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* 悬停时增加强调色边框，与项目主色调呼应 */
+.file-import-btn:hover {
+    border-color: var(--accent);
+}
+
+/* ── Toast 提示样式 ── */
+/* 固定在页面顶部居中，3 秒自动消失 */
+.file-importer-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-out-soft), transform 0.3s var(--ease-out-soft);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: 90vw;
+}
+
+/* 显示状态：滑入 + 淡入 */
+.file-importer-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* info 类型：靛蓝渐变 */
+.file-importer-toast-info {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+/* success 类型：绿色渐变（与 btn-primary 一致） */
+.file-importer-toast-success {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+/* error 类型：红色渐变（与 btn-danger 一致） */
+.file-importer-toast-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* ── 夜间主题适配 ── */
+[data-theme='dark'] .file-importer-toast {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ── 打印时隐藏导入按钮和 Toast ── */
+@media print {
+    .file-import-btn,
+    .file-importer-toast {
+        display: none !important;
+    }
+}
+
+/* ── 移动端适配（≤ 680px） ── */
+@media (max-width: 680px) {
+    .file-import-btn {
+        font-size: 13px;
+        padding: 7px 14px;
+    }
+
+    .file-importer-toast {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        transform: translateY(-100px);
+        text-align: center;
+        white-space: normal;
+        max-width: none;
+    }
+
+    .file-importer-toast.show {
+        transform: translateY(0);
+    }
+}

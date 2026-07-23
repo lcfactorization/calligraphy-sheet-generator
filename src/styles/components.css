@@ -83,7 +83,24 @@ textarea#inputText:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99
 
 /* ── 页眉/页脚设置 ── */
 .hf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:680px){.hf-grid{grid-template-columns:1fr}}
+@media(max-width:680px){
+    .hf-grid{grid-template-columns:1fr}
+    .panel{padding:12px 14px;margin-bottom:10px;border-radius:10px}
+    .panel-title{font-size:13px;margin-bottom:9px}
+    .panel-title svg{width:14px;height:14px}
+    .field-row{flex-direction:column;align-items:stretch;gap:10px}
+    .field{width:100%}
+    .field input,.field select{width:100%;font-size:13px;padding:8px 10px}
+    .field input:focus,.field select:focus{box-shadow:0 0 0 2px rgba(99,102,241,0.12)}
+    textarea#inputText{width:100%;min-height:80px;font-size:14px;padding:10px 12px;line-height:1.55}
+    .btn{font-size:13px;padding:8px 14px;border-radius:9px}
+    .btn svg{width:14px;height:14px}
+    .btn-row{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;gap:8px}
+    .btn-row .btn{flex:0 0 auto;white-space:nowrap}
+    .char-counter{font-size:11px}
+    .hf-field input{font-size:12px;padding:6px 10px}
+    .hf-reset{font-size:10px;padding:2px 8px}
+}
 .hf-field{display:flex;flex-direction:column;gap:4px}
 .hf-field label{font-size:12px;color:var(--desc-color);font-weight:600;display:flex;align-items:center;gap:4px}
 .hf-field input{
