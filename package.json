@@ -1,6 +1,6 @@
 {
   "name": "calligraphy-sheet-generator",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）",
   "scripts": {
@@ -15,10 +15,12 @@
     "cnchar": "^3.0.0",
     "cnchar-words": "^3.0.0",
     "hanzi-writer": "^3.5.0",
+    "jspdf": "^2.5.2",
     "lucide-static": "^1.25.0",
     "mammoth": "^1.6.0",
     "pinyin-pro": "^3.0.0",
     "puppeteer": "^23.0.0",
+    "svg2pdf.js": "^2.7.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

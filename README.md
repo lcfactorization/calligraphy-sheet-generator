@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.3.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -16,44 +16,56 @@
 - **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
 - **构建状态**：✅ 通过（build 1.65s + 0错误0警告）
 - **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
-- **最新版本**：v2.3.0（精简主界面 + 修复致命 bug + UI 优化）
-- **最新部署**：commit `ef76bc0`
-- **模块总数**：30 个源文件（13 JS + 14 CSS + 3 数据）
+- **最新版本**：v2.4.0（矢量 SVG 字格引擎 + 双轨矢量 PDF + 朱砂暖宣 UI）
+- **最新部署**：commit `ef76bc0`（v2.3.0）→ v2.4.0 重构
+- **模块总数**：35 个源文件（17 JS + 15 CSS + 3 数据）+ 839 构建模块
 
 ## 目录结构
 
 ```
 distribution/
-├── index.html               ← Vite入口HTML
+├── index.html               ← Vite入口HTML（v2.4 双栏布局）
 ├── vite.config.js           ← Vite配置（PWA + SingleFile + Tailwind）
 ├── package.json             ← 依赖配置（ES Module）
-├── puppeteer-pdf.cjs        ← Puppeteer PDF矢量生成脚本（CommonJS）
+├── puppeteer-pdf.cjs        ← Puppeteer PDF矢量生成脚本（CommonJS，v2.4 修复路径）
 ├── README.md / CHANGELOG.md ← 文档
+├── TASK_BOARD.md            ← [v2.4.0] 重构任务看板
 ├── .github/workflows/       ← GitHub Pages自动部署
 ├── src/
 │   ├── main.js              ← 入口：CSS导入 + 模块导入 + 事件绑定
-│   ├── styles/              ← CSS模块（14个）
+│   ├── contracts/           ← [v2.4.0] 接口契约层
+│   │   └── interfaces.js    ← GridCellProps / GridType / RenderMode / PdfExportOptions
+│   ├── components/          ← [v2.4.0] 矢量组件层
+│   │   ├── GridEngine.js    ← SVG字格引擎（createGridCellSVG + renderSheet）
+│   │   └── Sidebar.js       ← 320px双栏侧栏（网格类型/透明度/预设场景）
+│   ├── utils/               ← [v2.4.0] 工具层
+│   │   └── pdfExport.js     ← jsPDF+svg2pdf.js 矢量PDF导出（双轨）
+│   ├── styles/              ← CSS模块（15个）
 │   │   ├── base.css / components.css / grid.css / theme.css
 │   │   ├── print.css / fab.css / tailwind.css
-│   │   └── [v2.1.0新增] history / feedback / settingsCenter
-│   │                        / difficulty / grid-styles / report  共6个
+│   │   ├── grid-svg.css     ← [v2.4.0] SVG字格18mm物理尺寸
+│   │   └── history / settingsCenter / difficulty / grid-styles / report
+│   │                        / fileImporter / recommender  共8个
 │   ├── data/                ← 数据文件（3个）
 │   │   ├── customZuCi.js    ← 1719条自定义组词字典
-│   │   ├── templates.js     ← [v2.1.0] 20个预设模板（唐诗/三字经/千字文等）
-│   │   └── vocabulary.js    ← [v2.1.0] 3级18分类分级字库
-│   └── modules/             ← JS模块（12个）
+│   │   ├── templates.js     ← 20个预设模板（唐诗/三字经/千字文等）
+│   │   └── vocabulary.js    ← 3级18分类分级字库
+│   └── modules/             ← JS模块（12个，v2.4 保留作回退）
 │       ├── fontManager.js   ← FontFace加载 + base64拼音字体
 │       ├── pinyin.js        ← pinyin-pro封装
 │       ├── zuci.js          ← 组词（customZuCi + cnchar）
 │       ├── strokes.js       ← 笔画SVG + HanziWriter
-│       ├── gridRenderer.js  ← 字帖生成核心
+│       ├── gridRenderer.js  ← [旧] CSS网格生成（v2.4 保留作回退）
 │       ├── settings.js      ← 主题/计数器/页眉页脚
-│       ├── pdfExport.js     ← PDF导出
+│       ├── pdfExport.js     ← [旧] window.print PDF（v2.4 保留作回退）
 │       ├── puppeteerClient.js
-│       ├── history.js       ← [v2.1.0] 历史记录（localStorage 20条）
-│       ├── feedback.js      ← [v2.1.0] 练习反馈（整体+单字，状态色环）
-│       ├── settingsCenter.js← [v2.1.0] 设置中心（4滑块+4开关+3主题）
-│       └── difficulty.js    ← [v2.1.0] 难度评估（cnchar笔画数+5级星级）
+│       ├── history.js       ← 历史记录（localStorage 20条）
+│       ├── feedback.js      ← 练习反馈（整体+单字，状态色环）
+│       ├── settingsCenter.js← 设置中心（4滑块+4开关+3主题）
+│       ├── difficulty.js    ← 难度评估（cnchar笔画数+5级星级）
+│       ├── fileImporter.js  ← 文件导入（txt/md/csv/xlsx/docx）
+│       ├── recommender.js   ← AI智能推荐（离线规则版）
+│       └── reportPanel.js   ← 学习报告统计
 ├── public/
 │   ├── fonts/               ← 5个开源字体
 │   │   ├── LXGWWenKai-Regular.ttf   ← 霞鹜文楷（SIL OFL）
@@ -107,6 +119,21 @@ npm run preview      # 预览构建结果
 | 13 | Lucide Icons | 现代化 SVG 图标库 |
 | 14 | 单文件构建能力 | vite-plugin-singlefile 生成可离线分发单HTML |
 | 15 | GitHub Pages 在线访问 | 评审可直接打开体验 |
+
+### v2.4.0 新增功能 — 矢量 SVG 引擎 + 双轨矢量 PDF + 朱砂暖宣 UI（工业级重构）
+
+| # | 功能 | 模块 | 说明 |
+|:--:|:-----|:-----|:-----|
+| 23 | **参数化 Inline SVG 字格引擎** | GridEngine.js | 彻底废弃 CSS 拼凑网格，升级为 viewBox 100×100 抽象坐标 + CSS mm 物理尺寸的矢量 SVG 引擎，屏幕/PDF/打印三者一致 |
+| 24 | **4 种网格类型** | GridEngine.js | 田字格 / 米字格 / 回字格 / 拼音田字格（上 30% 四线三格 + 下 70% 田字格），侧栏一键切换 |
+| 25 | **3 种渲染模式** | GridEngine.js | stroke-order（首字彩色笔顺示范）/ trace（浅灰描红 0.1–0.4 透明度可调）/ blank（空白自写） |
+| 26 | **物理级 18mm 精准尺寸** | grid-svg.css | CSS `width: 18mm` + `@page margin: 0mm` + `preferCSSPageSize: true`，误差 < 0.1mm，绝不跨页断格 |
+| 27 | **双轨矢量 PDF 导出** | utils/pdfExport.js | 轨1a：浏览器 `window.print()` 直印；轨1b：`jsPDF + svg2pdf.js` 无对话框矢量导出（DOM SVG → 1:1 mm 坐标）；轨2：Puppeteer 命令行批量 |
+| 28 | **朱砂暖宣东方文房 UI** | theme.css | A4 宣纸背景 `#FDFBF7` + 印泥红 Accent `#9E2A2B` + 朱砂框线 `#D97777`，含暗色模式适配 |
+| 29 | **320px 双栏工作台** | Sidebar.js + index.html | 左侧柔光宣纸侧栏（输入/字体/网格类型/透明度/预设场景）+ 右侧 A4 沉浸式预览画布（真实纸张阴影），移动端自动改抽屉 |
+| 30 | **预设场景快速选择** | Sidebar.js | 从 templates.js 读取 20 个预设模板（唐诗/三字经/千字文等），按 category 分组，点击即生成 |
+| 31 | **接口契约层** | contracts/interfaces.js | GridCellProps / GridType / RenderMode / PdfExportOptions 标准 Props，多 Agent 并行开发零冲突 |
+| 32 | **Puppeteer 路径修复** | puppeteer-pdf.cjs | 修复引用已废弃的 `字帖生成器.html`，改为 `dist/index.html` 构建产物 + `--url` 参数回退 dev server |
 
 ### v2.1.0 新增功能 — 学习闭环 + 界面辅助 + 内容增强
 

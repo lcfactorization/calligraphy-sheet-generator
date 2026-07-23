@@ -1,0 +1,128 @@
+/* ════════════════════════════════════════════════════════════════
+ * 矢量 SVG 字格样式表（Agent-A · 阶段 1）
+ * ════════════════════════════════════════════════════════════════
+ *
+ * 设计原则：
+ *  - 物理尺寸严格 18mm × 18mm（A4 18mm 字格标准，误差 < 0.1mm）
+ *  - pinyin-tian 高度 23.4mm = 18 × 1.3（上 30% 拼音四线三格 + 下 70% 田字格）
+ *  - flex-basis 控制主轴（宽度方向），与 height 解耦
+ *  - 打印时强制矢量 + 物理尺寸，避免彩色打印浪费
+ *  - 屏幕预览容器居中显示，移动端横向滚动
+ */
+
+/* ── SVG 字格物理尺寸控制：18mm × 18mm ── */
+.grid-svg-cell {
+    width: 18mm;
+    height: 18mm;
+    display: inline-block;
+    flex: 0 0 18mm;
+    overflow: visible;
+}
+
+/* 拼音田字格：宽度保持 18mm，高度 23.4mm（18 × 1.3） */
+.grid-svg-cell[data-grid-type="pinyin-tian"] {
+    width: 18mm;
+    height: 23.4mm;
+    flex: 0 0 18mm;
+}
+
+/* ── 字格行 / 拼音行容器（flex 横向布局） ── */
+.grid-svg-row,
+.grid-svg-pinyin-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+/* 字格行：避免行内分页断裂 */
+.grid-svg-row {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* 行间距 2mm */
+.grid-svg-row + .grid-svg-row {
+    margin-top: 2mm;
+}
+
+/* 拼音行高度 6mm，与字格行间距 0.5mm */
+.grid-svg-pinyin-row {
+    height: 6mm;
+    margin-bottom: 0.5mm;
+    align-items: center;
+}
+
+/* 拼音 span：每个对齐到下方字格位置（18mm 宽） */
+.grid-svg-pinyin-row span {
+    width: 18mm;
+    text-align: center;
+    font-family: 'TeXGyreAdventor', serif;
+    font-size: 4mm;
+    display: inline-block;
+    line-height: 1;
+}
+
+/* 笔顺缩略图容器：跟随拼音行，可横向溢出滚动 */
+.grid-svg-stroke-container {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    margin-left: 2mm;
+    height: 6mm;
+    overflow: hidden;
+}
+.grid-svg-stroke-container svg,
+.grid-svg-stroke-container .stroke-svg {
+    width: 5mm;
+    height: 5mm;
+    margin-right: 1mm;
+    flex: 0 0 auto;
+}
+
+/* ── 分页：每 5 行一页（A4 18mm 适配） ── */
+.grid-svg-row.page-break {
+    page-break-after: always;
+    break-after: page;
+}
+
+/* ── 屏幕预览容器（非打印） ── */
+#grid-container.svg-mode {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12mm 0;
+}
+
+/* ── 移动端横向滚动 ── */
+@media (max-width: 680px) {
+    #grid-container.svg-mode {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        align-items: flex-start;
+        padding: 6mm 0;
+    }
+    .grid-svg-row,
+    .grid-svg-pinyin-row {
+        max-width: none;
+    }
+}
+
+/* ── 打印：强制矢量 + 物理尺寸 ── */
+@media print {
+    .grid-svg-cell {
+        width: 18mm !important;
+        height: 18mm !important;
+    }
+    .grid-svg-cell[data-grid-type="pinyin-tian"] {
+        height: 23.4mm !important;
+    }
+    /* 打印时隐藏笔顺缩略图（避免彩色浪费 + 释放版面） */
+    .grid-svg-stroke-container {
+        display: none !important;
+    }
+    /* 打印时分页符严格生效 */
+    .grid-svg-row.page-break {
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+}

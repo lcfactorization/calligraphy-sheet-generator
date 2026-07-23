@@ -5,7 +5,7 @@
  * ═══════════════════════════════════════════════════════════════
  *
  * 功能：
- *   - 从「字帖生成器.html」生成矢量PDF文件
+ *   - 从 dist/index.html（构建产物）或 dev server 生成矢量PDF文件
  *   - PDF中所有文字可选择、可复制（非光栅化图片）
  *   - 拼音字体(TeXGyreAdventor) + 汉字字体完整嵌入PDF
  *   - 支持命令行参数自定义文本、字体、页面格式
@@ -14,7 +14,7 @@
  * 使用前提：
  *   1. 已安装 Node.js (v18+)
  *   2. 已安装 Puppeteer: npm install
- *   3. 字帖生成器.html 和 fonts/ 文件夹与本脚本在同一目录
+ *   3. 先运行 npm run build 生成 dist/（或用 --url 指定 dev server）
  *
  * 使用示例：
  *   node puppeteer-pdf.js --text "床前明月光，疑是地上霜"
@@ -52,6 +52,7 @@ function parseArgs() {
         margin: '10mm',
         landscape: false,
         timeout: 30000,
+        url: '',
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -90,6 +91,9 @@ function parseArgs() {
             case '--timeout':
                 options.timeout = parseInt(args[++i]) || 30000;
                 break;
+            case '--url':
+                options.url = args[++i] || '';
+                break;
             case '-h':
             case '--help':
                 console.log(`
@@ -116,6 +120,7 @@ function parseArgs() {
   --margin <边距>         页面边距 (默认: 10mm)
   --landscape             横向打印（默认为纵向）
   --timeout <毫秒>        超时时间 (默认: 30000)
+      --url <URL>         直接指定页面 URL（如 http://localhost:3000），优先于 dist/index.html
   -h, --help              显示此帮助信息
 
 示例:
@@ -212,18 +217,22 @@ function findChrome() {
 async function generatePDF() {
     const options = parseArgs();
     const scriptDir = __dirname;
-    const htmlPath = path.join(scriptDir, '字帖生成器.html');
     const fontsDir = path.join(scriptDir, 'fonts');
-
-    // 检查HTML文件
-    if (!fs.existsSync(htmlPath)) {
-        console.error(`错误: 找不到HTML文件: ${htmlPath}`);
-        process.exit(1);
-    }
 
     // 检查字体文件夹
     if (!fs.existsSync(fontsDir)) {
         console.error(`错误: 找不到字体文件夹: ${fontsDir}`);
+        process.exit(1);
+    }
+
+    // HTML 路径：优先 --url，其次 dist/index.html 构建产物
+    const distHtml = path.join(scriptDir, 'dist', 'index.html');
+    const fileUrl = options.url || (fs.existsSync(distHtml)
+        ? 'file:///' + distHtml.replace(/\\/g, '/')
+        : null);
+    if (!fileUrl) {
+        console.error('错误: 找不到 dist/index.html，请先运行 npm run build');
+        console.error('或使用 --url http://localhost:3000 指定 dev server');
         process.exit(1);
     }
 
@@ -256,9 +265,8 @@ async function generatePDF() {
     try {
         const page = await browser.newPage();
 
-        // 加载HTML文件
-        const fileUrl = 'file:///' + htmlPath.replace(/\\/g, '/');
-        console.log('▶ 正在加载字帖生成器页面...');
+        // 加载页面（构建产物或 dev server）
+        console.log(`▶ 正在加载: ${fileUrl}`);
         await page.goto(fileUrl, {
             waitUntil: 'networkidle0',
             timeout: options.timeout,
@@ -270,13 +278,12 @@ async function generatePDF() {
 
         await page.evaluate((text, fontDisplayName) => {
             const textarea = document.getElementById('inputText');
-            const fontSelect = document.getElementById('font-select');
-
             if (textarea) {
                 textarea.value = text;
+                textarea.dispatchEvent(new Event('input'));
             }
 
-            // 设置字体选择
+            const fontSelect = document.getElementById('font-select');
             if (fontSelect) {
                 for (let i = 0; i < fontSelect.options.length; i++) {
                     const opt = fontSelect.options[i];
@@ -289,17 +296,20 @@ async function generatePDF() {
                 }
             }
 
-            // 调用生成函数
-            if (typeof generateGrid === 'function') {
+            // 优先触发生成按钮（新 SVG 引擎），回退到旧 generateGrid
+            const btn = document.getElementById('generate-btn');
+            if (btn) {
+                btn.click();
+            } else if (typeof generateGrid === 'function') {
                 generateGrid();
             }
         }, options.text, options.font);
 
-        // 等待内容渲染
-        await page.waitForSelector('#grid-container .page', {
-            timeout: 10000,
+        // 等待 SVG 字格渲染
+        await page.waitForSelector('#grid-container .grid-svg-cell', {
+            timeout: 15000,
         }).catch(() => {
-            console.warn('⚠ 网格容器未检测到页面，继续处理...');
+            console.warn('⚠ 未检测到 SVG 字格节点，继续处理...');
         });
 
         // 等待字体加载
@@ -331,33 +341,15 @@ async function generatePDF() {
         await page.emulateMediaType('print');
         await new Promise(r => setTimeout(r, 500));
 
-        // 构建PDF选项
-        const margin = options.margin;
-        const hasHeaderFooter = !!(options.header || options.footer);
-
-        const headerTemplate = options.header
-            ? `<div style="font-size:9px;width:100%;text-align:center;color:#666;padding:0 ${margin};font-family:sans-serif;">${options.header}</div>`
-            : '<div></div>';
-
-        const footerTemplate = options.footer
-            ? `<div style="font-size:9px;width:100%;text-align:center;color:#666;padding:0 ${margin};font-family:sans-serif;">${options.footer.replace('{page}', '<span class="pageNumber"></span>').replace('{total}', '<span class="totalPages"></span>')}</div>`
-            : '<div></div>';
-
+        // 构建 PDF 选项：margin 全 0，由 HTML 内部 @page 与页眉页脚接管
         const pdfOptions = {
             path: options.output,
             format: options.format,
             printBackground: true,
             landscape: options.landscape,
-            margin: {
-                top: margin,
-                bottom: margin,
-                left: margin,
-                right: margin,
-            },
-            displayHeaderFooter: hasHeaderFooter,
-            headerTemplate: headerTemplate,
-            footerTemplate: footerTemplate,
-            preferCSSPageSize: false,
+            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+            displayHeaderFooter: false,
+            preferCSSPageSize: true,
         };
 
         // 生成PDF

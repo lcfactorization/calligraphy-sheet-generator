@@ -4,3 +4,24 @@
     body{background:#fff}
     .black span,.black-char,.cell span,.cell .char{color:#000 !important}
 }
+
+/* === 新增：A4 物理级排版锁定（v2.4.0 Agent-B） === */
+@media print {
+    @page { size: A4 portrait; margin: 0mm !important; }
+    html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
+    body * { visibility: hidden; }
+    .a4-page, .a4-page * { visibility: visible; }
+    .a4-page {
+        position: absolute;
+        left: 0; top: 0;
+        margin: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+        page-break-after: always;
+    }
+    .a4-page:last-child { page-break-after: auto; }
+    /* 确保网格不跨页断格 */
+    .grid-svg-row, .grid-svg-pinyin-row { page-break-inside: avoid !important; break-inside: avoid !important; }
+    /* 强制矢量网格黑色打印 */
+    .grid-svg-cell rect, .grid-svg-cell line { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

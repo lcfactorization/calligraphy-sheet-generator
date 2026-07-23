@@ -5,6 +5,93 @@
 
 ---
 
+## [2.4.0] — 2026-07-23
+
+### 🚀 矢量 SVG 字格引擎 + 双轨矢量 PDF + 朱砂暖宣 UI（工业级重构）
+
+基于 `字帖项目html渲染网格PDF显示以及最终打印的精准尺寸控制提示词.20260723Gemini.md` 的架构契约，通过 4 个 Agent 并行执行（Master 契约 + Agent-A/B/C 独占文件域 + Agent-D 构建验收），将项目从 CSS 拼凑网格升级为参数化 Inline SVG 矢量引擎，实现物理级 18mm 精准尺寸控制与双轨矢量 PDF 导出。
+
+备份 tag：`backup/pre_svg_refactor/20260723_143000`（HEAD: 9587410）
+
+#### 新增 — 接口契约层（Master Agent · 阶段 0）
+- **`src/contracts/interfaces.js`**：定义 GridCellProps / GridType / RenderMode / PdfExportOptions 标准 Props，含 `resolveGridProps()` 合并函数、`MM_TO_PX` 换算常量、`A4_PORTRAIT` 物理尺寸常量
+- **`TASK_BOARD.md`**：重构任务看板，记录 4 阶段进度与文件隔离矩阵
+
+#### 新增 — 矢量 SVG 字格引擎（Agent-A · 阶段 1）
+- **`src/components/GridEngine.js`**：导出 `createGridCellSVG(options)` 核心契约函数 + `renderSheet(input, options)` 高层编排
+  - 纯 Inline SVG（`viewBox="0 0 100 100"`，pinyin-tian 为 `0 0 100 130`），`preserveAspectRatio="xMidYMid meet"`
+  - SVG 上不设 width/height，物理尺寸完全由 CSS 控制（保证打印 18mm 误差 < 0.1mm）
+  - **4 种网格类型**：'tian'（田字格）/ 'mizi'（米字格）/ 'hui'（回字格）/ 'pinyin-tian'（拼音田字格，上 30% 四线三格 + 下 70% 田字格）
+  - **3 种渲染模式**：'stroke-order'（首字笔顺示范，彩色笔画循环色板）/ 'trace'（浅灰描红 0.1–0.4 透明度）/ 'blank'（空白自写）
+  - 中心虚线统一 `stroke-dasharray="3,3"`，线条 `stroke-width="0.6"`
+  - 集成 pinyin-pro 注音、cnchar 组词、hanzi-writer 笔顺（异步加载不阻塞渲染）
+- **`src/styles/grid-svg.css`**：物理尺寸严格 18mm × 18mm（pinyin-tian 23.4mm），分页 `page-break-inside: avoid` 防跨页断格
+
+#### 新增 — 双轨矢量 PDF 导出 + A4 物理排版（Agent-B · 阶段 2）
+- **`src/styles/print.css`**（扩展）：追加 `@page { size: A4 portrait; margin: 0mm !important; }` + `.a4-page` 可见性锁定 + `.grid-svg-row { page-break-inside: avoid }` 物理排版规则
+- **`src/utils/pdfExport.js`**（新建）：jsPDF + svg2pdf.js 纯矢量导出
+  - `exportVectorPDF(opts)`：直接读取 DOM 的 `.grid-svg-row` SVG 节点，按 1:1 mm 坐标写入 PDF，8 行/页分页，mm 坐标页眉页脚
+  - `printDirect()`：浏览器原生 `window.print()`，包装 `.a4-page` 容器让 print.css 生效
+  - `exportPDF(opts)`：统一入口，按 `track` 路由（'client-print' | 'client-jspdf'）
+  - 拒绝 html2canvas 位图化，保证 PDF 文字矢量、可缩放、可选择
+- **`puppeteer-pdf.cjs`**（修复）：HTML 路径从已废弃的 `字帖生成器.html` 改为 `dist/index.html` 构建产物（+ `--url` 参数回退 dev server）；选择器改为 `.grid-svg-cell`；PDF 选项 `margin: 0mm` + `preferCSSPageSize: true` + `displayHeaderFooter: false`；evaluate 触发 input 事件并点击 generate-btn
+- **`package.json`**：新增 `jspdf@^2.5.2` + `svg2pdf.js@^2.2.3` 依赖
+
+#### 新增 — 朱砂暖宣东方文房 UI + 双栏工作台（Agent-C · 阶段 3）
+- **`src/styles/theme.css`**（扩展）：保留蓝紫系（向后兼容），追加朱砂暖宣色系（`--paper-bg: #FDFBF7` / `--seal-red: #9E2A2B` / `--vermilion-frame: #D97777` / `--vermilion-dash: #F0B8B8` / `--ink-black` / `--sidebar-bg` / `--a4-shadow`），含暗色模式适配
+- **`src/components/Sidebar.js`**（新建）：320px 左侧栏组件
+  - 运行时把现有 `#input-container` + 页眉页脚 `.panel` 移入侧栏（保留全部 26 个元素 ID，不破坏 main.js 事件绑定）
+  - 新增"网格类型"切换组（田/米/回/拼音田 4 按钮）+ "描红透明度"滑块（0.1–0.4）+ "预设场景"列表（从 templates.js 读取，按 category 分组）
+  - 状态持久化到 localStorage（key: `calligraphy_sidebar_state`），派发 `calligraphy:sidebar-updated` 事件
+  - 移动端（<768px）侧栏改为可折叠抽屉 + 遮罩
+- **`index.html`**（改造）：双栏布局 `.app-workbench`（320px 侧栏 + A4 画布）+ `.a4-preview` 沉浸式纸张阴影容器 + `#exportVectorBtn` 矢量 PDF 导出浮动按钮；`theme-color` 改为 `#9E2A2B`
+
+#### 变更 — 集成入口
+- **`src/main.js`**：切换到新 SVG 引擎（`renderSheet` 替代旧 `generateGrid`）+ 新 PDF 导出（`exportPDF` 替代旧 `printToPDF`）+ `initSidebar` 初始化；监听 `calligraphy:sidebar-updated` 事件实时重渲染；保留旧模块文件作回退
+- **`src/styles/main.css`**：新增 `@import './grid-svg.css'`
+
+#### 保留 — 功能零退化
+- ✅ pinyin-pro 注音（集成于 GridEngine.renderSheet）
+- ✅ cnchar 笔顺 + hanzi-writer SVG 笔画（集成于 GridEngine + loadStrokes）
+- ✅ 本地生字词典 customZuCi.js（1719 条）
+- ✅ 预设模板库 templates.js（20 个模板，侧栏预设场景接入）
+- ✅ LocalStorage 历史记录 history.js
+- ✅ 设置中心 / 难度评估 / 文件导入 / AI 推荐 / 学习报告（全部保留）
+- ✅ PWA 离线 + Service Worker
+
+#### 验证 — 构建
+- 模块数：460 → 839（+379，jspdf + svg2pdf.js 内部模块）
+- 构建时间：7.77s → 11.29s
+- 文件大小：2,163.02 KB → 3,000.95 KB（gzip: 854.01 → 1,107.90 KB）
+- 0 错误 0 警告
+- PWA precache：9 entries（3160.19 KiB）
+
+#### 验证 — 浏览器自动化测试（6/6 PASS）
+1. ✅ 首屏加载：页面正常加载，无 error 级别控制台消息
+2. ✅ SVG 网格渲染：2830 个 `.grid-svg-cell`，283 行 `.grid-svg-row`，SVG 含 viewBox
+3. ✅ 双栏布局：`#appSidebar` 存在，4 个 `.grid-type-btn`，`#exportVectorBtn` 存在，`--seal-red: #9E2A2B`
+4. ✅ 网格类型切换：点击米字格按钮后 `data-grid-type` 变为 `mizi`，线条数增加
+5. ✅ 主题色：`.a4-preview` 背景为 `rgb(253, 251, 247)`（宣纸色）
+6. ✅ 控制台无 error
+
+#### 验证 — Puppeteer PDF 生成
+- 命令：`node puppeteer-pdf.cjs --text "床前明月光" --output 测试字帖_svg.pdf`
+- 结果：✅ 18.6 KB 矢量 PDF，A4 纵向，文字可选择复制，字体完整嵌入
+- 路径修复：`dist/index.html`（原 `字帖生成器.html` 已不存在）
+
+#### 技术亮点
+- **参数化 Inline SVG**：viewBox 100×100 抽象坐标 + CSS mm 物理尺寸，屏幕预览/导出 PDF/物理打印三者一致
+- **双轨矢量 PDF**：客户端 jsPDF+svg2pdf.js（无浏览器对话框）+ 服务端 Puppeteer（命令行批量），共享同一 SVG DOM 源
+- **物理级 18mm 精度**：CSS `width: 18mm` + `@page margin: 0mm` + `preferCSSPageSize: true`，误差 < 0.1mm
+- **多 Agent 文件隔离**：4 个 Agent 严格独占文件域（src/contracts / src/components / src/utils / src/styles），零冲突并行
+- **向后兼容**：保留旧 gridRenderer.js / modules/pdfExport.js 文件，仅 main.js 不再引用，可随时回退
+
+#### 回滚策略
+- `git reset --hard backup/pre_svg_refactor/20260723_143000`
+- 旧模块保留：`src/modules/gridRenderer.js` / `src/modules/pdfExport.js` 未删除
+
+---
+
 ## [2.3.0] — 2026-07-23
 
 ### 🔧 删除花哨功能 + 精简主界面 + 修复致命 bug + UI 优化
