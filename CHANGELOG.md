@@ -5,6 +5,75 @@
 
 ---
 
+## [2.3.0] — 2026-07-23
+
+### 🔧 删除花哨功能 + 精简主界面 + 修复致命 bug + UI 优化
+
+用户反馈 11 个问题，本次修复 9 个（P0×1 + P1×2 + P2×4 + P3 暂缓×2）。通过 4 个 Agent 并行执行（删除花哨功能 / 文件导入过滤 / 选择框打印+暗色模式 / 页眉 margin），1 个 Agent 串行清理遗留引用。净减少 676 行代码，460 模块（-3），2,163.02 KB（-22 KB）。
+
+#### P0 致命修复 — 删除演示模式 + 新手引导（问题 3+4）
+- **根因**：`onboarding.js` 的 overlay 清理不彻底，`scroll`/`resize` 事件监听器未移除，`setTimeout(startOnboarding, 800)` 自动触发后无法退出；`demoMode.js` 的 `setTimeout` 链导致页面灰掉卡死
+- **决策**：用户明确要求"必要时请回退、去掉这种花哨的功能"→ 直接删除（方案 A）
+- **删除文件（6 个）**：
+  - `src/modules/demoMode.js`（90 行）
+  - `src/modules/onboarding.js`（187 行）
+  - `src/modules/review.js`（154 行）— 今日待复习功能
+  - `src/styles/demoMode.css`（63 行）
+  - `src/styles/onboarding.css`（88 行）
+  - `src/styles/review.css`（77 行）
+- **连带清理**：
+  - `main.js`：移除 4 个 import + 4 个 init 调用 + showFeedbackUI 钩子
+  - `index.html`：移除演示按钮 + 今日待复习区域 + 练习反馈区域 HTML
+  - `settingsCenter.js`：移除 onboarding 引用 + "重新查看新手引导"按钮
+  - `main.css`：移除 4 个 @import（demoMode/onboarding/review/feedback）
+
+#### P1 严重修复 — 文件导入非汉字过滤（问题 1）
+- **`src/modules/fileImporter.js`**：新增 `filterChineseChars(text)` 函数，正则 `/[\u4e00-\u9fa5]/g` 匹配 CJK 基本汉字
+- **覆盖 5 条导入路径**：txt / md（去标记后过滤）/ csv（解析后过滤）/ xlsx（读单元格后过滤）/ docx（提取文本后过滤）
+- **用户体验**：空结果提示改为"文件中未发现汉字字符"；Toast 改为"已导入 X 个汉字"；控制台输出过滤前后字符数对比
+- **保留功能**：文件大小限制、Loading 状态、input 事件联动
+
+#### P1 严重修复 — 选择框打印占位（问题 7）
+- **根因**：`feedback.js` 的 `initFeedback()` 创建 `.char-feedback-btn` 悬浮按钮，打印时虽 `display:none` 但可能影响布局
+- **修复**：`initFeedback()` 不再被调用 → 选择框元素不会被创建 → 打印时无占位问题
+- **防御性增强**：`feedback.css` @media print 补充完整隐藏规则（.feedback-* / .char-feedback-* / .popover-*）；`print.css` 新增 `.black span, .black-char, .cell span, .cell .char { color:#000 !important }` 强制黑色
+
+#### P2 UI 优化 — 精简主界面（问题 5+8）
+- **移除**：顶部"今日待复习"区域 + "练习反馈"区域（不挤占字帖核心空间）
+- **保留**：历史记录侧边栏（折叠按钮）+ 设置中心（浮动按钮）+ 学习报告（浮动按钮）— 均不占主界面空间
+- **保留 feedback.js**：`reportPanel.js` 依赖其 `getCharFeedbackData` 函数（统计数据为空，可接受）
+
+#### P2 UI 优化 — 默认字体改为文鼎楷体（问题 6）
+- **`index.html`**：字体下拉框 `selected` 从 `LXGWWenKai` 移到 `TW-Kai`（文鼎楷体）
+
+#### P2 UI 优化 — dark 模式汉字颜色（问题 11）
+- **`src/styles/grid.css`**：`.black span` 和 `.tianzi-cell .black-char` 的 `color:black` 改为 `color:var(--text-color, #000)`
+- **效果**：dark 模式下汉字显示为 `#e2e8f0`（浅灰蓝），light 模式下为 `#1e293b`（深灰蓝，接近黑）
+- **打印强制黑色**：`print.css` @media print 新增 `color:#000 !important`，无论 light/dark 模式打印都是黑色
+
+#### P2 UI 优化 — 页眉 margin 超出（问题 2）
+- **`src/modules/pdfExport.js`**：
+  - `box-sizing:border-box` 修复根因（原 width:100% + padding:0 20px 超出 @page margin）
+  - `padding:0 4px`（从 20px 降到 4px，@page margin 已 20px）
+  - `min-width:0` + `overflow:hidden` + `text-overflow:ellipsis` + `white-space:nowrap`（三段 flex 防重叠）
+  - 字号 13px → 11px
+  - JS 端字符数限制：页眉左 20 / 中 15 / 右 20 / 页脚 30（超出加省略号）
+
+#### 验证 — 构建与提交
+- 模块数：463 → 460（-3，删除 demoMode/onboarding/review）
+- 构建时间：9.64s → 7.77s
+- 文件大小：2,185.33 KB → 2,163.02 KB（-22.31 KB，gzip: 858.43 → 854.01 KB）
+- 0 错误 0 警告
+- PWA precache：9 entries（2340.65 KiB）
+- Git diff：15 文件变更，65 insertions + 741 deletions（净减 676 行）
+- Commit：`ef76bc0`，Tag：`v2.3.0`
+
+#### 暂缓项（P3 低优先级）
+- 问题 9：紫色 Puppeteer 按钮位置+交互优化（自动启动后台服务）— 需跨平台脚本，风险较高
+- 问题 10：切换字体自动刷新字帖 — 需先评估资源消耗风险
+
+---
+
 ## [2.2.1] — 2026-07-23
 
 ### 🔧 GitHub Pages 字体加载修复 + 商用字体清理
