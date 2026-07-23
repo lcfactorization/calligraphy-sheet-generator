@@ -5,6 +5,51 @@
 
 ---
 
+## [2.2.1] — 2026-07-23
+
+### 🔧 GitHub Pages 字体加载修复 + 商用字体清理
+
+V2.2.0 浏览器自动化验收测试发现 5 条 `net::ERR_ABORTED` 字体加载错误。根因：`fontManager.js` 的 `FONT_LIST` 使用绝对路径 `/fonts/xxx.ttf`，在 GitHub Pages 子路径部署（`/calligraphy-sheet-generator/`）下被浏览器解析为根域名 `https://lcfactorization.github.io/fonts/xxx.ttf`（返回 404），而非项目子路径 `https://lcfactorization.github.io/calligraphy-sheet-generator/fonts/xxx.ttf`。
+
+#### 修复 — 字体路径绝对→相对
+- **`src/modules/fontManager.js`**：`FONT_LIST` 第 5-8 行 4 个字体路径从 `/fonts/` 改为 `./fonts/`，让浏览器基于当前页面 URL 解析为正确的子路径
+  - 验证依据：`Invoke-WebRequest -Method Head` 确认 `https://lcfactorization.github.io/calligraphy-sheet-generator/fonts/LXGWWenKai-Regular.ttf` 返回 200（25,575,676 bytes），而 `https://lcfactorization.github.io/fonts/LXGWWenKai-Regular.ttf` 返回 404
+- **`src/modules/pdfExport.js`**：同步修复 Puppeteer PDF 导出中的 `@font-face` 声明与 `fl` 数组（相对路径 + 移除商用字体项）
+
+#### 变更 — 移除商用字体（合规清理）
+- **`我逸清晨体楷书`（WoYiQingChenTiKaiShu）** 字体被移除，原因：
+  1. **版权合规问题**：经 Web 搜索确认，该字体为商用字体（个人学习参考需授权），不符合开源项目版权合规要求
+  2. **CI 下载源缺失**：`scripts/download-fonts.sh` 未包含该字体的下载块，GitHub Pages 上不存在该文件，导致 404
+  3. **V2.0.0 历史遗留**：V2.0.0 重构时该字体项未清理，本次彻底移除
+- **清理范围**（6 个文件）：
+  - `src/modules/fontManager.js`：FONT_LIST 移除该项
+  - `index.html`：第 71 行 `<option>` 移除
+  - `src/modules/pdfExport.js`：`@font-face` 声明 + `fl` 数组项移除
+  - `puppeteer-pdf.cjs`：字体映射表 + `--help` 输出列表移除
+  - `scripts/download-fonts.sh`：移除错误的 `texgyreadventor` 下载块（base64 已内嵌，不需要文件下载），添加移除说明注释
+  - `README.md`：字体列表从 6 款调整为 5 款，移除商用字体说明
+- **保留**：`CHANGELOG.md` v2.0.0 历史记录中的"保留3个已有开源字体"原貌不动（历史记录不修改）
+
+#### 验证 — 构建与提交
+- 模块数：463（与 v2.2.0 一致）
+- 构建时间：9.64s
+- 文件大小：2,185.33 KB（gzip: 858.43 KB）
+- 0 错误 0 警告
+- PWA precache：9 entries（2363.25 KiB）
+- Git diff：6 文件变更，11 insertions + 23 deletions
+- Commit：`0431f5d`，Tag：`v2.2.1`
+
+#### 验证 — CI 部署与浏览器自动化
+- `gh run list` 确认 fix(v2.2.1) commit 已 success（52s）
+- PowerShell `Invoke-WebRequest` 确认 HTML 部署正确（HTTP 200，2,185,334 bytes，不含 WoYiQingChenTiKaiShu，含 `./fonts/` 相对路径）
+- 浏览器自动化测试 5/5 PASS：
+  - 控制台无字体加载错误（仅 Vite 客户端无关 ERR_ABORTED）
+  - 输入框预填文字以楷体正常渲染（未回退默认字体）
+  - 字体下拉框仅 5 项（无"我逸清晨体楷书"）
+  - 字体切换功能正常（霞鹜文楷 ↔ 思源宋体）
+
+---
+
 ## [2.2.0] — 2026-07-23
 
 ### 🚀 文件导入 + AI推荐 + 学习报告 + UI优化（方案B/C高出彩度合并）
