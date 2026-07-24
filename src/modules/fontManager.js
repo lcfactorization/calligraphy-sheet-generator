@@ -37,6 +37,9 @@ export function handleFontUpload(file) {
             opt.value = fontName;
             opt.textContent = '★ ' + displayName;
             opt.selected = true;
+            // v2.5.2：存储 data URL 到 dataset，供 Puppeteer 服务器端注册字体
+            opt.dataset.fontDataUrl = ev.target.result;
+            opt.dataset.fontDisplayName = displayName;
             select.appendChild(opt);
             console.log('自定义字体已加载: ' + displayName);
         }).catch(function(err) {
@@ -44,4 +47,51 @@ export function handleFontUpload(file) {
         });
     };
     reader.readAsDataURL(file);
+}
+
+// v2.5.2：自动检测系统已安装的楷体字体（最多添加2种）
+// 使用 canvas 文本测量法检测字体是否可用，性能开销 < 10ms
+const SYSTEM_KAITI_FONTS = [
+    // Windows
+    '楷体', 'KaiTi', '华文楷体', 'STKaiti', '方正楷体_GBK', '方正楷体', 'KaiTi_GB2312', 'SimKai',
+    // macOS
+    '楷体-简', 'Kaiti SC', 'KaiTi',
+    // Linux
+    'AR PL UKai CN', 'WenQuanYi Zen Hei',
+    // HarmonyOS / Android
+    'HarmonyOS Sans SC', 'Source Han Sans SC',
+];
+
+export function detectSystemFonts() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const testString = '汉字字体测试abc';
+    ctx.font = '72px monospace';
+    const baselineWidth = ctx.measureText(testString).width;
+
+    const detected = [];
+    for (const fontName of SYSTEM_KAITI_FONTS) {
+        // 跳过已在 FONT_LIST 中的字体
+        if (FONT_LIST.some(([name]) => name === fontName)) continue;
+        ctx.font = '72px "' + fontName + '", monospace';
+        const width = ctx.measureText(testString).width;
+        if (width !== baselineWidth) {
+            detected.push(fontName);
+            if (detected.length >= 2) break;
+        }
+    }
+
+    if (detected.length > 0) {
+        const select = document.getElementById('font-select');
+        if (select) {
+            for (const fontName of detected) {
+                const opt = document.createElement('option');
+                opt.value = fontName;
+                opt.textContent = '☆ ' + fontName;
+                select.appendChild(opt);
+                console.log('系统楷体检测到: ' + fontName);
+            }
+        }
+    }
+    return detected;
 }

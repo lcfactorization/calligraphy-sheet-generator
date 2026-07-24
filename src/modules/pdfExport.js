@@ -19,7 +19,29 @@ export async function printToPDF() {
             return now.getFullYear() + '年' + (now.getMonth()+1).toString().padStart(2,'0') + '月' + now.getDate().toString().padStart(2,'0') + '日 ' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
         })();
         var hCenter = document.getElementById('headerCenter').value || '练习字帖';
-        var hRight = document.getElementById('headerRight').value || fontDisplayName + '字体';
+        // v2.5.2：页眉右侧 — 如果用户自定义了则用自定义值，否则用字体名+练习
+        var headerRightVal = document.getElementById('headerRight').value || '';
+        var hRight;
+        if (headerRightVal && headerRightVal !== '字体练习') {
+            hRight = headerRightVal;
+        } else {
+            var fontName = fontDisplayName.replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+            var cnChars = (fontName.match(/[\u4e00-\u9fff]/g) || []);
+            if (cnChars.length > 6 && fontName.indexOf('体') >= 0) {
+                fontName = fontName.replace(/体/, '');
+            }
+            var cnChars2 = (fontName.match(/[\u4e00-\u9fff]/g) || []);
+            if (cnChars2.length > 6) {
+                var c = 0, r = '';
+                for (var j = 0; j < fontName.length; j++) {
+                    if (/[\u4e00-\u9fff]/.test(fontName[j])) c++;
+                    if (c > 6) break;
+                    r += fontName[j];
+                }
+                fontName = r;
+            }
+            hRight = fontName ? fontName + '练习' : '';
+        }
         var footerText = document.getElementById('footerText').value || '评分：☆☆☆☆☆';
 
         // 截断页眉页脚文本，防止打印时超出 @page margin 造成重叠或裁切

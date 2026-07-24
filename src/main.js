@@ -1,5 +1,5 @@
 import './styles/main.css';
-import { loadFonts, handleFontUpload } from './modules/fontManager.js';
+import { loadFonts, handleFontUpload, detectSystemFonts } from './modules/fontManager.js';
 import { applyTheme, toggleTheme, updateCharCounter, resetHF } from './modules/settings.js';
 // v2.4.0：切换到新 SVG 矢量字格引擎 + jsPDF/svg2pdf 双轨 PDF（保留旧模块作回退）
 import { renderSheet } from './components/GridEngine.js';
@@ -54,6 +54,8 @@ function handleGenerate() {
 
 // 字体加载完成后首屏生成
 loadFonts().then(() => {
+    // v2.5.2：自动检测系统楷体字体（最多2种，性能开销 < 10ms）
+    try { detectSystemFonts(); } catch(e) { console.warn('系统字体检测失败:', e); }
     updateCharCounter();
     handleGenerate();
 });

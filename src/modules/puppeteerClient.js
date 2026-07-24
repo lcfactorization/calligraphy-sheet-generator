@@ -48,7 +48,11 @@ if (btn) {
         const textEl = document.getElementById('inputText');
         const text = textEl ? textEl.value : '';
         const fontSelect = document.getElementById('font-select');
-        const font = fontSelect ? fontSelect.options[fontSelect.selectedIndex].text : '\u59dc\u6d69\u786c\u7b14\u6977\u4e66';
+        const selectedOption = fontSelect ? fontSelect.options[fontSelect.selectedIndex] : null;
+        const font = selectedOption ? selectedOption.text : '\u59dc\u6d69\u786c\u7b14\u6977\u4e66';
+        // v2.5.2：获取自定义字体的 data URL 和内部名称，供服务器端注册
+        const fontValue = selectedOption ? selectedOption.value : '';
+        const fontDataUrl = (selectedOption && selectedOption.dataset && selectedOption.dataset.fontDataUrl) ? selectedOption.dataset.fontDataUrl : '';
 
         if (!text.trim()) {
             showToast('\u8bf7\u5148\u8f93\u5165\u8981\u751f\u6210\u5b57\u5e16\u7684\u6587\u672c', 'error');
@@ -71,6 +75,8 @@ if (btn) {
             const reqBody = JSON.stringify({
                 text: text,
                 font: font,
+                fontValue: fontValue,
+                fontDataUrl: fontDataUrl,
                 format: 'a4',
                 header: '',
                 footer: '\u7b2c {page} \u9875 / \u5171 {total} \u9875'

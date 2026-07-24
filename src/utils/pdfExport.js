@@ -125,12 +125,20 @@ export async function exportVectorPDF(opts = {}) {
             opts.headerCenter ?? (document.getElementById('headerCenter')?.value || '练习字帖'),
             16
         );
-        const headerRight = truncate(
-            opts.headerRight ??
-                (document.getElementById('headerRight')?.value ||
-                    (fontDisplayName ? fontDisplayName + '字体' : '')),
-            22
-        );
+        // v2.5.2：页眉右侧 — 用户自定义优先，否则用字体名+练习
+        const _hrInput = opts.headerRight ?? document.getElementById('headerRight')?.value ?? '';
+        let headerRight;
+        if (_hrInput && _hrInput !== '字体练习') {
+            headerRight = _hrInput;
+        } else {
+            let fn = (fontDisplayName || '').replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+            const cn = (fn.match(/[\u4e00-\u9fff]/g) || []);
+            if (cn.length > 6 && fn.includes('体')) fn = fn.replace(/体/, '');
+            const cn2 = (fn.match(/[\u4e00-\u9fff]/g) || []);
+            if (cn2.length > 6) { let c=0,r=''; for (const ch of fn) { if (/[\u4e00-\u9fff]/.test(ch)) c++; if (c>6) break; r+=ch; } fn=r; }
+            headerRight = fn ? fn + '练习' : '';
+        }
+        headerRight = truncate(headerRight, 22);
         const footerText = truncate(
             opts.footerText ?? (document.getElementById('footerText')?.value || '评分：☆☆☆☆☆'),
             32
@@ -244,8 +252,19 @@ export function printDirect() {
     const hLeft = document.getElementById('headerLeft')?.value ||
         `${now.getFullYear()}年${pad(now.getMonth() + 1)}月${pad(now.getDate())}日 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const hCenter = document.getElementById('headerCenter')?.value || '练习字帖';
-    const hRight = document.getElementById('headerRight')?.value ||
-        (fontDisplayName ? fontDisplayName + '字体' : '');
+    // v2.5.2：页眉右侧 — 用户自定义优先，否则用字体名+练习
+    const _hrInput2 = document.getElementById('headerRight')?.value || '';
+    let hRight;
+    if (_hrInput2 && _hrInput2 !== '字体练习') {
+        hRight = _hrInput2;
+    } else {
+        let fn2 = (fontDisplayName || '').replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+        const cn3 = (fn2.match(/[\u4e00-\u9fff]/g) || []);
+        if (cn3.length > 6 && fn2.includes('体')) fn2 = fn2.replace(/体/, '');
+        const cn4 = (fn2.match(/[\u4e00-\u9fff]/g) || []);
+        if (cn4.length > 6) { let c=0,r=''; for (const ch of fn2) { if (/[\u4e00-\u9fff]/.test(ch)) c++; if (c>6) break; r+=ch; } fn2=r; }
+        hRight = fn2 ? fn2 + '练习' : '';
+    }
     const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆';
 
     // v2.4.12：将字格按 page-break 拆分为独立分页段，每段正常文档流布局

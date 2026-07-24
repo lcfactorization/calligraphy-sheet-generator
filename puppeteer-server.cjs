@@ -59,7 +59,7 @@ async function getBrowser() {
     return browserInstance;
 }
 
-async function generatePDF(text, fontDisplayName) {
+async function generatePDF(text, fontDisplayName, fontValue, tempFontPath) {
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
@@ -69,6 +69,32 @@ async function generatePDF(text, fontDisplayName) {
         // v2.5.1：进一步减少固定等待（networkidle2 已确保网络空闲）
         await page.goto(fileUrl, { waitUntil: 'networkidle2', timeout: 60000 });
         await new Promise(r => setTimeout(r, 500));
+
+        // v2.5.2：注册自定义字体（如果有）
+        if (tempFontPath && fontValue) {
+            const fontUrl = 'http://localhost:' + PORT + '/temp-custom-font.ttf';
+            await page.evaluate(async (fontName, url, displayFontName) => {
+                try {
+                    const ff = new FontFace(fontName, 'url(' + url + ')');
+                    await ff.load();
+                    document.fonts.add(ff);
+                    // 添加到下拉框，使用客户端传来的显示名
+                    const select = document.getElementById('font-select');
+                    if (select) {
+                        const opt = document.createElement('option');
+                        opt.value = fontName;
+                        opt.textContent = displayFontName;
+                        opt.selected = true;
+                        select.appendChild(opt);
+                    }
+                    console.log('自定义字体已注册: ' + fontName + ' (' + displayFontName + ')');
+                } catch(e) {
+                    console.warn('自定义字体注册失败: ' + e.message);
+                }
+            }, fontValue, fontUrl, fontDisplayName);
+            // 等待字体加载完成
+            await new Promise(r => setTimeout(r, 500));
+        }
         await page.evaluate((text, fontName) => {
             const ta = document.getElementById('inputText');
             if (ta) { ta.value = text; ta.dispatchEvent(new Event('input')); }
@@ -121,15 +147,37 @@ async function generatePDF(text, fontDisplayName) {
                 const arr = Array.from(text || '');
                 return arr.length > max ? arr.slice(0, max).join('') + '…' : (text || '');
             };
+            // v2.5.2：页眉右侧 — 如果用户自定义了则用自定义值，否则用字体名+练习
+            const headerRightInput = document.getElementById('headerRight')?.value || '';
+            let hRight;
+            if (headerRightInput && headerRightInput !== '字体练习') {
+                hRight = headerRightInput;
+            } else {
+                // 默认：字体名缩短到≤6个汉字 + "练习"
+                let fontName = fontDisplayName.replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+                const chineseChars = (fontName.match(/[\u4e00-\u9fff]/g) || []);
+                if (chineseChars.length > 6 && fontName.includes('体')) {
+                    fontName = fontName.replace(/体/, '');
+                }
+                const newChineseCount = (fontName.match(/[\u4e00-\u9fff]/g) || []).length;
+                if (newChineseCount > 6) {
+                    let count = 0, result = '';
+                    for (const ch of fontName) {
+                        if (/[\u4e00-\u9fff]/.test(ch)) count++;
+                        if (count > 6) break;
+                        result += ch;
+                    }
+                    fontName = result;
+                }
+                hRight = fontName ? fontName + '练习' : '';
+            }
             return {
                 hLeft: truncate(
                     document.getElementById('headerLeft')?.value ||
                     `${now.getFullYear()}年${pad(now.getMonth()+1)}月${pad(now.getDate())}日 ${pad(now.getHours())}:${pad(now.getMinutes())}`,
                     22),
                 hCenter: truncate(document.getElementById('headerCenter')?.value || '练习字帖', 16),
-                hRight: truncate(
-                    document.getElementById('headerRight')?.value ||
-                    (fontDisplayName ? fontDisplayName + '字体' : ''), 22),
+                hRight: truncate(hRight, 22),
                 fText: truncate(document.getElementById('footerText')?.value || '评分：☆☆☆☆☆', 32)
             };
         });
@@ -203,7 +251,7 @@ const server = http.createServer(async (req, res) => {
         // v2.4.11：用 Buffer.concat 收集分片，避免多字节UTF-8字符跨chunk被截断
         const chunks = [];
         let totalLen = 0;
-        req.on('data', chunk => { chunks.push(chunk); totalLen += chunk.length; if (totalLen > 1e6) req.destroy(); });
+        req.on('data', chunk => { chunks.push(chunk); totalLen += chunk.length; if (totalLen > 50e6) req.destroy(); });
         req.on('end', async () => {
             try {
                 const body = Buffer.concat(chunks).toString('utf8');
@@ -240,14 +288,36 @@ const server = http.createServer(async (req, res) => {
                 } else {
                     throw new Error('请求体中未找到有效 JSON');
                 }
-                const { text, font } = parsed;
+                const { text, font, fontValue, fontDataUrl } = parsed;
                 if (!text || !text.trim()) {
                     res.writeHead(400, { 'Content-Type': 'application/json', 'Connection': 'close' });
                     res.end(JSON.stringify({ error: '文本不能为空' }));
                     return;
                 }
-                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}`);
-                const pdfBuffer = await generatePDF(text, font || '文鼎楷体');
+                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}, 自定义字体=${fontDataUrl ? '是' : '否'}`);
+
+                // v2.5.2：如果有自定义字体数据，保存到临时文件供页面加载
+                let tempFontPath = null;
+                if (fontDataUrl && fontValue) {
+                    try {
+                        const base64Data = fontDataUrl.split(',')[1];
+                        if (base64Data) {
+                            tempFontPath = path.join(DIST_DIR, 'temp-custom-font.ttf');
+                            fs.writeFileSync(tempFontPath, Buffer.from(base64Data, 'base64'));
+                            console.log(`[Server] 自定义字体已保存: ${fontValue} (${(base64Data.length * 0.75 / 1024 / 1024).toFixed(1)}MB)`);
+                        }
+                    } catch(e) {
+                        console.warn(`[Server] 自定义字体保存失败: ${e.message}`);
+                        tempFontPath = null;
+                    }
+                }
+
+                const pdfBuffer = await generatePDF(text, font || '文鼎楷体', fontValue || '', tempFontPath);
+
+                // 清理临时字体文件
+                if (tempFontPath) {
+                    try { fs.unlinkSync(tempFontPath); } catch(e) {}
+                }
                 const encodedName = encodeURIComponent('字帖.pdf');
 
                 // v2.4.19：支持 base64 JSON 响应模式，避免 IDM 等下载插件拦截

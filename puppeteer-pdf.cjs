@@ -53,6 +53,7 @@ function parseArgs() {
         landscape: false,
         timeout: 30000,
         url: '',
+        fontFile: '',
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -94,6 +95,9 @@ function parseArgs() {
             case '--url':
                 options.url = args[++i] || '';
                 break;
+            case '--font-file':
+                options.fontFile = args[++i] || '';
+                break;
             case '-h':
             case '--help':
                 console.log(`
@@ -113,6 +117,8 @@ function parseArgs() {
         姜浩硬笔楷书        华文楷体            方正仿宋GBK
         方正宋简大漆        方正宋简海豚        文鼎楷体
         田英章楷书30Light
+      --font-file <路径>   自定义字体文件路径(.ttf/.otf/.woff)
+                          使用此选项时可配合 --font 指定显示名
   --format <格式>         页面格式: a4, a3, a5, letter, legal (默认: a4)
   --header <文本>         页眉文本（留空则无页眉）
   --footer <文本>         页脚文本 (支持 {page} 和 {total} 变量)
@@ -157,10 +163,11 @@ function parseArgs() {
         process.exit(1);
     }
 
-    // 验证字体名称
-    if (!FONT_MAP[options.font]) {
+    // 验证字体名称（自定义字体文件跳过验证）
+    if (!options.fontFile && !FONT_MAP[options.font]) {
         console.error(`错误: 未知字体 "${options.font}"`);
         console.error(`可选字体: ${Object.keys(FONT_MAP).join(', ')}`);
+        console.error(`或使用 --font-file <路径> 指定自定义字体文件`);
         process.exit(1);
     }
 
@@ -236,7 +243,7 @@ async function generatePDF() {
         process.exit(1);
     }
 
-    const cssFontFamily = FONT_MAP[options.font];
+    const cssFontFamily = options.fontFile ? 'CustomFont1' : FONT_MAP[options.font];
 
     console.log('┌─────────────────────────────────────────────┐');
     console.log('│  字帖生成器 — Puppeteer PDF 矢量生成工具     │');
@@ -276,6 +283,32 @@ async function generatePDF() {
         });
         // v2.5.1：进一步减少等待（1500ms → 500ms，networkidle2 已保证资源加载）
         await new Promise(r => setTimeout(r, 500));
+
+        // v2.5.2：加载自定义字体文件（如果指定了 --font-file）
+        if (options.fontFile) {
+            const fontPath = path.resolve(options.fontFile);
+            const fontUrl = 'file:///' + fontPath.replace(/\\/g, '/');
+            console.log(`▶ 加载自定义字体: ${options.fontFile}`);
+            await page.evaluate(async (url, displayFontName) => {
+                try {
+                    const ff = new FontFace('CustomFont1', 'url(' + url + ')');
+                    await ff.load();
+                    document.fonts.add(ff);
+                    const select = document.getElementById('font-select');
+                    if (select) {
+                        const opt = document.createElement('option');
+                        opt.value = 'CustomFont1';
+                        opt.textContent = '★ ' + displayFontName;
+                        opt.selected = true;
+                        select.appendChild(opt);
+                    }
+                    console.log('自定义字体加载成功: ' + displayFontName);
+                } catch(e) {
+                    console.warn('自定义字体加载失败: ' + e.message);
+                }
+            }, fontUrl, options.font);
+            await new Promise(r => setTimeout(r, 500));
+        }
 
         // 设置文本内容和字体
         console.log(`▶ 正在设置文本内容 (${options.text.length} 字)...`);
@@ -357,11 +390,28 @@ async function generatePDF() {
                 document.getElementById('headerCenter')?.value || '练习字帖',
                 16
             );
-            const hRight = truncate(
-                document.getElementById('headerRight')?.value ||
-                (fontDisplayName ? fontDisplayName + '字体' : ''),
-                22
-            );
+            // v2.5.2：页眉右侧 — 如果用户自定义了则用自定义值，否则用字体名+练习
+            const headerRightInput = document.getElementById('headerRight')?.value || '';
+            let hRight;
+            if (headerRightInput && headerRightInput !== '字体练习') {
+                hRight = headerRightInput;
+            } else {
+                let fontName = fontDisplayName.replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+                const cn = (fontName.match(/[\u4e00-\u9fff]/g) || []);
+                if (cn.length > 6 && fontName.includes('体')) fontName = fontName.replace(/体/, '');
+                const cn2 = (fontName.match(/[\u4e00-\u9fff]/g) || []);
+                if (cn2.length > 6) {
+                    let c = 0, r = '';
+                    for (const ch of fontName) {
+                        if (/[\u4e00-\u9fff]/.test(ch)) c++;
+                        if (c > 6) break;
+                        r += ch;
+                    }
+                    fontName = r;
+                }
+                hRight = fontName ? fontName + '练习' : '';
+            }
+            hRight = truncate(hRight, 22);
             const fText = truncate(
                 document.getElementById('footerText')?.value || '评分：☆☆☆☆☆',
                 32

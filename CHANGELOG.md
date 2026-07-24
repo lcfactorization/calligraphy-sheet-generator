@@ -5,6 +5,84 @@
 
 ---
 
+## [未发布 / v2.5.2] — 2026-07-24
+
+### 🔧 自定义字体Puppeteer修复 + 页眉字体名 + 系统楷体检测（4项功能修复）
+
+启用多 agent 并行调查与修复，备份于 `backup_v251/`。
+
+#### 修复1 — Puppeteer 加载用户自定义字体后 PDF 仍用默认文鼎楷体
+
+- **用户反馈**："加载用户自定义的新字体之后，用window.print()可以打印出正常矢量PDF格式的字帖和新渲染好的字体；但使用puppeteer方式生成矢量PDF的时候，加载新的字体、完成渲染，导出的PDF文件中字帖里仍然使用的是默认的文鼎楷体"
+- **根因**：
+  1. 用户自定义字体通过 `FontFace API` + `FileReader.readAsDataURL()` 加载到浏览器内存
+  2. 字体数据仅存在于当前页面的 `document.fonts` 中，未持久化
+  3. Puppeteer 服务器加载全新页面（`file:///dist/index.html`），无法访问客户端内存中的自定义字体
+  4. 服务器仅收到字体显示名（如 "★ 姜浩硬笔楷书"），但下拉框中没有该选项
+  5. 字体选择失败，回退到默认 "文鼎楷体"
+- **修复方案**：
+  - **[fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L40-L42)**：
+    - `handleFontUpload` 中将 data URL 存储到 `opt.dataset.fontDataUrl`
+    - 同时存储显示名到 `opt.dataset.fontDisplayName`
+  - **[puppeteerClient.js](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L53-L55)**：
+    - 读取选中字体的 `fontValue`（内部名称）和 `fontDataUrl`（base64 数据）
+    - 将两者随请求发送给服务器
+  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L73-L96)**：
+    - 接收 `fontDataUrl` 和 `fontValue`
+    - 将 base64 数据写入临时文件 `dist/temp-custom-font.ttf`
+    - 在 Puppeteer 页面中通过 `FontFace API` 注册字体（URL 加载）
+    - 添加到下拉框并设为选中
+    - 请求体大小限制从 1MB 提升到 50MB
+    - PDF 生成完成后自动清理临时字体文件
+  - **[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L97-L99)**：
+    - 新增 `--font-file <路径>` 命令行选项
+    - 使用 `file:///` 协议直接加载本地字体文件
+    - `--font` 参数作为显示名，注册为 `CustomFont1`
+- **验证**：CLI 测试 `--font "测试字体" --font-file "fonts/texgyreadventor-regular.otf"` 成功，页眉正确显示 "测试字体练习"
+
+#### 修复2 — 自动检测系统已安装的楷体字体（最多2种）
+
+- **用户反馈**："用户在使用的时候，可能希望电脑上已经有的各种楷体都可以自动作为备选加载项"
+- **方案**：Canvas 文本测量法（性能开销 < 10ms，不影响启动速度）
+  - **[fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L52-L97)**：
+    - 新增 `detectSystemFonts()` 函数
+    - 维护跨平台楷体字体名称列表（Windows/macOS/Linux/HarmonyOS）
+    - 使用 canvas `measureText()` 对比目标字体与 monospace 的宽度差异
+    - 检测到字体自动添加到下拉框（☆ 前缀区分）
+    - 最多添加 2 种非默认楷体
+  - **[main.js](file:///c:/poem2pdf/distribution/src/main.js#L57-L58)**：
+    - `loadFonts().then()` 中调用 `detectSystemFonts()`
+- **覆盖的操作系统字体**：
+  - Windows: 楷体, KaiTi, 华文楷体, STKaiti, 方正楷体_GBK, 方正楷体, KaiTi_GB2312, SimKai
+  - macOS: 楷体-简, Kaiti SC, KaiTi
+  - Linux: AR PL UKai CN, WenQuanYi Zen Hei
+  - HarmonyOS/Android: HarmonyOS Sans SC, Source Han Sans SC
+
+#### 修复3 — 页眉右侧默认文本改为字体名+练习
+
+- **用户反馈**："页眉中最右侧默认的文本'字体练习'切换为不超过6个汉字字符的对实际加载字体的名字的描述、后加'练习'"
+- **修复**：在 4 个文件中统一修改页眉右侧逻辑：
+  - **[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L391-L412)**
+  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L149-L172)**
+  - **[src/modules/pdfExport.js](file:///c:/poem2pdf/distribution/src/modules/pdfExport.js#L22-L44)**（window.print() 路径）
+  - **[src/utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L128-L141)**（jsPDF 路径）
+- **逻辑**：
+  1. 如果用户自定义了页眉右侧（值 ≠ "字体练习"），使用用户自定义值
+  2. 否则，取字体显示名，去掉 ★/☆ 前缀和文件扩展名
+  3. 如果汉字字符 > 6，先尝试移除 "体" 字
+  4. 如果仍 > 6，截断到 6 个汉字字符
+  5. 追加 "练习"
+- **示例**：
+  - "文鼎楷体" → "文鼎楷体练习"
+  - "方正楷体_GBK" → "方正楷体_GBK练习"
+  - "我逸清晨体楷书" → "我逸清晨楷书练习"（移除"体"，6字+练习）
+
+#### 备份与回退
+- `backup_v251/` 保存修复前版本
+- 回退方法：从 `backup_v251/` 还原对应文件后重新 `npm run build`
+
+---
+
 ## [未发布 / v2.5.1] — 2026-07-24
 
 ### 🔧 边框填充矩形化 + IDM修复回退 + 效率深度优化（3项顽固问题修复）
