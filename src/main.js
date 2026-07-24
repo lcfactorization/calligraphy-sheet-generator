@@ -24,16 +24,14 @@ registerReportPanel();
 initSidebar();
 
 // 读取当前渲染选项（合并侧栏状态 + 字体选择 + 契约默认值）
+// v2.4.4：新增 gridType 传递，描红透明度默认 0.1
 function getRenderOptions() {
     const sb = getSidebarState();
     const fontSelect = document.getElementById('font-select');
     return {
-        gridType: sb.gridType || 'tian',
-        mode: 'stroke-order',           // 首字笔顺 + 描红 + 空白
-        traceOpacity: sb.traceOpacity != null ? sb.traceOpacity : 0.25,
+        gridType: sb.gridType || 'mizi',
         fontFamily: fontSelect ? fontSelect.value : 'TW-Kai',
-        cellSizeMM: 18,                 // 物理级 18mm
-        charsPerRow: 10                 // A4 18mm 最多 10 列
+        traceOpacity: sb.traceOpacity != null ? sb.traceOpacity : 0.1
     };
 }
 
@@ -64,9 +62,10 @@ loadFonts().then(() => {
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 // 打印按钮：浏览器原生打印（轨 1a）
 document.getElementById('printBtn').addEventListener('click', () => exportPDF({ track: 'client-print' }));
-// 矢量 PDF 导出按钮：jsPDF + svg2pdf（轨 1b）
-const exportBtn = document.getElementById('exportVectorBtn');
-if (exportBtn) exportBtn.addEventListener('click', () => exportPDF({ track: 'client-jspdf' }));
+
+// v2.4.11：快捷工具栏 — 生成 + 打印（主题用右上角☀）
+document.getElementById('quick-generate-btn').addEventListener('click', handleGenerate);
+document.getElementById('quick-print-btn').addEventListener('click', () => exportPDF({ track: 'client-print' }));
 
 document.getElementById('fontUpload').addEventListener('change', function(e) {
     handleFontUpload(e.target.files[0]);
@@ -87,8 +86,14 @@ document.getElementById('hf-reset').addEventListener('click', function() {
 });
 document.getElementById('inputText').addEventListener('input', updateCharCounter);
 
-// 侧栏状态变化（网格类型 / 描红透明度 / 预设模板）时实时重渲染
+// 侧栏状态变化（预设模板）时实时重渲染
 document.addEventListener('calligraphy:sidebar-updated', () => {
+    handleGenerate();
+});
+
+// v2.4.7：设置中心状态变化（网格类型 / 描红透明度 / 格子大小等）时实时重渲染
+// 与侧栏按钮等效，改的是同一全局变量（settingsCenter）
+document.addEventListener('calligraphy:settings-updated', () => {
     handleGenerate();
 });
 

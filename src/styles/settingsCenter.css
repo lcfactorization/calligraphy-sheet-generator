@@ -166,6 +166,30 @@
     color:var(--accent);
 }
 
+/* v2.4.7：网格类型按钮组（与侧栏按钮样式等效） */
+.sc-grid-type-group{
+    display:flex;gap:6px;flex-wrap:wrap;
+}
+.sc-grid-type-btn{
+    flex:1;min-width:60px;
+    padding:8px 10px;
+    border:1.5px solid var(--border);
+    border-radius:8px;
+    background:transparent;
+    color:var(--text-color);
+    font-size:12px;font-weight:600;
+    cursor:pointer;outline:none;
+    transition:all .2s var(--ease-out-soft);
+    text-align:center;
+}
+.sc-grid-type-btn:hover{border-color:rgba(99,102,241,0.4);transform:translateY(-1px)}
+.sc-grid-type-btn.active{
+    border-color:var(--accent);
+    background:rgba(99,102,241,0.12);
+    color:var(--accent);
+    box-shadow:0 2px 8px rgba(99,102,241,0.15);
+}
+
 /* 底部按钮 */
 .sc-footer{
     display:flex;gap:8px;justify-content:flex-end;

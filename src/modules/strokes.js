@@ -38,7 +38,12 @@ export function createStrokeSVG(strokes, currentIndex) {
     return svg;
 }
 
-export function loadStrokes(char, strokeContainer) {
+// v2.4.5：笔画加载队列 — 逐字加载避免并发卡顿
+const strokeQueue = [];
+let strokeLoading = false;
+let strokeLoadPromise = null;
+
+function loadStrokesDirect(char, strokeContainer) {
     const tempDiv = document.createElement('div');
     document.body.appendChild(tempDiv);
     const writer = new HanziWriter(tempDiv, {
@@ -61,6 +66,61 @@ export function loadStrokes(char, strokeContainer) {
         document.body.removeChild(tempDiv);
     }).catch(error => {
         console.error(`无法加载汉字"${char}"的笔画数据：`, error);
-        document.body.removeChild(tempDiv);
+        if (tempDiv.parentNode) document.body.removeChild(tempDiv);
     });
+}
+
+function processStrokeQueue() {
+    if (strokeLoading || strokeQueue.length === 0) return;
+    strokeLoading = true;
+    const { char, container } = strokeQueue.shift();
+    loadStrokesDirect(char, container).finally(() => {
+        strokeLoading = false;
+        if (strokeQueue.length > 0) {
+            const rId = typeof requestIdleCallback === 'function'
+                ? requestIdleCallback(processStrokeQueue)
+                : setTimeout(processStrokeQueue, 0);
+        } else {
+            // 队列清空，resolve 等待中的 promise
+            if (strokeLoadPromise) {
+                strokeLoadPromise.resolve();
+                strokeLoadPromise = null;
+            }
+        }
+    });
+}
+
+/** 清空笔画加载队列（重新生成字帖时调用，避免旧任务积压） */
+export function clearStrokeQueue() {
+    strokeQueue.length = 0;
+    // 注意：当前正在加载的任务无法中断，
+    // 但它完成后会因队列为空而停止
+}
+
+/** 等待所有笔画加载完成（用于打印前等待） */
+export function waitForStrokes(timeoutMs = 10000) {
+    if (strokeQueue.length === 0 && !strokeLoading) return Promise.resolve();
+    return new Promise((resolve) => {
+        strokeLoadPromise = { resolve };
+        setTimeout(resolve, timeoutMs);
+    });
+}
+
+// v2.4.18：暴露到全局，供 Puppeteer 等外部环境调用等待笔画加载
+if (typeof window !== 'undefined') {
+    window.__waitForStrokes = waitForStrokes;
+    window.__clearStrokeQueue = clearStrokeQueue;
+    window.__getStrokeQueueStatus = () => ({
+        pending: strokeQueue.length,
+        loading: strokeLoading,
+        firstChars: strokeQueue.slice(0, 10).map(item => item.char),
+        lastChars: strokeQueue.slice(-5).map(item => item.char)
+    });
+}
+
+export function loadStrokes(char, strokeContainer) {
+    strokeQueue.push({ char, container: strokeContainer });
+    const rId = typeof requestIdleCallback === 'function'
+        ? requestIdleCallback(processStrokeQueue)
+        : setTimeout(processStrokeQueue, 0);
 }

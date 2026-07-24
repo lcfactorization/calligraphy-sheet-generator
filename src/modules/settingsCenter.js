@@ -15,7 +15,10 @@ const DEFAULT_SETTINGS = {
     showStrokes: true,       // 显示笔画
     showStrokeOrder: true,   // 显示笔顺编号
     theme: 'light',          // 'light' | 'dark' | 'system'
-    fontSize: 43             // 字体大小 px (24-60)
+    fontSize: 43,            // 字体大小 px (24-60)
+    // v2.4.7：从 Sidebar.js 合并到设置中心，统一全局状态管理
+    gridType: 'mizi',        // 网格类型: 'tian' | 'mizi' | 'hui' | 'pinyin-tian'
+    traceOpacity: 0.1        // 描红透明度 (0.05-0.3)
 };
 
 /** 读取设置 */
@@ -127,6 +130,26 @@ function createPanel() {
                     </div>
                 </div>
                 <div class="sc-section">
+                    <div class="sc-section-title">🔲 网格类型</div>
+                    <div class="sc-grid-type-group" role="group" aria-label="网格类型切换">
+                        ${[
+                            {id:'tian',label:'田字格'},
+                            {id:'mizi',label:'米字格'},
+                            {id:'hui',label:'回字格'},
+                            {id:'pinyin-tian',label:'拼音田'}
+                        ].map(t => `
+                            <button type="button"
+                                class="sc-grid-type-btn ${settings.gridType === t.id ? 'active' : ''}"
+                                data-grid-type="${t.id}"
+                                aria-pressed="${settings.gridType === t.id}">${t.label}</button>
+                        `).join('')}
+                    </div>
+                    <div class="sc-field" style="margin-top:12px">
+                        <label>描红透明度 <span class="sc-value" id="scTraceOpacityVal">${settings.traceOpacity.toFixed(2)}</span></label>
+                        <input type="range" id="scTraceOpacity" min="0.05" max="0.3" step="0.05" value="${settings.traceOpacity}">
+                    </div>
+                </div>
+                <div class="sc-section">
                     <div class="sc-section-title">👁️ 显示开关</div>
                     <div class="sc-toggle-row">
                         <span>拼音</span>
@@ -210,15 +233,29 @@ function bindPanelEvents(overlay) {
         { id: 'scGridSize', valId: 'scGridSizeVal', key: 'gridSize', suffix: 'px' },
         { id: 'scCharsPerRow', valId: 'scCharsPerRowVal', key: 'charsPerRow', suffix: '' },
         { id: 'scRowsPerPage', valId: 'scRowsPerPageVal', key: 'rowsPerPage', suffix: '' },
-        { id: 'scFontSize', valId: 'scFontSizeVal', key: 'fontSize', suffix: 'px' }
+        { id: 'scFontSize', valId: 'scFontSizeVal', key: 'fontSize', suffix: 'px' },
+        { id: 'scTraceOpacity', valId: 'scTraceOpacityVal', key: 'traceOpacity', suffix: '', isFloat: true }
     ];
     sliders.forEach(s => {
         const input = overlay.querySelector('#' + s.id);
         const valEl = overlay.querySelector('#' + s.valId);
         input.addEventListener('input', () => {
-            const v = Number(input.value);
-            valEl.textContent = v + s.suffix;
+            const v = s.isFloat ? parseFloat(input.value) : Number(input.value);
+            valEl.textContent = s.isFloat ? v.toFixed(2) : v + s.suffix;
             updateSetting(s.key, v);
+        });
+    });
+
+    // v2.4.7：网格类型按钮绑定（与侧栏按钮等效，改同一全局变量）
+    overlay.querySelectorAll('.sc-grid-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.gridType;
+            overlay.querySelectorAll('.sc-grid-type-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            updateSetting('gridType', type);
         });
     });
 

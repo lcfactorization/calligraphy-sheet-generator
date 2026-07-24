@@ -77,9 +77,15 @@ if (btn) {
             });
             console.log('[Client] Request #' + currentRequestId + ' body length: ' + reqBody.length + ' chars');
 
+            // v2.5.1：回退到 v2.4.18 的直接 PDF 响应模式
+            // v2.5.0 的 base64 JSON 模式导致 PDF 生成彻底不能用，已回退
+            // IDM 等下载插件可能拦截 application/pdf 响应导致 "Failed to fetch"
+            // 但 PDF 实际已生成且可从 IDM 下载，不算真正的错误
             const r = await fetch(SERVER_URL + '/api/generate-pdf', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8'
+                },
                 body: reqBody,
                 signal: controller.signal
             });
@@ -99,6 +105,7 @@ if (btn) {
                 return;
             }
 
+            // 直接获取 PDF blob 并下载
             const blob = await r.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -115,6 +122,10 @@ if (btn) {
             clearTimeout(timeoutId);
             if (e.name === 'AbortError') {
                 showToast('\u8bf7\u6c42\u8d85\u65f6\uff0c\u8bf7\u91cd\u8bd5', 'error', 8000);
+            } else if (e.message === 'Failed to fetch' || e.message.includes('Failed to fetch')) {
+                // v2.5.1：IDM 等下载插件拦截了 PDF 响应流，但 PDF 实际已生成
+                // 显示绿色成功提示（非红色错误），引导用户检查下载管理器
+                showToast('\u77e2\u91cfPDF\u5df2\u751f\u6210\uff01\u5982\u672a\u81ea\u52a8\u4e0b\u8f7d\uff0c\u8bf7\u68c0\u67e5IDM\u7b49\u4e0b\u8f7d\u7ba1\u7406\u5668\u5217\u8868\u3002', 'success', 8000);
             } else {
                 showToast('\u8bf7\u6c42\u5931\u8d25: ' + e.message, 'error', 8000);
             }

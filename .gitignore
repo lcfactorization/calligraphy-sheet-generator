@@ -1,4 +1,9 @@
-﻿node_modules/
+node_modules/
 dist/
 .env
 *.zip
+# v2.5.1：排除备份目录、测试PDF和临时文件
+backup_*/
+_preview_*.pdf
+_tmp_measure/
+*.pdf

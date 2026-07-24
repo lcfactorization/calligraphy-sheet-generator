@@ -1,27 +1,202 @@
-@media print{
-    .app-header,.panel,#input-container,.fab-theme,.fab-print,.fab-puppeteer,.puppeteer-toast{display:none!important}
-    .app{box-shadow:none;backdrop-filter:none;border-radius:0;background:#fff;max-width:100%;padding:0}
-    body{background:#fff}
-    .black span,.black-char,.cell span,.cell .char{color:#000 !important}
+/* ════════════════════════════════════════════════════════════════
+ * 打印样式表 v2.4.9 — A4 物理级排版 + 页眉页脚 + 页码
+ * ════════════════════════════════════════════════════════════════
+ * 版式规范：
+ *  - A4 纵向，上 29mm / 下 8mm / 左右 15.9mm 边距
+ *    左右边距 = (210mm - 178.2mm) / 2 = 15.9mm，使内容区=字格宽度
+ *  - 页眉/页脚 padding 15.9mm，左右边缘与字格完全对齐
+ *  - 页眉在顶部边距区（top:-9mm，高8mm，底部距内容区1mm）
+ *  - 页脚在底部边距区（bottom:0，高8mm），评分居中
+ *  - 页码由 Puppeteer footerTemplate 渲染（右对齐，右边缘=字格右边缘）
+ *  - v2.4.9：左右边距6mm→15.9mm，页眉页脚与字格左右对齐
+ */
+
+/* 屏幕隐藏打印专用元素 */
+.print-only-header,
+.print-only-footer,
+.print-page-section,
+.page-section-header,
+.page-section-footer {
+    display: none;
 }
 
-/* === 新增：A4 物理级排版锁定（v2.4.0 Agent-B） === */
 @media print {
-    @page { size: A4 portrait; margin: 0mm !important; }
-    html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
+    .app-header,
+    .panel,
+    #input-container,
+    .fab-theme,
+    .fab-print,
+    .fab-puppeteer,
+    .puppeteer-toast,
+    .history-fab,
+    .history-sidebar,
+    .sidebar-drawer-toggle,
+    .sidebar-backdrop {
+        display: none !important;
+    }
+    .app {
+        box-shadow: none;
+        backdrop-filter: none;
+        border-radius: 0;
+        background: #fff;
+        max-width: 100%;
+        padding: 0;
+    }
+    body { background: #fff; }
+    .black span, .black-char, .cell span, .cell .char { color: #000 !important; }
+}
+
+/* === v2.4.4 A4 物理级排版锁定（11 格/行 + 辅助行版式 + 页眉页脚） === */
+@media print {
+    /* v2.4.12：@page margin 29mm/15.9mm/16mm/15.9mm（Puppeteer 路径用）
+       bottom 16mm：给 footerTemplate 上移 8mm 的空间（页脚距页底 8mm）
+       headerTemplate padding-top:10mm 让页眉距页顶 10mm（下移 1cm）
+       window.print() 路径由 printDirect() 动态注入 @page margin:0 覆盖 */
+    @page {
+        size: A4 portrait;
+        margin: 29mm 15.9mm 16mm 15.9mm !important;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* v2.4.7：打印时去掉 grid-container 的屏幕预览 padding AND margin */
+    #grid-container.svg-mode {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    #grid-container {
+        margin: 0 !important;
+    }
+
+    /* 隐藏屏幕元素，只显示 .a4-page 内容 + 打印页眉页脚 */
     body * { visibility: hidden; }
-    .a4-page, .a4-page * { visibility: visible; }
+    .a4-page, .a4-page *,
+    .print-only-header, .print-only-header *,
+    .print-page-section, .print-page-section * {
+        visibility: visible;
+    }
+    /* v2.4.11：page-section-header/footer 是 print-page-section 的子元素，已被上面规则覆盖 */
+
+    /* v2.4.6：中和 .a4-page 祖先容器的布局偏移 */
+    .app,
+    .app-workbench,
+    .app-canvas,
+    .a4-preview {
+        display: block !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        transform: none !important;
+        box-shadow: none !important;
+        border: 0 !important;
+    }
+    .app-sidebar { display: none !important; }
+
     .a4-page {
-        position: absolute;
-        left: 0; top: 0;
+        position: static;
         margin: 0 !important;
         box-shadow: none !important;
         transform: none !important;
         page-break-after: always;
     }
     .a4-page:last-child { page-break-after: auto; }
-    /* 确保网格不跨页断格 */
-    .grid-svg-row, .grid-svg-pinyin-row { page-break-inside: avoid !important; break-inside: avoid !important; }
-    /* 强制矢量网格黑色打印 */
-    .grid-svg-cell rect, .grid-svg-cell line { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* v2.4.12：pdf-print-wrapper 是 printDirect() 创建的外层容器，
+       内部 .print-page-section 自带分页，wrapper 自身不分页 */
+    .a4-page.pdf-print-wrapper { page-break-after: auto; }
+
+    /* v2.4.12：.print-only-header/.print-only-footer 已废弃，改用 .page-section-header/footer
+       保留 display:none 以防旧元素残留 */
+    .print-only-header, .print-only-footer { display: none !important; }
+
+    /* v2.4.16：per-page 分页段 — 正常文档流布局（flex column）
+       padding-top 8mm = 页眉距页顶 8mm（v2.4.16 从 17.5mm 减至 8mm，防内容溢出）
+       padding-bottom 5mm = 页脚距页底
+       padding-left/right 15.9mm = 与字格左右边缘对齐
+       v2.4.16：min-height 295mm，内容总高 = 8+(8+2)+264+8+5 = 295mm ≤ 297mm（A4）
+         v2.4.15 的 282mm + padding 17.5mm 导致总高 306.5mm > 297mm，页脚被挤到空白页
+         现缩小 padding-top 到 8mm，确保 11行×24mm=264mm 内容不溢出
+       v2.4.16：移除 section 的 page-break-before（避免与内容 .page-break 的
+         page-break-after 叠加产生空白页），改用 min-height:295mm 占满页面
+         + 内容 .page-break 的 page-break-after:always 作为唯一分页机制 */
+    .print-page-section {
+        display: flex !important;
+        flex-direction: column;
+        width: 210mm;
+        min-height: 295mm;
+        padding: 8mm 15.9mm 5mm 15.9mm;
+        box-sizing: border-box;
+        page-break-after: auto;
+        break-after: auto;
+        page-break-before: auto;
+        break-before: auto;
+    }
+
+    /* v2.4.16：页眉 — 正常文档流（section 第一个子元素），无 position 定位
+       height 8mm + margin-bottom 2mm = 距第一行字格 10mm 间距
+       v2.4.16：margin-bottom 从 4mm 减至 2mm，防内容溢出
+       页眉顶部在 padding-top(8mm) 处，即距页顶 8mm */
+    .page-section-header {
+        display: flex !important;
+        height: 8mm;
+        flex-shrink: 0;
+        margin-bottom: 2mm;
+        justify-content: space-between;
+        align-items: center;
+        font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
+        font-size: 9pt;
+        color: #2E7D32;
+        z-index: 9999;
+        background: #fff;
+    }
+    .page-section-header .ph-center {
+        flex: 1;
+        text-align: center;
+    }
+
+    /* v2.4.12：页脚 — 正常文档流（section 最后子元素），margin-top:auto 推到底部
+       height 8mm，在 padding-bottom(8mm) 之上，即距页底 8mm
+       无 position 定位，无负值，避免 Chrome 打印裁剪 bug */
+    .page-section-footer {
+        display: flex !important;
+        height: 8mm;
+        flex-shrink: 0;
+        margin-top: auto;
+        justify-content: space-between;
+        align-items: center;
+        font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
+        font-size: 9pt;
+        color: #2E7D32;
+        z-index: 9999;
+    }
+    .page-section-footer .pf-center {
+        flex: 1;
+        text-align: center;
+    }
+
+    /* 字格行 + 辅助行不可跨页断格 */
+    .grid-svg-row,
+    .grid-svg-aux-row {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    /* 强制矢量网格绿色打印 */
+    .grid-svg-cell rect,
+    .grid-svg-cell line,
+    .grid-svg-row-border rect,
+    .grid-svg-row-border line,
+    .pinyin-four-line line,
+    .grid-svg-stroke-box svg path {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
 }

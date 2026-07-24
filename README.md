@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.4.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.4.14-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -16,8 +16,9 @@
 - **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
 - **构建状态**：✅ 通过（build 1.65s + 0错误0警告）
 - **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
-- **最新版本**：v2.4.0（矢量 SVG 字格引擎 + 双轨矢量 PDF + 朱砂暖宣 UI）
-- **最新部署**：commit `ef76bc0`（v2.3.0）→ v2.4.0 重构
+- **最新版本**：v2.4.14（window.print() 空白页根因修复 + PDF 内竖线粗细不一致根因修复）
+- **最新部署**：commit `ef76bc0`（v2.3.0）→ v2.4.0 重构 → v2.4.14 优化
+- **最新更新**：v2.4.14（未发布）— 修复 window.print() 末尾多一个空白页（根因：内容 .page-break 类与 .print-page-section 的 page-break-after 叠加导致双重分页，修复方法：printDirect() 移除内容 .page-break 类 + 末页 .last-page-section JS 标记）、修复同一 PDF 内部 12 条竖线粗细不一致（根因：11 个独立 cell SVG 因 16.2mm≈61.23px 非整数导致亚像素累积误差，修复方法：新增 createRowBorderSVG() 将整行外框+竖线绘制在单个 SVG 内 + shape-rendering:crispEdges）。详见 [CHANGELOG.md](./CHANGELOG.md)
 - **模块总数**：35 个源文件（17 JS + 15 CSS + 3 数据）+ 839 构建模块
 
 ## 目录结构
@@ -28,6 +29,8 @@ distribution/
 ├── vite.config.js           ← Vite配置（PWA + SingleFile + Tailwind）
 ├── package.json             ← 依赖配置（ES Module）
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF矢量生成脚本（CommonJS，v2.4 修复路径）
+├── puppeteer-server.cjs     ← [v2.4.5] Puppeteer HTTP服务（/health + /api/generate-pdf + 静态dist托管）
+├── 启动Puppeteer.bat/.ps1/.sh ← [v2.4.5] 三步检查启动脚本（Node/dist/Puppeteer，缺则自动构建安装）
 ├── README.md / CHANGELOG.md ← 文档
 ├── TASK_BOARD.md            ← [v2.4.0] 重构任务看板
 ├── .github/workflows/       ← GitHub Pages自动部署
@@ -128,7 +131,7 @@ npm run preview      # 预览构建结果
 | 24 | **4 种网格类型** | GridEngine.js | 田字格 / 米字格 / 回字格 / 拼音田字格（上 30% 四线三格 + 下 70% 田字格），侧栏一键切换 |
 | 25 | **3 种渲染模式** | GridEngine.js | stroke-order（首字彩色笔顺示范）/ trace（浅灰描红 0.1–0.4 透明度可调）/ blank（空白自写） |
 | 26 | **物理级 18mm 精准尺寸** | grid-svg.css | CSS `width: 18mm` + `@page margin: 0mm` + `preferCSSPageSize: true`，误差 < 0.1mm，绝不跨页断格 |
-| 27 | **双轨矢量 PDF 导出** | utils/pdfExport.js | 轨1a：浏览器 `window.print()` 直印；轨1b：`jsPDF + svg2pdf.js` 无对话框矢量导出（DOM SVG → 1:1 mm 坐标）；轨2：Puppeteer 命令行批量 |
+| 27 | **双轨矢量 PDF 导出** | utils/pdfExport.js | 轨1a：浏览器 `window.print()` 直印（推荐）；轨1b：~~`jsPDF + svg2pdf.js` 矢量导出~~（v2.4.5 已停用，jsPDF 不支持中文页眉页脚 + svg2pdf 无法渲染 div 容器，按钮改为引导提示）；轨2：Puppeteer HTTP 服务（`puppeteer-server.cjs`，矢量 + 字体嵌入） |
 | 28 | **朱砂暖宣东方文房 UI** | theme.css | A4 宣纸背景 `#FDFBF7` + 印泥红 Accent `#9E2A2B` + 朱砂框线 `#D97777`，含暗色模式适配 |
 | 29 | **320px 双栏工作台** | Sidebar.js + index.html | 左侧柔光宣纸侧栏（输入/字体/网格类型/透明度/预设场景）+ 右侧 A4 沉浸式预览画布（真实纸张阴影），移动端自动改抽屉 |
 | 30 | **预设场景快速选择** | Sidebar.js | 从 templates.js 读取 20 个预设模板（唐诗/三字经/千字文等），按 category 分组，点击即生成 |

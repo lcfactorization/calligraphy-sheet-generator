@@ -13,24 +13,28 @@
 
 import { jsPDF } from 'jspdf';
 import { svg2pdf } from 'svg2pdf.js';
-import { A4_PORTRAIT } from '../contracts/interfaces.js';
+import { A4_SHEET_LAYOUT, SHEET_LAYOUT } from '../contracts/interfaces.js';
+import { waitForStrokes } from '../modules/strokes.js';
 
-/** 每页行数（A4 纵向可用 273mm，行高约 26mm，保留页眉页脚后取 8 行） */
-const ROWS_PER_PAGE = 8;
-/** 单行物理高度（字格 18mm + 拼音行 6mm + 行间距 2mm） */
-const ROW_HEIGHT_MM = 26;
-/** 页眉 Y 坐标（顶部 padding 12 + 页眉区 15） */
-const HEADER_Y_MM = A4_PORTRAIT.paddingMM + 15;
-/** 首行 Y 坐标（页眉下留 12mm 起始间距） */
-const FIRST_ROW_Y_MM = HEADER_Y_MM + 12;
-/** 页脚 Y 坐标（底部 padding 12 之上） */
-const FOOTER_Y_MM = A4_PORTRAIT.heightMM - A4_PORTRAIT.paddingMM - 5;
-/** 左右起始 X（padding 12） */
-const START_X_MM = A4_PORTRAIT.paddingMM;
+/** 每页行数（11 行/页，依据 SHEET_LAYOUT.rowsPerPage） */
+const ROWS_PER_PAGE = SHEET_LAYOUT.rowsPerPage;  // 11
+/** 单行物理高度（v2.4.3：字格 18mm + 辅助行 6mm = 24mm，去掉间距让四线格均匀分布） */
+const ROW_HEIGHT_MM = SHEET_LAYOUT.cellSizeMM + SHEET_LAYOUT.auxRowMM + SHEET_LAYOUT.rowGapMM;  // 24
+/** 顶部边距 */
+const PADDING_TOP = A4_SHEET_LAYOUT.paddingTopMM;     // 8
+const PADDING_X = A4_SHEET_LAYOUT.paddingMM;            // 6
+/** 页眉 Y 坐标（顶部边距 8 + 页眉区 4） */
+const HEADER_Y_MM = PADDING_TOP + 4;
+/** 首行 Y 坐标（页眉下留 4mm 起始间距） */
+const FIRST_ROW_Y_MM = HEADER_Y_MM + 4;
+/** 页脚 Y 坐标（底部边距 8 之上） */
+const FOOTER_Y_MM = A4_SHEET_LAYOUT.heightMM - A4_SHEET_LAYOUT.paddingBottomMM - 3;
+/** 左右起始 X */
+const START_X_MM = PADDING_X;
 /** 内容水平居中 X（A4 宽 210 / 2） */
-const CENTER_X_MM = A4_PORTRAIT.widthMM / 2;
-/** 右对齐 X（右边 padding 12） */
-const RIGHT_X_MM = A4_PORTRAIT.widthMM - A4_PORTRAIT.paddingMM;
+const CENTER_X_MM = A4_SHEET_LAYOUT.widthMM / 2;
+/** 右对齐 X */
+const RIGHT_X_MM = A4_SHEET_LAYOUT.widthMM - PADDING_X;
 
 /**
  * 显示全屏加载遮罩，返回移除函数
@@ -95,6 +99,8 @@ export async function exportVectorPDF(opts = {}) {
             throw new Error('未找到 #grid-container，请先生成字帖');
         }
 
+        // v2.4.1：每行由「辅助行 + 字格行」配对构成，需一并写入
+        const auxRows = gridContainer.querySelectorAll('.grid-svg-aux-row');
         const svgRows = gridContainer.querySelectorAll('.grid-svg-row');
         if (svgRows.length === 0) {
             throw new Error('未检测到字格行（.grid-svg-row），请先生成字帖');
@@ -137,14 +143,45 @@ export async function exportVectorPDF(opts = {}) {
 
         const totalPages = Math.ceil(svgRows.length / ROWS_PER_PAGE);
 
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-
         for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
             if (pageIdx > 0) pdf.addPage();
 
-            // 页眉（左/中/右）
-            pdf.setTextColor(51, 153, 51);
+            // v2.4.4：先绘制 SVG 内容，再绘制页眉页脚（确保页眉页脚不被 SVG 覆盖）
+
+            // 字格行 + 辅助行（SVG 矢量写入）
+            const startRow = pageIdx * ROWS_PER_PAGE;
+            const endRow = Math.min(startRow + ROWS_PER_PAGE, svgRows.length);
+            for (let r = startRow; r < endRow; r++) {
+                // 辅助行先写入（位于字格行上方）
+                const auxEl = auxRows[r];
+                const auxY = FIRST_ROW_Y_MM + (r - startRow) * ROW_HEIGHT_MM;
+                if (auxEl) {
+                    try {
+                        await svg2pdf(auxEl, pdf, { x: START_X_MM, y: auxY });
+                    } catch (err) {
+                        console.warn(`[pdfExport] 第 ${r + 1} 行辅助行 SVG 写入失败:`, err);
+                    }
+                }
+                // 字格行写入（辅助行下方 6mm + 1mm 间距）
+                const svgEl = svgRows[r];
+                const y = auxY + SHEET_LAYOUT.auxRowMM + SHEET_LAYOUT.rowGapMM;
+                try {
+                    await svg2pdf(svgEl, pdf, { x: START_X_MM, y });
+                } catch (err) {
+                    console.warn(`[pdfExport] 第 ${r + 1} 行字格行 SVG 写入失败:`, err);
+                }
+            }
+
+            // v2.4.4：页眉区域白色背景矩形（覆盖可能的 SVG 溢出）
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, A4_SHEET_LAYOUT.widthMM, PADDING_TOP + 2, 'F');
+            // 页脚区域白色背景矩形
+            pdf.rect(0, FOOTER_Y_MM - 4, A4_SHEET_LAYOUT.widthMM, A4_SHEET_LAYOUT.paddingBottomMM + 4, 'F');
+
+            // 页眉（左/中/右）— 重置字体设置后绘制
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.setTextColor(46, 125, 50);  // 绿色 #2E7D32
             pdf.text(headerLeft, START_X_MM, HEADER_Y_MM, { align: 'left' });
             pdf.text(headerCenter, CENTER_X_MM, HEADER_Y_MM, { align: 'center' });
             pdf.text(
@@ -154,22 +191,14 @@ export async function exportVectorPDF(opts = {}) {
                 { align: 'right' }
             );
 
-            // 字格行（SVG 矢量写入）
-            const startRow = pageIdx * ROWS_PER_PAGE;
-            const endRow = Math.min(startRow + ROWS_PER_PAGE, svgRows.length);
-            for (let r = startRow; r < endRow; r++) {
-                const svgEl = svgRows[r];
-                const y = FIRST_ROW_Y_MM + (r - startRow) * ROW_HEIGHT_MM;
-                try {
-                    await svg2pdf(svgEl, pdf, { x: START_X_MM, y });
-                } catch (err) {
-                    console.warn(`[pdfExport] 第 ${r + 1} 行 SVG 写入失败:`, err);
-                }
-            }
-
-            // 页脚
-            pdf.setTextColor(51, 153, 51);
+            // 页脚 — 重置字体设置后绘制
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(10);
+            pdf.setTextColor(46, 125, 50);  // 绿色 #2E7D32
             pdf.text(footerText, CENTER_X_MM, FOOTER_Y_MM, { align: 'center' });
+            // 页脚右下角页码
+            pdf.setFontSize(8);
+            pdf.text(`第 ${pageIdx + 1} / ${totalPages} 页`, RIGHT_X_MM, FOOTER_Y_MM, { align: 'right' });
         }
 
         const ts =
@@ -190,6 +219,7 @@ export async function exportVectorPDF(opts = {}) {
 /**
  * 浏览器直接打印（保留兼容，调用 window.print）
  * 先把 #grid-container 内容包装进 .a4-page 容器再打印
+ * v2.4.4：添加打印专用页眉页脚元素（position:fixed 每页重复）
  * 依赖 src/styles/print.css 的 @page + .a4-page 规则
  */
 export function printDirect() {
@@ -204,14 +234,103 @@ export function printDirect() {
         return;
     }
 
-    // 包装进 .a4-page 让 print.css 的可见性与分页规则生效
+    // 读取页眉页脚内容
+    const fontSelect = document.getElementById('font-select');
+    const fontDisplayName = fontSelect
+        ? fontSelect.options[fontSelect.selectedIndex].text
+        : '';
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const hLeft = document.getElementById('headerLeft')?.value ||
+        `${now.getFullYear()}年${pad(now.getMonth() + 1)}月${pad(now.getDate())}日 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const hCenter = document.getElementById('headerCenter')?.value || '练习字帖';
+    const hRight = document.getElementById('headerRight')?.value ||
+        (fontDisplayName ? fontDisplayName + '字体' : '');
+    const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆';
+
+    // v2.4.12：将字格按 page-break 拆分为独立分页段，每段正常文档流布局
+    // DOM 顺序：header → content(字格) → footer
+    // 原因：Chrome window.print() 中 position:absolute/fixed 的负值定位有 bug
+    //       （负 top 元素被推到页脚、负 bottom 元素下半部被裁剪）
+    //       改用正常文档流 + flex column + margin-top:auto 实现稳定定位
+    const gridChildren = Array.from(grid.children);
+    const pages = [];
+    let currentPage = [];
+    for (const child of gridChildren) {
+        currentPage.push(child);
+        if (child.classList.contains('page-break')) {
+            pages.push(currentPage);
+            currentPage = [];
+        }
+    }
+    if (currentPage.length > 0) pages.push(currentPage);
+    const totalPages = pages.length;
+
+    // 创建分页段容器
     const wrapper = document.createElement('div');
     wrapper.className = 'a4-page pdf-print-wrapper';
     wrapper.style.cssText = 'position:relative;width:100%;';
+
+    pages.forEach((pageChildren, idx) => {
+        const section = document.createElement('div');
+        section.className = 'print-page-section';
+        // v2.4.15：用 JS 类名标记首页和末页，比 :first-child/:last-child 更可靠
+        if (idx === 0) section.classList.add('first-page-section');
+        if (idx === totalPages - 1) section.classList.add('last-page-section');
+
+        // 1. 页眉（DOM 第一个，正常流在 section 顶部 = padding-top 处）
+        const header = document.createElement('div');
+        header.className = 'page-section-header';
+        header.innerHTML =
+            `<span class="ph-left">${truncate(hLeft, 22)}</span>` +
+            `<span class="ph-center">${truncate(hCenter, 16)}</span>` +
+            `<span class="ph-right">${truncate(hRight, 22)}</span>`;
+        section.appendChild(header);
+
+        // 2. 内容区（字格，正常流，在页眉和页脚之间）
+        const content = document.createElement('div');
+        content.className = 'page-section-content';
+        for (const c of pageChildren) {
+            // v2.4.17：移除每页最后一行的 .page-break 类和 data-page-break 属性
+            // 根因：.grid-svg-row.page-break 的 page-break-after:always 在 section 内部
+            // 触发分页，把页脚 .page-section-footer 顶到下一页，导致页脚丢失/空白页
+            // 每页的分页由 section 边界自然完成（min-height:295mm 占满页面），
+            // 内容内部不需要 page-break
+            if (c.classList && c.classList.contains('page-break')) {
+                c.classList.remove('page-break');
+                c.removeAttribute('data-page-break');
+            }
+            content.appendChild(c);
+        }
+        section.appendChild(content);
+
+        // 3. 页脚（DOM 最后，margin-top:auto 推到 section 底部）
+        const footer = document.createElement('div');
+        footer.className = 'page-section-footer';
+        footer.innerHTML =
+            `<span class="pf-center">${truncate(fText, 32)}</span>` +
+            `<span class="pf-page">第 ${idx + 1} 页 / 共 ${totalPages} 页</span>`;
+        section.appendChild(footer);
+
+        wrapper.appendChild(section);
+    });
+
     grid.parentNode.insertBefore(wrapper, grid);
-    wrapper.appendChild(grid);
+
+    // v2.4.12：动态注入 @page margin:0 覆盖 print.css 的 29mm 边距
+    // 原因：window.print() 路径用 .print-page-section 的 padding 控制边距（17.5mm 顶部给页眉）
+    //       print.css 的 @page margin:29mm 是给 Puppeteer headerTemplate 用的，window.print() 不需要
+    //       此样式在 cleanup 中移除，不影响 Puppeteer 路径
+    const pageMarginStyle = document.createElement('style');
+    pageMarginStyle.id = 'print-direct-page-margin';
+    pageMarginStyle.textContent = '@media print { @page { size: A4 portrait; margin: 0 !important; } }';
+    document.head.appendChild(pageMarginStyle);
 
     const cleanup = () => {
+        // 移除动态注入的 @page margin:0 样式
+        if (pageMarginStyle.parentNode) pageMarginStyle.parentNode.removeChild(pageMarginStyle);
+        // 恢复：将子元素移回 grid
+        pages.flat().forEach(c => grid.appendChild(c));
         if (wrapper.parentNode) {
             wrapper.parentNode.insertBefore(grid, wrapper);
             wrapper.remove();
@@ -221,8 +340,18 @@ export function printDirect() {
     window.addEventListener('afterprint', cleanup);
 
     try {
-        // 字体就绪后触发打印
-        waitForFonts().then(() => {
+        // v2.4.5：显示加载遮罩，等待字体+笔画就绪后再打印
+        const printOverlay = showLoadingOverlay();
+        waitForFonts().then(async () => {
+            // 等待笔画队列加载完成（最多等10秒）
+            await waitForStrokes(10000);
+            // 给浏览器一点时间渲染最终 DOM
+            await new Promise(r => setTimeout(r, 300));
+            printOverlay();
+            // v2.4.12：提示用户取消浏览器默认页眉页脚
+            // 原因：CSS 无法禁止 Chrome 的"页眉和页脚"选项（日期/标题/URL/页码）
+            // @page margin:0 已减少空间，但 Chrome 仍可能叠加显示，需用户手动取消勾选
+            alert('即将打开打印对话框。\n\n请在对话框中取消勾选「页眉和页脚」选项，\n以避免页面顶端显示时间和文件名。');
             window.print();
             // 兜底清理（部分浏览器 afterprint 不触发）
             setTimeout(cleanup, 1000);

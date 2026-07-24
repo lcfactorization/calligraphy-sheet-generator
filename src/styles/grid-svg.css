@@ -1,96 +1,136 @@
 /* ════════════════════════════════════════════════════════════════
- * 矢量 SVG 字格样式表（Agent-A · 阶段 1）
+ * 矢量 SVG 字格样式表 v2.4.7 — 11 格/行 + 辅助行版式（90% 缩放）
  * ════════════════════════════════════════════════════════════════
  *
- * 设计原则：
- *  - 物理尺寸严格 18mm × 18mm（A4 18mm 字格标准，误差 < 0.1mm）
- *  - pinyin-tian 高度 23.4mm = 18 × 1.3（上 30% 拼音四线三格 + 下 70% 田字格）
- *  - flex-basis 控制主轴（宽度方向），与 height 解耦
- *  - 打印时强制矢量 + 物理尺寸，避免彩色打印浪费
- *  - 屏幕预览容器居中显示，移动端横向滚动
+ * 版式规范（v2.4.7：整体缩放到90%，增加页边空白）：
+ *  - 每行 11 格：5 米字格 + 6 田字格，每格 16.2mm × 16.2mm（原18mm×0.9），总宽 178.2mm
+ *  - 每行上方辅助行（5.4mm 高）：左 16.2mm 四线格写拼音 + 右侧笔画数+SVG
+ *  - 每页 11 行，行高 = 字格 16.2mm + 辅助行 5.4mm = 21.6mm
+ *  - 11 行总高 = 237.6mm，内容区 297-14-8=275mm，余 37.4mm（缓解页眉页脚遮挡）
+ *  - 物理尺寸误差 < 0.1mm，屏幕/PDF/打印三者一致
+ *  - CSS变量 --gs-scale 控制缩放比例，便于后续调整
  */
 
-/* ── SVG 字格物理尺寸控制：18mm × 18mm ── */
+/* ── v2.4.7：缩放比例变量（0.9 = 90%），所有尺寸基于此变量 ── */
+:root {
+    --gs-scale: 0.9;
+    --gs-cell-mm: calc(18mm * var(--gs-scale));      /* 16.2mm */
+    --gs-row-w-mm: calc(198mm * var(--gs-scale));    /* 178.2mm */
+    --gs-aux-h-mm: calc(6mm * var(--gs-scale));      /* 5.4mm */
+}
+
+/* ── SVG 字格物理尺寸控制：16.2mm × 16.2mm（90%缩放） ── */
 .grid-svg-cell {
-    width: 18mm;
-    height: 18mm;
+    width: var(--gs-cell-mm);
+    height: var(--gs-cell-mm);
     display: inline-block;
-    flex: 0 0 18mm;
+    flex: 0 0 var(--gs-cell-mm);
     overflow: visible;
+    position: relative;                     /* v2.4.14：z-index:1 在 row-border 上方 */
+    z-index: 1;
 }
 
-/* 拼音田字格：宽度保持 18mm，高度 23.4mm（18 × 1.3） */
-.grid-svg-cell[data-grid-type="pinyin-tian"] {
-    width: 18mm;
-    height: 23.4mm;
-    flex: 0 0 18mm;
-}
-
-/* ── 字格行 / 拼音行容器（flex 横向布局） ── */
-.grid-svg-row,
-.grid-svg-pinyin-row {
+/* ── 字格行容器：11 格横向排列 ── */
+.grid-svg-row {
     display: flex;
     align-items: center;
     gap: 0;
+    width: var(--gs-row-w-mm);             /* 11 × 16.2mm = 178.2mm */
+    height: var(--gs-cell-mm);
+    page-break-inside: avoid;
+    break-inside: avoid;
+    position: relative;                     /* v2.4.14：为 row-border 绝对定位提供基准 */
 }
 
-/* 字格行：避免行内分页断裂 */
-.grid-svg-row {
+/* ── v2.4.14：行级统一边框 SVG — 绝对定位覆盖整行，z-index:0 在 cells 下方 ──
+   所有竖线在同一个 SVG 坐标系内，消除多个独立 cell SVG 因亚像素定位
+   累积误差导致的竖线粗细不一致（第1条最细、第4/8/11条较粗等问题） */
+.grid-svg-row-border {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: visible;
+}
+
+/* ── 辅助行：拼音四线格 + 笔画SVG ── */
+/* v2.4.3：去掉 margin-bottom，让辅助行紧贴字格行，四线格4条线均匀分布 */
+.grid-svg-aux-row {
+    display: flex;
+    align-items: center;
+    width: var(--gs-row-w-mm);
+    height: var(--gs-aux-h-mm);              /* 辅助行高度 */
+    margin-bottom: 0;         /* 去掉间距，四线格4条线均匀分布 */
+    margin-top: 0;
     page-break-inside: avoid;
     break-inside: avoid;
 }
 
-/* 行间距 2mm */
-.grid-svg-row + .grid-svg-row {
-    margin-top: 2mm;
+/* v2.5.0：页顶实线改用 border-top 实现
+   v2.4.10 用 background-image (linear-gradient)，但在 PDF/打印中无法渲染
+   border-top 天然撑满行宽，打印/PDF自动显示，线宽与格子边框一致
+   线宽 0.324mm，颜色 #2E7D32 (GRID_COLORS.primary) */
+.grid-svg-aux-row.page-top {
+    border-top: 0.324mm solid #2E7D32;
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
-/* 拼音行高度 6mm，与字格行间距 0.5mm */
-.grid-svg-pinyin-row {
-    height: 6mm;
-    margin-bottom: 0.5mm;
-    align-items: center;
+/* 左侧四线格拼音盒：16.2mm 宽 */
+.grid-svg-pinyin-box {
+    width: var(--gs-cell-mm);
+    height: var(--gs-aux-h-mm);
+    flex: 0 0 var(--gs-cell-mm);
+    overflow: hidden;
+}
+.grid-svg-pinyin-box .pinyin-four-line {
+    width: var(--gs-cell-mm);
+    height: var(--gs-aux-h-mm);
+    display: block;
 }
 
-/* 拼音 span：每个对齐到下方字格位置（18mm 宽） */
-.grid-svg-pinyin-row span {
-    width: 18mm;
-    text-align: center;
-    font-family: 'TeXGyreAdventor', serif;
-    font-size: 4mm;
-    display: inline-block;
-    line-height: 1;
-}
-
-/* 笔顺缩略图容器：跟随拼音行，可横向溢出滚动 */
-.grid-svg-stroke-container {
+/* 右侧笔画拆解盒：剩余宽度 */
+.grid-svg-stroke-box {
+    flex: 1 1 auto;
+    height: var(--gs-aux-h-mm);
+    margin-left: 2mm;
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    margin-left: 2mm;
-    height: 6mm;
     overflow: hidden;
 }
-.grid-svg-stroke-container svg,
-.grid-svg-stroke-container .stroke-svg {
+.grid-svg-stroke-box span {
+    font-family: 'TeXGyreAdventor', serif;
+    font-size: 3.5mm;
+    color: #1B5E20;
+    margin-right: 2mm;
+    flex: 0 0 auto;
+    line-height: 1;
+}
+.grid-svg-stroke-box svg,
+.grid-svg-stroke-box .stroke-svg {
     width: 5mm;
     height: 5mm;
-    margin-right: 1mm;
+    margin-right: 0.5mm;
     flex: 0 0 auto;
 }
 
-/* ── 分页：每 5 行一页（A4 18mm 适配） ── */
+/* ── 分页：每 11 行一分页（11 个字格行 + 11 个辅助行 = 22 行 DOM） ── */
 .grid-svg-row.page-break {
     page-break-after: always;
     break-after: page;
 }
 
-/* ── 屏幕预览容器（非打印） ── */
+/* ── 屏幕预览容器 ── */
 #grid-container.svg-mode {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 12mm 0;
+    padding: 8mm 0;
 }
 
 /* ── 移动端横向滚动 ── */
@@ -99,30 +139,68 @@
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         align-items: flex-start;
-        padding: 6mm 0;
+        padding: 4mm 0;
     }
     .grid-svg-row,
-    .grid-svg-pinyin-row {
+    .grid-svg-aux-row {
         max-width: none;
     }
 }
 
-/* ── 打印：强制矢量 + 物理尺寸 ── */
+/* ── 打印：强制矢量 + 物理尺寸（v2.4.7：90%缩放） ── */
 @media print {
     .grid-svg-cell {
-        width: 18mm !important;
-        height: 18mm !important;
+        width: var(--gs-cell-mm) !important;
+        height: var(--gs-cell-mm) !important;
+        /* v2.4.14：外框已由 .grid-svg-row-border 统一绘制，cell 仅含中线/内容
+           不再需要 shape-rendering:crispEdges（无外框 rect） */
     }
-    .grid-svg-cell[data-grid-type="pinyin-tian"] {
-        height: 23.4mm !important;
+    /* v2.4.14：行级边框 SVG 打印时强制显示 */
+    .grid-svg-row-border {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 0 !important;
+        /* v2.5.1：改用 geometricPrecision，crispEdges 导致 PDF 中 stroke 渲染为 0 宽度 */
+        shape-rendering: geometricPrecision !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
-    /* 打印时隐藏笔顺缩略图（避免彩色浪费 + 释放版面） */
-    .grid-svg-stroke-container {
-        display: none !important;
+    /* v2.5.1：确保填充矩形边框在打印/PDF中显示绿色 */
+    .grid-svg-row-border rect {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .grid-svg-row {
+        width: var(--gs-row-w-mm) !important;
+        height: var(--gs-cell-mm) !important;
+    }
+    .grid-svg-aux-row {
+        width: var(--gs-row-w-mm) !important;
+        height: var(--gs-aux-h-mm) !important;
+    }
+    /* 打印时保留笔画 SVG（用户期望看到笔画拆解） */
+    .grid-svg-stroke-box {
+        display: flex !important;
     }
     /* 打印时分页符严格生效 */
     .grid-svg-row.page-break {
         page-break-after: always !important;
         break-after: page !important;
+    }
+    /* 强制绿色打印（避免浏览器去除背景色） */
+    .grid-svg-cell rect,
+    .grid-svg-cell line,
+    .pinyin-four-line line,
+    .grid-svg-stroke-box svg path {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    /* v2.4.10：页顶粗实线 background-image 强制打印 */
+    .grid-svg-aux-row.page-top {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }

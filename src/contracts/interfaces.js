@@ -61,6 +61,66 @@ export const DEFAULT_GRID_CELL_PROPS = {
     strokeOrder: null
 };
 
+/**
+ * ════════════════════════════════════════════════════════════════
+ * v2.4.1 字帖版式契约 — 绿色网格 + 11 格/行 + 11 行/页
+ * ════════════════════════════════════════════════════════════════
+ * 依据用户参考 PDF（字帖_2026-07-06.pdf）的版式规范：
+ *  - 所有网格线条统一绿色（深绿主色 + 浅绿辅色）
+ *  - 每行 11 个格子：左侧 5 米字格 + 右侧 6 田字格
+ *  - 每页 11 行（首行上方有辅助行：四线格拼音 + 笔画拆解 SVG）
+ */
+
+/** 绿色配色（替代 v2.4.0 朱砂暖宣，回归传统字帖绿） */
+export const GRID_COLORS = {
+    primary:   '#2E7D32',  // 深绿（外框稍粗实线）
+    secondary: '#388E3C',  // 中绿（中线细实线）
+    dashed:    '#66BB6A',  // 浅绿（对角线/辅助虚线）
+    pinyin:    '#2E7D32',  // 拼音文字色
+    zuci:      '#1B5E20',  // 组词文字色（更深以区分）
+    stroke:    '#FF5722'   // 当前笔画高亮色（笔顺拆解用）
+};
+
+/** 字帖版式常量
+ *  v2.4.3：去掉 rowGapMM，辅助行紧贴字格行，四线格4条线均匀分布
+ *  v2.4.7：整体缩放到90%（cellSizeMM 18→16.2, auxRowMM 6→5.4）
+ *  每行高度 = 字格16.2mm + 辅助行5.4mm = 21.6mm
+ *  11行/页 = 237.6mm，内容区 297-14-8=275mm，余 37.4mm（缓解页眉页脚遮挡）
+ */
+export const SHEET_LAYOUT = {
+    cellsPerRow:  11,                          // 每行 11 格
+    miziCount:    5,                            // 左侧 5 米字格
+    tianCount:    6,                            // 右侧 6 田字格
+    rowsPerPage:  11,                           // 每页 11 行
+    scale:        0.9,                          // v2.4.7：缩放比例（90%）
+    cellSizeMM:   16.2,                         // v2.4.7：单格 16.2mm（原18mm×0.9）
+    auxRowMM:     5.4,                          // v2.4.7：辅助行高度 5.4mm（原6mm×0.9）
+    rowGapMM:     0,                            // v2.4.3：去掉间距，四线格4条线均匀分布
+    pageGapMM:    0,                            // 行与行之间间距（已含在行高内）
+    /** 米字格内字色分布：[0]=范字黑色, [1,2]=描红0.1, [3,4]=空白 */
+    miziModes:    ['reference', 'trace', 'trace', 'blank', 'blank'],
+    /** 田字格内布局（v2.4.3）：
+     *  [0]=词1完整(拼音+字) [1]=词1字1描红0.1 [2]=词1字2描红0.1
+     *  [3]=词2完整(拼音+字) [4]=词2字1描红0.1 [5]=词2字2描红0.1 */
+    tianModes:    ['word-full', 'word-trace-1', 'word-trace-2', 'word-full', 'word-trace-1', 'word-trace-2']
+};
+
+/** 单格物理宽度（11 格 × 18mm = 198mm，A4 纵向可用宽度 210 - 6×2 = 198mm，正好） */
+export const A4_SHEET_LAYOUT = {
+    widthMM:    210,
+    heightMM:   297,
+    paddingMM:  6,                              // 左右边距 6mm，容纳 11 × 18mm
+    paddingTopMM: 8,                            // 顶部边距 8mm
+    paddingBottomMM: 8                          // 底部边距 8mm
+};
+
+/** A4 纵向 11 行版式：每页可用高度 = 297 - 8 - 8 = 281mm，11行×(18+8+1+2)=319mm 不够
+ *  调整：每行高度 = 18mm字格 + 8mm辅助行 + 1mm间距 = 27mm，11行 = 297mm 超出
+ *  实际方案：每页 9 行（9×27=243mm + 8mm顶部 + 8mm底部 = 259mm 合理）
+ *  但用户明确要求 11 行/页 → 需减小辅助行高度
+ *  最终：辅助行 6mm + 字格 18mm + 间距 1mm = 25mm/行，11行=275mm + 边距16=291mm ✓
+ */
+
 /** 合并用户 Props 与默认值（浅合并） */
 export function resolveGridProps(partial) {
     return { ...DEFAULT_GRID_CELL_PROPS, ...(partial || {}) };

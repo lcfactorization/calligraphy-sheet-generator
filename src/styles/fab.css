@@ -67,6 +67,32 @@
     .fab-print,.fab-puppeteer,.puppeteer-toast{display:none!important}
 }
 
+/* ── v2.4.7：快捷工具栏（生成/主题/打印 就近放置） ── */
+.quick-toolbar{
+    display:flex;gap:8px;align-items:center;
+    margin:8px 0 4px 0;flex-wrap:wrap;
+}
+.quick-toolbar .btn-quick{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:7px 14px;font-size:13px;font-weight:600;
+    border-radius:8px;cursor:pointer;outline:none;
+    transition:all .2s var(--ease-out-soft);
+    border:1px solid transparent;white-space:nowrap;
+}
+.quick-toolbar .btn-quick svg{flex-shrink:0}
+.quick-toolbar .btn-primary{
+    background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;
+    border-color:transparent;
+}
+.quick-toolbar .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(245,158,11,0.35)}
+.quick-toolbar .btn-secondary{
+    background:var(--toggle-bg);color:var(--title-color);
+    border-color:var(--toggle-border);
+}
+.quick-toolbar .btn-secondary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.quick-toolbar .btn-quick:active{transform:scale(0.96)}
+@media print{.quick-toolbar{display:none!important}}
+
 /* ── 自定义字体上传 ── */
 .font-upload-wrap{display:flex;align-items:center;gap:8px}
 .font-upload-btn{

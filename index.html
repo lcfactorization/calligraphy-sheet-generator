@@ -10,10 +10,9 @@
 
 <!-- ══ 浮动按钮 ══ -->
 <button class="fab-theme" id="themeToggle" aria-label="切换主题" title="点击切换日间/夜间模式">☀</button>
-<button class="fab-print" id="printBtn" aria-label="打印/导出PDF" title="打印 / 导出PDF">
+<button class="fab-print" id="printBtn" aria-label="打印/导出PDF" title="打印 / 导出PDF（矢量PDF）">
     <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
 </button>
-<button class="fab-export" id="exportVectorBtn" aria-label="导出矢量PDF" title="导出矢量 PDF">📄</button>
 <button class="fab-puppeteer" id="puppeteerBtn" aria-label="Puppeteer矢量PDF" title="Puppeteer 矢量PDF（需先启动本地服务）">
     <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 </button>
@@ -29,18 +28,14 @@
         <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
     </div>
 
-    <!-- ════════ 输入面板（保持原位，Sidebar.js 运行时移入侧栏） ════════ -->
+    <!-- ════════ 输入面板（v2.4.3 调整控件顺序：字体→汉字输入+清除→生成字帖） ════════ -->
     <div class="panel" id="input-container">
         <div class="panel-title">
             <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             <span>汉字输入 & 字体选择</span>
         </div>
-        <div style="margin-bottom:12px">
-            <textarea id="inputText" placeholder="输入要练习的汉字..." maxlength="200">融燕鸳鸯惠崇芦芽短梅溪泛减凑拂集聚形掠偶尔沾倦闲纤痕瓣蓬胀裂姿势仿佛随蹈止录凡距款绸膜瞎益约斑守株待宋耕触颈释骄傲谦虚懦弱恼代价塘映欣赏匀致配传哎叹滔涯妇碌遵循尊验暮吟题侧峰庐缘降阁费须逊旧垒判糊嚷篇翻帘创县设横跨案爪贵智慧历史宫唐西艺术显珍品艳内梦醒苏湿娇嫩强适昆播修致论试验袋证概减阻测括确误途陌缸隙掀背膊察隆暗喂盈锐铛奥努茶甚至躲着退暗丈增鞋履袜套裤肩臂触稍墨染竿腾碎拨浪葫爽硬柿泡熟否垫付替骂虽摸染肩担忍酸廊发痒若娇薄颤巍巅婴希奇皂廊碗若透娇扯仰串越婴希蹦耀演奏琴柔感受激幕临曾经若索悬曾奥探索预测评估损控制裁裂催竟商量纳闷刺颠哄悟肩袖筒缘责榜聪职责颈歪承跌</textarea>
-        </div>
-        <div class="diff-area" id="difficultyArea">
-            <span class="diff-empty">输入汉字后将显示难度评估</span>
-        </div>
+
+        <!-- 1. 字体选择（最上面） -->
         <div class="field-row">
             <div class="field">
                 <label>字体</label>
@@ -59,17 +54,43 @@
                     </label>
                 </div>
             </div>
-            <div class="btn-row" style="margin-left:auto">
-                <button class="btn btn-secondary" id="clear-btn">
-                    <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    清除
-                </button>
-                <button class="btn btn-primary" id="generate-btn">
-                    <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                    生成字帖
-                </button>
-            </div>
+        </div>
+
+        <!-- v2.4.11：快捷工具栏 — 生成 + 打印（主题用右上角☀） -->
+        <div class="quick-toolbar" role="toolbar" aria-label="快捷操作">
+            <button class="btn btn-primary btn-quick" id="quick-generate-btn" title="生成字帖（快速预览）">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 3l14 9-14 9V3z"/></svg>
+                生成
+            </button>
+            <button class="btn btn-secondary btn-quick" id="quick-print-btn" title="打印 / 导出PDF（矢量PDF）">
+                <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                打印
+            </button>
+        </div>
+
+        <!-- 2. 汉字输入 + 清除控件（紧挨着） -->
+        <div style="margin-bottom:8px">
+            <textarea id="inputText" placeholder="输入要练习的汉字..." maxlength="200">融燕鸳鸯惠崇芦芽短梅溪泛减凑拂集聚形掠偶尔沾倦闲纤痕瓣蓬胀裂姿势仿佛随蹈止录凡距款绸膜瞎益约斑守株待宋耕触颈释骄傲谦虚懦弱恼代价塘映欣赏匀致配传哎叹滔涯妇碌遵循尊验暮吟题侧峰庐缘降阁费须逊旧垒判糊嚷篇翻帘创县设横跨案爪贵智慧历史宫唐西艺术显珍品艳内梦醒苏湿娇嫩强适昆播修致论试验袋证概减阻测括确误途陌缸隙掀背膊察隆暗喂盈锐铛奥努茶甚至躲着退暗丈增鞋履袜套裤肩臂触稍墨染竿腾碎拨浪葫爽硬柿泡熟否垫付替骂虽摸染肩担忍酸廊发痒若娇薄颤巍巅婴希奇皂廊碗若透娇扯仰串越婴希蹦耀演奏琴柔感受激幕临曾经若索悬曾奥探索预测评估损控制裁裂催竟商量纳闷刺颠哄悟肩袖筒缘责榜聪职责颈歪承跌</textarea>
+        </div>
+        <div class="field-row">
+            <button class="btn btn-secondary" id="clear-btn">
+                <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                清除
+            </button>
             <span class="char-counter" id="charCounter">0 / 200</span>
+        </div>
+
+        <!-- 难度评估 -->
+        <div class="diff-area" id="difficultyArea">
+            <span class="diff-empty">输入汉字后将显示难度评估</span>
+        </div>
+
+        <!-- 3. 生成字帖 -->
+        <div class="field-row">
+            <button class="btn btn-primary" id="generate-btn" style="width:100%">
+                <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                生成字帖
+            </button>
         </div>
     </div>
 

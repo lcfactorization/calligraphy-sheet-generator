@@ -20,6 +20,8 @@
  */
 
 import { templates } from '../data/templates.js';
+// v2.4.7：网格类型/描红透明度统一由 settingsCenter 管理，确保侧栏与设置中心改同一全局变量
+import { getSettings, updateSetting } from '../modules/settingsCenter.js';
 
 const SIDEBAR_KEY = 'calligraphy_sidebar_state';
 
@@ -31,27 +33,51 @@ const GRID_TYPES = [
     { id: 'pinyin-tian', label: '拼音田' }
 ];
 
-/** 默认侧栏状态（与 DEFAULT_GRID_CELL_PROPS 对齐） */
+/** 默认侧栏状态（v2.4.4：默认米字格，描红透明度默认 0.1） */
 const DEFAULT_STATE = {
-    gridType: 'tian',
-    traceOpacity: 0.25,
+    gridType: 'mizi',
+    traceOpacity: 0.1,
     lastTemplateId: null
 };
 
-/** 获取侧栏状态（合并默认值，对外导出供 main.js 读取） */
+/**
+ * 获取侧栏状态（合并默认值，对外导出供 main.js 读取）
+ * v2.4.7：gridType 和 traceOpacity 从 settingsCenter 读取（单一数据源），
+ *         lastTemplateId 保留在侧栏自有 localStorage
+ */
 export function getSidebarState() {
+    const settings = getSettings();
+    let lastTemplateId = null;
     try {
         const raw = localStorage.getItem(SIDEBAR_KEY);
-        if (!raw) return { ...DEFAULT_STATE };
-        return { ...DEFAULT_STATE, ...JSON.parse(raw) };
-    } catch {
-        return { ...DEFAULT_STATE };
-    }
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            lastTemplateId = parsed.lastTemplateId || null;
+        }
+    } catch { /* 静默降级 */ }
+    return {
+        gridType: settings.gridType || DEFAULT_STATE.gridType,
+        traceOpacity: settings.traceOpacity != null ? settings.traceOpacity : DEFAULT_STATE.traceOpacity,
+        lastTemplateId
+    };
 }
 
+/**
+ * v2.4.7：保存侧栏状态 — gridType/traceOpacity 委托给 settingsCenter，
+ *         lastTemplateId 保留在侧栏 localStorage
+ */
 function saveSidebarState(state) {
     try {
-        localStorage.setItem(SIDEBAR_KEY, JSON.stringify(state));
+        // gridType 和 traceOpacity 写入 settingsCenter（单一数据源）
+        if (state.gridType != null) updateSetting('gridType', state.gridType);
+        if (state.traceOpacity != null) updateSetting('traceOpacity', state.traceOpacity);
+        // lastTemplateId 保留在侧栏
+        if (state.lastTemplateId != null) {
+            const raw = localStorage.getItem(SIDEBAR_KEY);
+            const existing = raw ? JSON.parse(raw) : {};
+            existing.lastTemplateId = state.lastTemplateId;
+            localStorage.setItem(SIDEBAR_KEY, JSON.stringify(existing));
+        }
     } catch { /* 容量满或隐私模式，静默降级 */ }
 }
 
@@ -91,10 +117,10 @@ function createGridTypeSection(state) {
                 b.classList.toggle('active', isActive);
                 b.setAttribute('aria-pressed', isActive);
             });
-            // 持久化 + 派发
+            // v2.4.7：saveSidebarState 委托给 settingsCenter，会自动派发 'calligraphy:settings-updated'
+            // 无需再手动 dispatchUpdate（避免双重渲染）
             const next = { ...getSidebarState(), gridType: type };
             saveSidebarState(next);
-            dispatchUpdate({ gridType: type });
         });
     });
     return section;
@@ -104,13 +130,13 @@ function createGridTypeSection(state) {
 function createOpacitySection(state) {
     const section = document.createElement('div');
     section.className = 'sidebar-section';
-    const opacity = (state.traceOpacity != null ? state.traceOpacity : 0.25);
+    const opacity = (state.traceOpacity != null ? state.traceOpacity : 0.1);
 
     section.innerHTML = `
         <div class="sidebar-section-title">🖌️ 描红透明度</div>
         <div class="opacity-slider-wrap">
             <input type="range" class="opacity-slider" id="traceOpacitySlider"
-                min="0.1" max="0.4" step="0.05" value="${opacity}"
+                min="0.05" max="0.3" step="0.05" value="${opacity}"
                 aria-label="描红透明度">
             <span class="opacity-value" id="traceOpacityValue">${opacity.toFixed(2)}</span>
         </div>
@@ -122,9 +148,9 @@ function createOpacitySection(state) {
     slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
         valEl.textContent = v.toFixed(2);
+        // v2.4.7：saveSidebarState 委托给 settingsCenter，会自动派发 'calligraphy:settings-updated'
         const next = { ...getSidebarState(), traceOpacity: v };
         saveSidebarState(next);
-        dispatchUpdate({ traceOpacity: v });
     });
 
     return section;
@@ -268,10 +294,11 @@ function createDrawerToggle() {
 /**
  * 初始化侧栏
  *  1. 把现有 #input-container 和页眉页脚 .panel 移入 #appSidebar
- *  2. 新增网格类型切换组、描红透明度滑块、预设场景列表
- *  3. 持久化状态到 localStorage
- *  4. 派发 'calligraphy:sidebar-updated' 事件
- *  5. 注册移动端抽屉切换
+ *  2. v2.4.4：网格类型+描红透明度插入 #input-container 内（紧挨智能推荐按钮）
+ *  3. 预设场景列表留在侧栏底部
+ *  4. 持久化状态到 localStorage
+ *  5. 派发 'calligraphy:sidebar-updated' 事件
+ *  6. 注册移动端抽屉切换
  */
 export function initSidebar() {
     const sidebar = document.getElementById('appSidebar');
@@ -291,27 +318,57 @@ export function initSidebar() {
         }
     });
 
-    // 2. 新增"网格类型"切换组
-    sidebar.appendChild(createGridTypeSection(state));
+    // 2. v2.4.4：把"网格类型"和"描红透明度"插入 #input-container 内
+    //    紧挨着智能推荐按钮（位于清除按钮行与生成按钮之间）
+    const inputContainer = document.getElementById('input-container');
+    if (inputContainer) {
+        const generateBtn = document.getElementById('generate-btn');
+        const insertBefore = generateBtn ? generateBtn.closest('.field-row') : null;
+        const gridSection = createGridTypeSection(state);
+        const opacitySection = createOpacitySection(state);
+        if (insertBefore) {
+            inputContainer.insertBefore(gridSection, insertBefore);
+            inputContainer.insertBefore(opacitySection, insertBefore);
+        } else {
+            inputContainer.appendChild(gridSection);
+            inputContainer.appendChild(opacitySection);
+        }
+    } else {
+        // 回退：直接追加到侧栏
+        sidebar.appendChild(createGridTypeSection(state));
+        sidebar.appendChild(createOpacitySection(state));
+    }
 
-    // 3. 新增"描红透明度"滑块
-    sidebar.appendChild(createOpacitySection(state));
-
-    // 4. 新增"预设场景"快速选择
+    // 3. 新增"预设场景"快速选择（留在侧栏底部）
     sidebar.appendChild(createPresetSection(state));
 
-    // 5. 注册移动端抽屉切换按钮 + 遮罩
+    // 4. 注册移动端抽屉切换按钮 + 遮罩
     const [btn, bd] = createDrawerToggle();
     document.body.appendChild(btn);
     document.body.appendChild(bd);
 
-    // 6. 标记就绪（theme.css 可据此做首屏防闪）
+    // 5. 标记就绪（theme.css 可据此做首屏防闪）
     document.body.classList.add('sb-ready');
 
-    // 7. 派发初始事件，通知 GridEngine 用当前 gridType / traceOpacity 渲染
-    dispatchUpdate({
-        gridType: state.gridType || 'tian',
-        traceOpacity: (state.traceOpacity != null ? state.traceOpacity : 0.25)
+    // 6. v2.4.7：监听设置中心变化，同步侧栏 UI（网格类型按钮高亮 / 透明度滑块值）
+    //    确保设置中心和侧栏同名控件保持一致
+    document.addEventListener('calligraphy:settings-updated', (e) => {
+        const s = e.detail || {};
+        // 同步网格类型按钮高亮
+        if (s.gridType) {
+            document.querySelectorAll('.grid-type-btn').forEach(b => {
+                const isActive = b.dataset.gridType === s.gridType;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+        }
+        // 同步描红透明度滑块
+        if (s.traceOpacity != null) {
+            const slider = document.getElementById('traceOpacitySlider');
+            const valEl = document.getElementById('traceOpacityValue');
+            if (slider) slider.value = s.traceOpacity;
+            if (valEl) valEl.textContent = parseFloat(s.traceOpacity).toFixed(2);
+        }
     });
 }
 

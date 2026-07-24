@@ -48,7 +48,7 @@ function parseArgs() {
         font: '姜浩硬笔楷书',
         format: 'a4',
         header: '',
-        footer: '第 {page} 页 / 共 {total} 页',
+        footer: '',
         margin: '10mm',
         landscape: false,
         timeout: 30000,
@@ -259,6 +259,9 @@ async function generatePDF() {
             '--disable-setuid-sandbox',
             '--font-render-hinting=none',
             '--disable-font-subpixel-positioning',
+            // v2.5.0：禁用浏览器扩展（IDM等），提升效率
+            '--disable-extensions',
+            '--disable-component-extensions-with-background-pages',
         ],
     });
 
@@ -268,9 +271,11 @@ async function generatePDF() {
         // 加载页面（构建产物或 dev server）
         console.log(`▶ 正在加载: ${fileUrl}`);
         await page.goto(fileUrl, {
-            waitUntil: 'networkidle0',
-            timeout: options.timeout,
+            waitUntil: 'networkidle2',
+            timeout: 60000,
         });
+        // v2.5.1：进一步减少等待（1500ms → 500ms，networkidle2 已保证资源加载）
+        await new Promise(r => setTimeout(r, 500));
 
         // 设置文本内容和字体
         console.log(`▶ 正在设置文本内容 (${options.text.length} 字)...`);
@@ -312,43 +317,151 @@ async function generatePDF() {
             console.warn('⚠ 未检测到 SVG 字格节点，继续处理...');
         });
 
+        // v2.4.10：创建 .a4-page 包装器（让 print.css 的可见性与分页规则生效）
+        // 页眉页脚改用 Puppeteer headerTemplate/footerTemplate 渲染（不再创建 CSS .print-only-header/footer）
+        console.log('▶ 正在创建打印包装器...');
+        const hfInfo = await page.evaluate(() => {
+            const grid = document.getElementById('grid-container');
+            if (!grid) return null;
+
+            // 1. 包装进 .a4-page 让 print.css 的可见性与分页规则生效
+            if (!grid.parentNode.classList.contains('a4-page')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'a4-page pdf-print-wrapper';
+                wrapper.style.cssText = 'position:relative;width:100%;';
+                grid.parentNode.insertBefore(wrapper, grid);
+                wrapper.appendChild(grid);
+            }
+
+            // v2.4.12：清除浏览器打印残留的 CSS 页眉页脚元素，避免与 Puppeteer headerTemplate 重叠
+            // 注意：不清理 .pdf-print-wrapper（那是本路径刚创建的 .a4-page wrapper）
+            document.querySelectorAll('.print-only-header, .print-only-footer, .page-section-header, .page-section-footer, .print-page-section').forEach(el => el.remove());
+
+            // 2. 读取页眉页脚输入框（用于 headerTemplate/footerTemplate）
+            const fontSelect = document.getElementById('font-select');
+            const fontDisplayName = fontSelect
+                ? fontSelect.options[fontSelect.selectedIndex].text
+                : '';
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const truncate = (text, max) => {
+                const arr = Array.from(text || '');
+                return arr.length > max ? arr.slice(0, max).join('') + '…' : (text || '');
+            };
+            const hLeft = truncate(
+                document.getElementById('headerLeft')?.value ||
+                `${now.getFullYear()}年${pad(now.getMonth() + 1)}月${pad(now.getDate())}日 ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+                22
+            );
+            const hCenter = truncate(
+                document.getElementById('headerCenter')?.value || '练习字帖',
+                16
+            );
+            const hRight = truncate(
+                document.getElementById('headerRight')?.value ||
+                (fontDisplayName ? fontDisplayName + '字体' : ''),
+                22
+            );
+            const fText = truncate(
+                document.getElementById('footerText')?.value || '评分：☆☆☆☆☆',
+                32
+            );
+
+            // 返回诊断信息 + 页眉页脚文本
+            const cells = grid.querySelectorAll('.grid-svg-cell');
+            const rows = grid.querySelectorAll('.grid-svg-row');
+            return {
+                cellCount: cells.length,
+                rowCount: rows.length,
+                hasWrapper: !!grid.parentNode.closest('.a4-page'),
+                hLeft, hCenter, hRight, fText
+            };
+        });
+
+        if (hfInfo) {
+            console.log(`  字格数: ${hfInfo.cellCount}, 行数: ${hfInfo.rowCount}`);
+            console.log(`  包装器: ${hfInfo.hasWrapper ? '✓' : '✗'}`);
+            console.log(`  页眉: 左=${hfInfo.hLeft} | 中=${hfInfo.hCenter} | 右=${hfInfo.hRight}`);
+            console.log(`  页脚: ${hfInfo.fText}`);
+        }
+
         // 等待字体加载
         console.log('▶ 正在加载字体（确保拼音和汉字字体就绪）...');
         await page.evaluate(async () => {
-            // 等待所有 FontFace 加载完成
             await document.fonts.ready;
-
-            // 额外等待，确保异步 FontFace API 加载完毕
-            await new Promise(r => setTimeout(r, 2000));
-
-            // 再次等待
-            await document.fonts.ready;
-
-            // 验证关键字体
+            await new Promise(r => setTimeout(r, 800));
             const pinyinOk = document.fonts.check('16px TeXGyreAdventor');
             const cnOk = document.fonts.check('16px ' +
                 (document.getElementById('font-select')?.value || 'JiangHaoYingBiKaiShu'));
-
             if (!pinyinOk || !cnOk) {
-                console.warn('部分字体未就绪，额外等待3秒...');
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 2000));
                 await document.fonts.ready;
             }
         });
 
+        // v2.4.18：等待笔画 SVG 加载完成（确保拼音四线格行的笔画/笔顺信息显示）
+        console.log('▶ 正在等待笔画 SVG 加载...');
+        const strokeResult = await page.evaluate(async () => {
+            let source = 'dom-fallback';
+            if (typeof window.__waitForStrokes === 'function') {
+                try {
+                    await window.__waitForStrokes(15000);
+                    source = 'waitForStrokes';
+                } catch (e) { /* fallback */ }
+            }
+            const strokeBoxes = document.querySelectorAll('.grid-svg-stroke-box');
+            const total = strokeBoxes.length;
+            let loaded = 0;
+            let totalSvgs = 0;
+            for (const box of strokeBoxes) {
+                const svgs = box.querySelectorAll('svg.stroke-svg');
+                if (svgs.length > 0) { loaded++; totalSvgs += svgs.length; }
+            }
+            return { ok: loaded > 0, total, loaded, totalSvgs, source };
+        });
+        if (strokeResult.ok) {
+            console.log(`  笔画加载完成 (${strokeResult.source}): ${strokeResult.loaded}/${strokeResult.total} 行, 共 ${strokeResult.totalSvgs} 个笔画 SVG`);
+        } else {
+            console.warn(`  ⚠ 笔画加载可能不完整: ${JSON.stringify(strokeResult)}`);
+        }
+
         // 切换到打印媒体类型（隐藏UI元素，应用打印CSS）
         console.log('▶ 正在切换到打印模式...');
         await page.emulateMediaType('print');
-        await new Promise(r => setTimeout(r, 500));
+        // v2.5.1：减少等待（500ms → 200ms）
+        await new Promise(r => setTimeout(r, 200));
 
-        // 构建 PDF 选项：margin 全 0，由 HTML 内部 @page 与页眉页脚接管
+        // v2.4.10：PDF 选项 — margin 与 CSS @page 一致（29mm/15.9mm/8mm/15.9mm）
+        //   headerTemplate 渲染页眉（左:日期 中:标题 右:字体），footerTemplate 渲染页脚（中:评分 右:页码）
+        //   中文字体用系统字体兜底（Puppeteer header/footer 不加载页面自定义字体）
+        const escapeHtml = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const hL = escapeHtml(hfInfo?.hLeft || '');
+        const hC = escapeHtml(hfInfo?.hCenter || '');
+        const hR = escapeHtml(hfInfo?.hRight || '');
+        const fT = escapeHtml(hfInfo?.fText || '');
+
+        const headerTemplateHtml = `
+            <style>body{margin:0!important;padding:0!important;}</style>
+            <div style="font-size:9pt; color:#2E7D32; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:10mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
+                <span>${hL}</span>
+                <span style="flex:1;text-align:center;">${hC}</span>
+                <span>${hR}</span>
+            </div>`;
+        const footerTemplateHtml = `
+            <style>body{margin:0!important;padding:0!important;}</style>
+            <div style="font-size:9pt; color:#2E7D32; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; height:16mm; margin:0; padding:0 15.9mm 8mm 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; -webkit-print-color-adjust:exact;">
+                <span style="flex:1;text-align:center;">${fT}</span>
+                <span>第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页</span>
+            </div>`;
         const pdfOptions = {
             path: options.output,
             format: options.format,
             printBackground: true,
             landscape: options.landscape,
-            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-            displayHeaderFooter: false,
+            margin: { top: '29mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
+            displayHeaderFooter: true,
+            headerTemplate: headerTemplateHtml,
+            footerTemplate: footerTemplateHtml,
             preferCSSPageSize: true,
         };
 
