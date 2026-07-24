@@ -12,15 +12,36 @@
  * 依赖契约：src/contracts/interfaces.js（GRID_COLORS / SHEET_LAYOUT / A4_SHEET_LAYOUT）
  */
 
-import { GRID_COLORS, SHEET_LAYOUT, A4_SHEET_LAYOUT } from '../contracts/interfaces.js';
+import { GRID_COLORS, GRID_COLOR_PRESETS, SHEET_LAYOUT, A4_SHEET_LAYOUT } from '../contracts/interfaces.js';
 import { pinyin } from '../modules/pinyin.js';
 import { getZuCi } from '../modules/zuci.js';
 import { loadStrokes, clearStrokeQueue } from '../modules/strokes.js';
+// v2.5.3：颜色由 settingsCenter 管理（用户可在侧栏快切）
+import { getSettings } from '../modules/settingsCenter.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /** 笔顺循环色板（首字彩色笔顺示范用） */
 const STROKE_ORDER_COLORS = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA'];
+
+/**
+ * v2.5.3：获取当前网格颜色（基于 settingsCenter 的 gridColorPreset）
+ * 如果预设不存在或被禁用，回退到默认 GRID_COLORS（传统绿）
+ * @returns {Object} { primary, secondary, dashed, pinyin, zuci, stroke }
+ */
+function getActiveGridColors() {
+    try {
+        const settings = getSettings();
+        const presetId = settings.gridColorPreset;
+        if (presetId && presetId !== 'green') {
+            const preset = GRID_COLOR_PRESETS.find(p => p.id === presetId);
+            if (preset && preset.colors) {
+                return { ...preset.colors, stroke: GRID_COLORS.stroke };
+            }
+        }
+    } catch (e) { /* 静默回退 */ }
+    return GRID_COLORS;
+}
 
 /**
  * 创建 SVG 子元素并批量设置属性
@@ -51,19 +72,21 @@ function resolveStrokePath(stroke) {
 /**
  * 绘制米字格：外框粗实线 + 中线细实线 + 对角线细虚线（全绿）
  * @param {SVGElement} svg
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
  */
-function drawMiziGrid(svg) {
+function drawMiziGrid(svg, colors) {
     svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
 
     // v2.4.14：外框由 createRowBorderSVG 统一绘制，此处不再画 rect
     // 中线（水平+垂直，细实线，中绿）
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 50, x2: 100, y2: 50,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
     svg.appendChild(svgEl('line', {
         x1: 50, y1: 0, x2: 50, y2: 100,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 
     // 两条对角线（细虚线，浅绿）
@@ -71,12 +94,12 @@ function drawMiziGrid(svg) {
     // 去掉 vector-effect:non-scaling-stroke（Puppeteer 兼容性问题），改用增大 dasharray 值
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 0, x2: 100, y2: 100,
-        stroke: GRID_COLORS.dashed, 'stroke-width': 0.5,
+        stroke: C.dashed, 'stroke-width': 0.5,
         'stroke-dasharray': '6,4'
     }));
     svg.appendChild(svgEl('line', {
         x1: 100, y1: 0, x2: 0, y2: 100,
-        stroke: GRID_COLORS.dashed, 'stroke-width': 0.5,
+        stroke: C.dashed, 'stroke-width': 0.5,
         'stroke-dasharray': '6,4'
     }));
 }
@@ -84,36 +107,75 @@ function drawMiziGrid(svg) {
 /**
  * 绘制田字格：外框粗实线 + 中线细实线（全绿）
  * @param {SVGElement} svg
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
  */
-function drawTianGrid(svg) {
+function drawTianGrid(svg, colors) {
     svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
 
     // v2.4.14：外框由 createRowBorderSVG 统一绘制，此处不再画 rect
     // 中线（水平+垂直）
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 50, x2: 100, y2: 50,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
     svg.appendChild(svgEl('line', {
         x1: 50, y1: 0, x2: 50, y2: 100,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 }
 
 /**
  * 绘制回字格：外框粗实线 + 内框60%居中（全绿）
  * @param {SVGElement} svg
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
  */
-function drawHuiGrid(svg) {
+function drawHuiGrid(svg, colors) {
     svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
 
     // v2.4.14：外框由 createRowBorderSVG 统一绘制，此处不再画 rect
     // 内框（60%居中：20,20 → 80,80）
     svg.appendChild(svgEl('rect', {
         x: 20, y: 20, width: 60, height: 60,
         fill: 'none',
-        stroke: GRID_COLORS.secondary,
+        stroke: C.secondary,
         'stroke-width': 0.6
+    }));
+}
+
+/**
+ * v2.5.3 新增：绘制九宫格：外框 + 三等分虚线（3×3 布局）
+ * 参考 gemini-code 设计，三等分线为虚线，颜色用 dashed 色
+ * @param {SVGElement} svg
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
+ */
+function drawJiugongGrid(svg, colors) {
+    svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
+
+    // v2.5.3：外框由 createRowBorderSVG 统一绘制，此处仅画三等分虚线
+    // 两条垂直三等分线（x=33.3, x=66.6）
+    svg.appendChild(svgEl('line', {
+        x1: 100 / 3, y1: 0, x2: 100 / 3, y2: 100,
+        stroke: C.dashed, 'stroke-width': 0.6,
+        'stroke-dasharray': '6,4'
+    }));
+    svg.appendChild(svgEl('line', {
+        x1: 200 / 3, y1: 0, x2: 200 / 3, y2: 100,
+        stroke: C.dashed, 'stroke-width': 0.6,
+        'stroke-dasharray': '6,4'
+    }));
+    // 两条水平三等分线（y=33.3, y=66.6）
+    svg.appendChild(svgEl('line', {
+        x1: 0, y1: 100 / 3, x2: 100, y2: 100 / 3,
+        stroke: C.dashed, 'stroke-width': 0.6,
+        'stroke-dasharray': '6,4'
+    }));
+    svg.appendChild(svgEl('line', {
+        x1: 0, y1: 200 / 3, x2: 100, y2: 200 / 3,
+        stroke: C.dashed, 'stroke-width': 0.6,
+        'stroke-dasharray': '6,4'
     }));
 }
 
@@ -123,9 +185,11 @@ function drawHuiGrid(svg) {
  *  - 拼音文字在 y=15 居中
  * @param {SVGElement} svg
  * @param {Object} data - { pinyin, fontFamily }
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
  */
-function drawPinyinTianGrid(svg, data) {
+function drawPinyinTianGrid(svg, data, colors) {
     svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
 
     const { pinyin: py = '', fontFamily = 'TW-Kai' } = data || {};
 
@@ -133,19 +197,19 @@ function drawPinyinTianGrid(svg, data) {
     // 上30%分隔线（y=30，水平实线）
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 30, x2: 100, y2: 30,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 
     // 垂直中线（仅下半部分 y=30~100）
     svg.appendChild(svgEl('line', {
         x1: 50, y1: 30, x2: 50, y2: 100,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 
     // 水平中线（仅下半部分 y=65）
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 65, x2: 100, y2: 65,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 
     // 拼音文字（上半部分 y=15 居中）
@@ -156,7 +220,7 @@ function drawPinyinTianGrid(svg, data) {
             'dominant-baseline': 'central',
             'font-family': 'TeXGyreAdventor, serif',
             'font-size': 14,
-            fill: GRID_COLORS.pinyin
+            fill: C.pinyin
         });
         text.textContent = py;
         svg.appendChild(text);
@@ -170,19 +234,21 @@ function drawPinyinTianGrid(svg, data) {
  *  - 词语中每个字都有独立的拼音
  * @param {SVGElement} svg
  * @param {Object} data - { word, fontFamily }
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖
  */
-function drawTianWithPinyinZuci(svg, data) {
+function drawTianWithPinyinZuci(svg, data, colors) {
     svg.setAttribute('viewBox', '0 0 100 100');
+    const C = colors || getActiveGridColors();
 
     // v2.4.14：外框由 createRowBorderSVG 统一绘制，此处不再画 rect
     // 中线（水平+垂直）
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 50, x2: 100, y2: 50,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
     svg.appendChild(svgEl('line', {
         x1: 50, y1: 0, x2: 50, y2: 100,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.6
+        stroke: C.secondary, 'stroke-width': 0.6
     }));
 
     const { word = '', fontFamily = 'TW-Kai' } = data || {};
@@ -210,7 +276,7 @@ function drawTianWithPinyinZuci(svg, data) {
             'dominant-baseline': 'central',
             'font-family': 'TeXGyreAdventor, serif',
             'font-size': 14,
-            fill: GRID_COLORS.pinyin
+            fill: C.pinyin
         });
         text.textContent = pinyins[i];
         svg.appendChild(text);
@@ -226,7 +292,7 @@ function drawTianWithPinyinZuci(svg, data) {
             'dominant-baseline': 'central',
             'font-family': `${fontFamily}, serif`,
             'font-size': 32,
-            fill: GRID_COLORS.zuci
+            fill: C.zuci
         });
         text.textContent = chars[i];
         svg.appendChild(text);
@@ -292,9 +358,10 @@ function drawStrokeOrder(svg, strokeOrder) {
  * 所有竖线在同一个坐标系内，shape-rendering: crispEdges 对齐整数像素
  *
  * @param {number} cellCount - 每行格子数（默认 11）
+ * @param {Object} [colors] - v2.5.3 可选颜色覆盖（需含 primary 字段）
  * @returns {SVGElement} SVG.grid-svg-row-border
  */
-export function createRowBorderSVG(cellCount = 11) {
+export function createRowBorderSVG(cellCount = 11, colors) {
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('class', 'grid-svg-row-border');
     svg.setAttribute('viewBox', `0 0 ${cellCount * 100} 100`);
@@ -312,8 +379,9 @@ export function createRowBorderSVG(cellCount = 11) {
     //   stroke 在 PDF 中因 crispEdges + preserveAspectRatio:none 渲染为 0 宽度
     //   填充矩形始终按精确尺寸渲染，与页顶 border-top 一致
     //   线宽 2.0 SVG 单位 = 2.0/100 * 16.2mm = 0.324mm，与页顶实线一致
+    // v2.5.3：COLOR 从 GRID_COLORS.primary 改为动态获取，支持颜色快切
     const BORDER_SW = 2.0;
-    const COLOR = GRID_COLORS.primary;
+    const COLOR = (colors && colors.primary) || getActiveGridColors().primary;
     const W = cellCount * 100;
 
     // 上边
@@ -339,11 +407,13 @@ export function createRowBorderSVG(cellCount = 11) {
  * ════════════════════════════════════════════════════════════════
  * v2.4.14：外框由 createRowBorderSVG 统一绘制，cell 内不再画外框 rect，
  *          仅保留中线/对角线/内容，消除竖线粗细不一致
+ * v2.5.3：新增 'jiugong' 九宫格类型；所有 draw* 函数支持动态颜色
  *
  * @param {Object} options
- *   - gridType: 'mizi' | 'tian' | 'hui' | 'pinyin-tian' | 'pinyin-zuci'
+ *   - gridType: 'mizi' | 'tian' | 'hui' | 'pinyin-tian' | 'pinyin-zuci' | 'jiugong'
  *   - mode: 'reference' | 'trace' | 'blank' | 'stroke-order'
  *   - char, pinyin, zuci, word, fontFamily, traceOpacity
+ *   - colors: 可选颜色覆盖（v2.5.3）
  * @returns {SVGElement}
  */
 export function createGridCellSVG(options = {}) {
@@ -356,7 +426,8 @@ export function createGridCellSVG(options = {}) {
         word = '',
         fontFamily = 'TW-Kai',
         traceOpacity = 0.3,
-        strokeOrder = null
+        strokeOrder = null,
+        colors = null
     } = options;
 
     const svg = document.createElementNS(SVG_NS, 'svg');
@@ -366,19 +437,22 @@ export function createGridCellSVG(options = {}) {
     svg.setAttribute('data-mode', mode);
     if (char) svg.setAttribute('data-char', char);
 
-    // 1. 绘制网格
+    // 1. 绘制网格（v2.5.3：传入 colors，未传则由 draw* 内部读 getActiveGridColors）
     if (gridType === 'mizi') {
-        drawMiziGrid(svg);
+        drawMiziGrid(svg, colors);
     } else if (gridType === 'hui') {
-        drawHuiGrid(svg);
+        drawHuiGrid(svg, colors);
+    } else if (gridType === 'jiugong') {
+        // v2.5.3：九宫格（3×3 三等分虚线）
+        drawJiugongGrid(svg, colors);
     } else if (gridType === 'pinyin-tian') {
         // 拼音田字格：上30%拼音 + 下70%田字格
-        drawPinyinTianGrid(svg, { pinyin: py, fontFamily });
+        drawPinyinTianGrid(svg, { pinyin: py, fontFamily }, colors);
     } else if (gridType === 'pinyin-zuci') {
-        drawTianWithPinyinZuci(svg, { word, fontFamily });
+        drawTianWithPinyinZuci(svg, { word, fontFamily }, colors);
     } else {
         // 默认田字格
-        drawTianGrid(svg);
+        drawTianGrid(svg, colors);
     }
 
     // 2. 根据模式绘制汉字（pinyin-zuci 模式已在网格函数内绘制拼音组词）
@@ -415,11 +489,12 @@ export function createGridCellSVG(options = {}) {
  *  - 右侧：左对齐笔画数 + hanzi-writer 笔画拆解 SVG
  * @param {string} char
  * @param {string} py
- * @param {Object} opts - { fontFamily, isPageTop }
+ * @param {Object} opts - { fontFamily, isPageTop, colors }
  * @returns {HTMLElement} div.grid-svg-aux-row
  */
 export function createAuxRow(char, py, opts = {}) {
-    const { fontFamily = 'TW-Kai', isPageTop = false } = opts;
+    const { fontFamily = 'TW-Kai', isPageTop = false, colors = null } = opts;
+    const C = colors || getActiveGridColors();
 
     const row = document.createElement('div');
     row.className = 'grid-svg-aux-row';
@@ -431,6 +506,10 @@ export function createAuxRow(char, py, opts = {}) {
     //   border-top 是元素固有属性，打印/PDF 中自然显示，
     //   线宽与格子边框一致（2.0 SVG 单位 = 0.324mm），
     //   且天然撑满整个行宽，不会有分页孤立问题
+    // v2.5.3：页顶实线颜色跟随网格主色（动态设置 inline style）
+    if (isPageTop) {
+        row.style.borderTopColor = C.primary;
+    }
 
     // 左侧：四线格（18mm 宽，6mm 高）
     // viewBox 0 0 100 30：30单位=6mm，每mm=5单位
@@ -445,14 +524,15 @@ export function createAuxRow(char, py, opts = {}) {
     // 中间2条细线（y=10, y=20），4条线等距分布
     // 顶部线由页顶粗实线(isPageTop的background)或上一行字格底线提供
     // v2.4.12：统一两条中间线的颜色和透明度（之前上方0.45/下方1不一致）
+    // v2.5.3：颜色用动态 C.secondary
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 10, x2: 100, y2: 10,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.8
+        stroke: C.secondary, 'stroke-width': 0.8
     }));
     // 下方中间线
     svg.appendChild(svgEl('line', {
         x1: 0, y1: 20, x2: 100, y2: 20,
-        stroke: GRID_COLORS.secondary, 'stroke-width': 0.8
+        stroke: C.secondary, 'stroke-width': 0.8
     }));
 
     // 拼音文字（居中于中间两格之间 y=15）
@@ -465,7 +545,7 @@ export function createAuxRow(char, py, opts = {}) {
             'dominant-baseline': 'central',
             'font-family': 'TeXGyreAdventor, serif',
             'font-size': 16,
-            fill: GRID_COLORS.pinyin
+            fill: C.pinyin
         });
         text.textContent = py;
         svg.appendChild(text);
@@ -516,6 +596,10 @@ export function renderSheet(input = '', options = {}) {
         traceOpacity = 0.1
     } = options;
 
+    // v2.5.3：一次性获取当前网格颜色，传给所有 cell / auxRow / rowBorder
+    // 颜色来源：settingsCenter.gridColorPreset → GRID_COLOR_PRESETS → 回退 GRID_COLORS
+    const colors = getActiveGridColors();
+
     // 过滤掉空白字符，每个汉字对应一行
     const chars = Array.from(input).filter(c => /\S/.test(c) && c !== '\n' && c !== '\r');
     const { miziCount, tianCount, rowsPerPage } = SHEET_LAYOUT;
@@ -552,7 +636,7 @@ export function renderSheet(input = '', options = {}) {
         // ── 1. 辅助行（拼音四线格 + 笔画SVG） ──
         // 每页第一行（idx % rowsPerPage === 0）画顶部粗实线
         const isPageTop = idx % rowsPerPage === 0;
-        const auxRow = createAuxRow(char, py, { fontFamily, isPageTop });
+        const auxRow = createAuxRow(char, py, { fontFamily, isPageTop, colors });
         fragment.appendChild(auxRow);
 
         // ── 2. 字格行 ──
@@ -562,7 +646,7 @@ export function renderSheet(input = '', options = {}) {
         charRow.setAttribute('data-pinyin', py);
         charRow.setAttribute('data-zuci', `${word1}|${word2}`);
 
-        // 2.1 左侧 5 个字格（gridType 由用户选择：田/米/回/拼音田）
+        // 2.1 左侧 5 个字格（gridType 由用户选择：田/米/回/拼音田/九宫格）
         //   [0]范字黑色 [1]描红 [2]描红 [3]空白 [4]空白
         const miziModes = SHEET_LAYOUT.miziModes;
         for (let j = 0; j < miziCount; j++) {
@@ -573,7 +657,8 @@ export function renderSheet(input = '', options = {}) {
                 char,
                 pinyin: py,
                 fontFamily,
-                traceOpacity
+                traceOpacity,
+                colors
             });
             charRow.appendChild(cell);
         }
@@ -588,7 +673,8 @@ export function renderSheet(input = '', options = {}) {
             gridType: 'pinyin-zuci',
             mode: 'pinyin-zuci',
             word: word1,
-            fontFamily
+            fontFamily,
+            colors
         }));
 
         // 第7格：词语1第1字描红
@@ -597,7 +683,8 @@ export function renderSheet(input = '', options = {}) {
             mode: 'trace',
             char: word1Chars[0],
             fontFamily,
-            traceOpacity: WORD_TRACE_OPACITY
+            traceOpacity: WORD_TRACE_OPACITY,
+            colors
         }));
 
         // 第8格：词语1第2字描红
@@ -606,7 +693,8 @@ export function renderSheet(input = '', options = {}) {
             mode: 'trace',
             char: word1Chars[1],
             fontFamily,
-            traceOpacity: WORD_TRACE_OPACITY
+            traceOpacity: WORD_TRACE_OPACITY,
+            colors
         }));
 
         // 第9格：词语2完整（四宫格：上拼音 + 下字）
@@ -614,7 +702,8 @@ export function renderSheet(input = '', options = {}) {
             gridType: 'pinyin-zuci',
             mode: 'pinyin-zuci',
             word: word2,
-            fontFamily
+            fontFamily,
+            colors
         }));
 
         // 第10格：词语2第1字描红
@@ -623,7 +712,8 @@ export function renderSheet(input = '', options = {}) {
             mode: 'trace',
             char: word2Chars[0],
             fontFamily,
-            traceOpacity: WORD_TRACE_OPACITY
+            traceOpacity: WORD_TRACE_OPACITY,
+            colors
         }));
 
         // 第11格：词语2第2字描红
@@ -632,7 +722,8 @@ export function renderSheet(input = '', options = {}) {
             mode: 'trace',
             char: word2Chars[1],
             fontFamily,
-            traceOpacity: WORD_TRACE_OPACITY
+            traceOpacity: WORD_TRACE_OPACITY,
+            colors
         }));
 
         // ── 3. 分页：每 rowsPerPage 行插入分页符 ──
@@ -643,7 +734,8 @@ export function renderSheet(input = '', options = {}) {
 
         // v2.4.14：在 cells 之后插入行级统一边框 SVG（绝对定位，z-index:0 在 cells 下方）
         // 所有竖线在同一个 SVG 坐标系内，消除亚像素累积误差导致的粗细不一致
-        const rowBorder = createRowBorderSVG(SHEET_LAYOUT.cellsPerRow);
+        // v2.5.3：传入 colors，使外框颜色跟随用户选择
+        const rowBorder = createRowBorderSVG(SHEET_LAYOUT.cellsPerRow, colors);
         charRow.appendChild(rowBorder);
 
         fragment.appendChild(charRow);
@@ -653,4 +745,4 @@ export function renderSheet(input = '', options = {}) {
 }
 
 // 显式导出常量（供上层集成 / 调试使用）
-export { STROKE_ORDER_COLORS, SHEET_LAYOUT, GRID_COLORS };
+export { STROKE_ORDER_COLORS, SHEET_LAYOUT, GRID_COLORS, GRID_COLOR_PRESETS };

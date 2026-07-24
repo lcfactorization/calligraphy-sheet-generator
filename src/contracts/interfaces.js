@@ -15,11 +15,12 @@
 
 /**
  * 网格类型枚举
- * @typedef {'tian' | 'mizi' | 'hui' | 'pinyin-tian'} GridType
+ * @typedef {'tian' | 'mizi' | 'hui' | 'pinyin-tian' | 'jiugong'} GridType
  *  - tian        : 田字格（外框 + 十字虚线）
  *  - mizi        : 米字格（外框 + 十字 + 双对角线虚线）
  *  - hui         : 回字格（外框 + 内框 60%）
  *  - pinyin-tian : 拼音田字格（上 30% 四线三格 + 下 70% 田/米字格）
+ *  - jiugong     : 九宫格（外框 + 三等分虚线，3×3 布局）
  */
 
 /**
@@ -80,6 +81,34 @@ export const GRID_COLORS = {
     zuci:      '#1B5E20',  // 组词文字色（更深以区分）
     stroke:    '#FF5722'   // 当前笔画高亮色（笔顺拆解用）
 };
+
+/**
+ * v2.5.3：网格颜色预设（供侧栏颜色快切使用）
+ * 每个预设包含 5 个色阶：primary/secondary/dashed/pinyin/zuci
+ * stroke（笔画高亮色）固定为 #FF5722，不随预设变化
+ */
+export const GRID_COLOR_PRESETS = [
+    {
+        id: 'green',
+        name: '传统绿',
+        colors: { primary: '#2E7D32', secondary: '#388E3C', dashed: '#66BB6A', pinyin: '#2E7D32', zuci: '#1B5E20' }
+    },
+    {
+        id: 'red',
+        name: '朱砂红',
+        colors: { primary: '#9E2A2B', secondary: '#B14A4B', dashed: '#D97777', pinyin: '#9E2A2B', zuci: '#7A1F20' }
+    },
+    {
+        id: 'blue',
+        name: '靛青蓝',
+        colors: { primary: '#1565C0', secondary: '#1976D2', dashed: '#64B5F6', pinyin: '#1565C0', zuci: '#0D47A1' }
+    },
+    {
+        id: 'ink',
+        name: '墨黑',
+        colors: { primary: '#1F2937', secondary: '#374151', dashed: '#9CA3AF', pinyin: '#1F2937', zuci: '#111827' }
+    }
+];
 
 /** 字帖版式常量
  *  v2.4.3：去掉 rowGapMM，辅助行紧贴字格行，四线格4条线均匀分布

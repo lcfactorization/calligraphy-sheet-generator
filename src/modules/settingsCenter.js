@@ -17,8 +17,10 @@ const DEFAULT_SETTINGS = {
     theme: 'light',          // 'light' | 'dark' | 'system'
     fontSize: 43,            // 字体大小 px (24-60)
     // v2.4.7：从 Sidebar.js 合并到设置中心，统一全局状态管理
-    gridType: 'mizi',        // 网格类型: 'tian' | 'mizi' | 'hui' | 'pinyin-tian'
-    traceOpacity: 0.1        // 描红透明度 (0.05-0.3)
+    gridType: 'mizi',        // 网格类型: 'tian' | 'mizi' | 'hui' | 'pinyin-tian' | 'jiugong'
+    traceOpacity: 0.1,       // 描红透明度 (0.05-0.3)
+    // v2.5.3：网格颜色预设（'green' | 'red' | 'blue' | 'ink'），见 interfaces.js GRID_COLOR_PRESETS
+    gridColorPreset: 'green'
 };
 
 /** 读取设置 */
@@ -95,7 +97,10 @@ export function updateSetting(key, value) {
     notifySettingsUpdated(settings);
 }
 
-/** 创建设置面板 DOM */
+/** 创建设置面板 DOM
+ *  v2.5.3：移除字号控件（字号修改需联动网格/SVG/分页，工作量巨大且意义不大）
+ *         新增九宫格选项 + 线框颜色预设选择器
+ */
 function createPanel() {
     if (document.getElementById('settingsPanel')) return;
     const settings = getSettings();
@@ -124,10 +129,6 @@ function createPanel() {
                         <label>每页行数 <span class="sc-value" id="scRowsPerPageVal">${settings.rowsPerPage}</span></label>
                         <input type="range" id="scRowsPerPage" min="5" max="15" step="1" value="${settings.rowsPerPage}">
                     </div>
-                    <div class="sc-field">
-                        <label>字体大小 <span class="sc-value" id="scFontSizeVal">${settings.fontSize}px</span></label>
-                        <input type="range" id="scFontSize" min="24" max="60" step="1" value="${settings.fontSize}">
-                    </div>
                 </div>
                 <div class="sc-section">
                     <div class="sc-section-title">🔲 网格类型</div>
@@ -135,6 +136,7 @@ function createPanel() {
                         ${[
                             {id:'tian',label:'田字格'},
                             {id:'mizi',label:'米字格'},
+                            {id:'jiugong',label:'九宫格'},
                             {id:'hui',label:'回字格'},
                             {id:'pinyin-tian',label:'拼音田'}
                         ].map(t => `
@@ -147,6 +149,26 @@ function createPanel() {
                     <div class="sc-field" style="margin-top:12px">
                         <label>描红透明度 <span class="sc-value" id="scTraceOpacityVal">${settings.traceOpacity.toFixed(2)}</span></label>
                         <input type="range" id="scTraceOpacity" min="0.05" max="0.3" step="0.05" value="${settings.traceOpacity}">
+                    </div>
+                </div>
+                <div class="sc-section">
+                    <div class="sc-section-title">🎨 线框颜色</div>
+                    <div class="sc-color-preset-group" role="group" aria-label="网格颜色切换">
+                        ${[
+                            {id:'green',label:'传统绿',color:'#2E7D32'},
+                            {id:'red',label:'朱砂红',color:'#9E2A2B'},
+                            {id:'blue',label:'靛青蓝',color:'#1565C0'},
+                            {id:'ink',label:'墨黑',color:'#1F2937'}
+                        ].map(p => `
+                            <button type="button"
+                                class="sc-color-preset-btn ${settings.gridColorPreset === p.id ? 'active' : ''}"
+                                data-color-preset="${p.id}"
+                                title="${p.label}"
+                                aria-pressed="${settings.gridColorPreset === p.id}"
+                                style="--swatch-color: ${p.color};">
+                                <span class="sc-color-swatch"></span>
+                            </button>
+                        `).join('')}
                     </div>
                 </div>
                 <div class="sc-section">

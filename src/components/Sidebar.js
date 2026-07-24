@@ -22,13 +22,17 @@
 import { templates } from '../data/templates.js';
 // v2.4.7：网格类型/描红透明度统一由 settingsCenter 管理，确保侧栏与设置中心改同一全局变量
 import { getSettings, updateSetting } from '../modules/settingsCenter.js';
+// v2.5.3：颜色预设（与 interfaces.js 同步）
+import { GRID_COLOR_PRESETS } from '../contracts/interfaces.js';
 
 const SIDEBAR_KEY = 'calligraphy_sidebar_state';
 
-/** 网格类型选项（与 interfaces.js GridType 对齐） */
+/** 网格类型选项（与 interfaces.js GridType 对齐）
+ *  v2.5.3：新增九宫格（jiugong） */
 const GRID_TYPES = [
     { id: 'tian',        label: '田字格' },
     { id: 'mizi',        label: '米字格' },
+    { id: 'jiugong',     label: '九宫格' },
     { id: 'hui',         label: '回字格' },
     { id: 'pinyin-tian', label: '拼音田' }
 ];
@@ -58,6 +62,8 @@ export function getSidebarState() {
     return {
         gridType: settings.gridType || DEFAULT_STATE.gridType,
         traceOpacity: settings.traceOpacity != null ? settings.traceOpacity : DEFAULT_STATE.traceOpacity,
+        // v2.5.3：网格颜色预设
+        gridColorPreset: settings.gridColorPreset || 'green',
         lastTemplateId
     };
 }
@@ -153,6 +159,49 @@ function createOpacitySection(state) {
         saveSidebarState(next);
     });
 
+    return section;
+}
+
+/**
+ * v2.5.3 新增：创建"线框颜色"快切分节
+ * 性能影响：仅 4 个色块按钮，点击后通过 settingsCenter 触发重渲染，开销 < 1ms
+ * 视觉上每个色块显示预设的 primary 色，hover 显示名称，点击切换并高亮
+ */
+function createColorPresetSection(state) {
+    const section = document.createElement('div');
+    section.className = 'sidebar-section';
+    const activePreset = state.gridColorPreset || 'green';
+
+    section.innerHTML = `
+        <div class="sidebar-section-title">🎨 线框颜色</div>
+        <div class="color-preset-group" role="group" aria-label="网格颜色切换">
+            ${GRID_COLOR_PRESETS.map(p => `
+                <button type="button"
+                    class="color-preset-btn ${p.id === activePreset ? 'active' : ''}"
+                    data-color-preset="${p.id}"
+                    title="${p.name}"
+                    aria-pressed="${p.id === activePreset}"
+                    style="--swatch-color: ${p.colors.primary};">
+                    <span class="color-swatch"></span>
+                </button>
+            `).join('')}
+        </div>
+    `;
+
+    section.querySelectorAll('.color-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const presetId = btn.dataset.colorPreset;
+            // 切换 active 高亮
+            section.querySelectorAll('.color-preset-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            // v2.5.3：写入 settingsCenter.gridColorPreset，触发 'calligraphy:settings-updated'
+            // main.js 监听该事件并调用 handleGenerate() 重渲染
+            updateSetting('gridColorPreset', presetId);
+        });
+    });
     return section;
 }
 
@@ -320,23 +369,28 @@ export function initSidebar() {
 
     // 2. v2.4.4：把"网格类型"和"描红透明度"插入 #input-container 内
     //    紧挨着智能推荐按钮（位于清除按钮行与生成按钮之间）
+    //    v2.5.3：追加"线框颜色"快切分节
     const inputContainer = document.getElementById('input-container');
     if (inputContainer) {
         const generateBtn = document.getElementById('generate-btn');
         const insertBefore = generateBtn ? generateBtn.closest('.field-row') : null;
         const gridSection = createGridTypeSection(state);
         const opacitySection = createOpacitySection(state);
+        const colorSection = createColorPresetSection(state);  // v2.5.3
         if (insertBefore) {
             inputContainer.insertBefore(gridSection, insertBefore);
             inputContainer.insertBefore(opacitySection, insertBefore);
+            inputContainer.insertBefore(colorSection, insertBefore);
         } else {
             inputContainer.appendChild(gridSection);
             inputContainer.appendChild(opacitySection);
+            inputContainer.appendChild(colorSection);
         }
     } else {
         // 回退：直接追加到侧栏
         sidebar.appendChild(createGridTypeSection(state));
         sidebar.appendChild(createOpacitySection(state));
+        sidebar.appendChild(createColorPresetSection(state));
     }
 
     // 3. 新增"预设场景"快速选择（留在侧栏底部）
@@ -352,6 +406,7 @@ export function initSidebar() {
 
     // 6. v2.4.7：监听设置中心变化，同步侧栏 UI（网格类型按钮高亮 / 透明度滑块值）
     //    确保设置中心和侧栏同名控件保持一致
+    //    v2.5.3：追加颜色快切按钮高亮同步
     document.addEventListener('calligraphy:settings-updated', (e) => {
         const s = e.detail || {};
         // 同步网格类型按钮高亮
@@ -368,6 +423,14 @@ export function initSidebar() {
             const valEl = document.getElementById('traceOpacityValue');
             if (slider) slider.value = s.traceOpacity;
             if (valEl) valEl.textContent = parseFloat(s.traceOpacity).toFixed(2);
+        }
+        // v2.5.3：同步颜色快切按钮高亮
+        if (s.gridColorPreset) {
+            document.querySelectorAll('.color-preset-btn').forEach(b => {
+                const isActive = b.dataset.colorPreset === s.gridColorPreset;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
         }
     });
 }
