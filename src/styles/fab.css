@@ -14,21 +14,27 @@
 .fab-theme:hover,.fab-print:hover,.fab-puppeteer:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
 .fab-theme:active,.fab-print:active,.fab-puppeteer:active{transform:scale(0.93)}
 
-/* ── 右下角 FAB 垂直按钮组（主打印 + Puppeteer） ── */
-/* 主打印按钮：距底边/右边各 24px */
+/* ── 右下角主打印按钮：距底边/右边各 24px（核心操作，最显眼） ── */
 .fab-print{
     bottom:24px;right:24px;top:auto;
     background:linear-gradient(135deg,#f59e0b,#d97706);
     border-color:transparent;
 }
-/* Puppeteer 按钮：位于打印按钮正上方，间距 12px（24+52+12=88） */
+
+/* ── v2.5.3：Puppeteer 按钮移至低调位置 ──
+   原位置 bottom:88px 紧邻主打印按钮，过于显眼；
+   现移至右上角（与主题/设置按钮同区域），尺寸缩小为 40px，
+   配色改为低调灰，明确表示这是演示性辅助功能（需 Node.js 环境）
+   位置：top:90px right:84px（在设置按钮左侧，略低对齐视觉中线） */
 .fab-puppeteer{
-    bottom:88px;right:24px;top:auto;
-    background:linear-gradient(135deg,#8b5cf6,#7c3aed);
+    top:90px;right:84px;bottom:auto;
+    width:40px;height:40px;
+    background:rgba(100,116,139,0.85);
     border-color:transparent;
 }
-.fab-puppeteer:hover{box-shadow:0 6px 24px rgba(139,92,246,0.4)}
-.fab-puppeteer svg,.fab-print svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab-puppeteer:hover{box-shadow:0 6px 24px rgba(100,116,139,0.4)}
+.fab-puppeteer svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fab-print svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .fab-puppeteer.busy{animation:pulse 1.2s infinite;pointer-events:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 
@@ -53,13 +59,13 @@
 .puppeteer-toast.success{background:rgba(16,185,129,0.95)}
 .puppeteer-toast.info{background:rgba(99,102,241,0.95)}
 
-/* ── 移动端：FAB 组缩小到 40px，间距 8px ── */
-/* 避开设置按钮（bottom:84px,52px高,占据84-136px），将 FAB 组置于其上方 */
+/* ── 移动端：FAB 组缩小到 40px ── */
+/* v2.5.3：Puppeteer 已移至右上角，移动端保持 top-right 定位 */
 @media (max-width:680px){
-    .fab-print,.fab-puppeteer{width:40px;height:40px}
-    .fab-print{bottom:144px;right:24px}
-    .fab-puppeteer{bottom:192px;right:24px}
-    .fab-print svg,.fab-puppeteer svg{width:20px;height:20px}
+    .fab-print{width:40px;height:40px;bottom:24px;right:24px}
+    .fab-print svg{width:20px;height:20px}
+    .fab-puppeteer{width:36px;height:36px;top:84px;right:20px}
+    .fab-puppeteer svg{width:16px;height:16px}
 }
 
 /* ── 打印时隐藏 FAB ── */
@@ -92,6 +98,21 @@
 .quick-toolbar .btn-secondary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
 .quick-toolbar .btn-quick:active{transform:scale(0.96)}
 @media print{.quick-toolbar{display:none!important}}
+
+/* ── v2.5.3：图标-only 按钮（刷新/打印 快捷按钮 + 添加字体） ──
+   设计目标：去除文字标签，仅保留图标 + title tooltip
+   尺寸 36×36px 方形，图标 18×18px 居中 */
+.btn-quick.icon-only{
+    padding:0;width:36px;height:36px;
+    justify-content:center;
+}
+.btn-quick.icon-only svg{width:18px;height:18px}
+/* 添加字体按钮图标-only 变体 */
+.font-upload-btn.icon-only{
+    padding:0;width:34px;height:34px;
+    justify-content:center;font-size:0;
+}
+.font-upload-btn.icon-only svg{width:16px;height:16px}
 
 /* ── 自定义字体上传 ── */
 .font-upload-wrap{display:flex;align-items:center;gap:8px}

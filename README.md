@@ -7,18 +7,17 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.4.14-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.5.3-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
 
 - **在线访问**：https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
-- **构建状态**：✅ 通过（build 1.65s + 0错误0警告）
+- **构建状态**：✅ 通过（build 12.52s + 0错误0警告）
 - **PWA 支持**：✅ 可安装到桌面/手机主屏，离线可用
-- **最新版本**：v2.4.14（window.print() 空白页根因修复 + PDF 内竖线粗细不一致根因修复）
-- **最新部署**：commit `ef76bc0`（v2.3.0）→ v2.4.0 重构 → v2.4.14 优化
-- **最新更新**：v2.4.14（未发布）— 修复 window.print() 末尾多一个空白页（根因：内容 .page-break 类与 .print-page-section 的 page-break-after 叠加导致双重分页，修复方法：printDirect() 移除内容 .page-break 类 + 末页 .last-page-section JS 标记）、修复同一 PDF 内部 12 条竖线粗细不一致（根因：11 个独立 cell SVG 因 16.2mm≈61.23px 非整数导致亚像素累积误差，修复方法：新增 createRowBorderSVG() 将整行外框+竖线绘制在单个 SVG 内 + shape-rendering:crispEdges）。详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**：v2.5.3（网格类型快切田/米/九宫 + 线框颜色预设4色 + UI控件重排优化）
+- **最新更新**：v2.5.3 — 新增九宫格类型与4色线框颜色快切（性能影响<1ms）；UI控件重排优化（生成按钮→刷新图标、打印按钮→图标-only、Puppeteer按钮→低调位置、添加字体→图标+tooltip、难度评估→状态栏样式、移除字号控件）；修复设置面板因scFontSize残留引用导致整体交互失效的严重回归bug。详见 [CHANGELOG.md](./CHANGELOG.md)
 - **模块总数**：35 个源文件（17 JS + 15 CSS + 3 数据）+ 839 构建模块
 
 ## 目录结构

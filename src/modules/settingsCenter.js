@@ -250,17 +250,19 @@ function bindPanelEvents(overlay) {
         if (e.target === overlay) close();
     });
 
-    // 滑块绑定
+    // 滑块绑定（v2.5.3：移除 scFontSize 条目，因面板 UI 已删除字号控件；
+    //   残留引用会导致 querySelector 返回 null，throw TypeError 中断后续事件绑定）
     const sliders = [
         { id: 'scGridSize', valId: 'scGridSizeVal', key: 'gridSize', suffix: 'px' },
         { id: 'scCharsPerRow', valId: 'scCharsPerRowVal', key: 'charsPerRow', suffix: '' },
         { id: 'scRowsPerPage', valId: 'scRowsPerPageVal', key: 'rowsPerPage', suffix: '' },
-        { id: 'scFontSize', valId: 'scFontSizeVal', key: 'fontSize', suffix: 'px' },
         { id: 'scTraceOpacity', valId: 'scTraceOpacityVal', key: 'traceOpacity', suffix: '', isFloat: true }
     ];
     sliders.forEach(s => {
         const input = overlay.querySelector('#' + s.id);
         const valEl = overlay.querySelector('#' + s.valId);
+        // 防御：元素不存在则跳过（避免未来类似回归导致整面板失效）
+        if (!input || !valEl) return;
         input.addEventListener('input', () => {
             const v = s.isFloat ? parseFloat(input.value) : Number(input.value);
             valEl.textContent = s.isFloat ? v.toFixed(2) : v + s.suffix;
@@ -278,6 +280,19 @@ function bindPanelEvents(overlay) {
                 b.setAttribute('aria-pressed', isActive);
             });
             updateSetting('gridType', type);
+        });
+    });
+
+    // v2.5.3：线框颜色预设按钮绑定（与侧栏按钮等效，改同一全局变量）
+    overlay.querySelectorAll('.sc-color-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const presetId = btn.dataset.colorPreset;
+            overlay.querySelectorAll('.sc-color-preset-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            updateSetting('gridColorPreset', presetId);
         });
     });
 

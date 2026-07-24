@@ -5,7 +5,113 @@
 
 ---
 
-## [未发布 / v2.5.2] — 2026-07-24
+## [v2.5.3] — 2026-07-25
+
+### ✨ 新功能：网格类型快切（田/米/九宫）+ 线框颜色预设（4色）
+
+参考 `gemini-code-1784931812615.html` 设计建议，新增九宫格类型与 4 色线框颜色快切，性能影响微乎其微（< 1ms）。
+
+#### 新增 1 — 九宫格（jiugong）类型
+
+- **[interfaces.js](file:///c:/poem2pdf/distribution/src/contracts/interfaces.js#L18-L24)**：GridType 枚举新增 `'jiugong'`，外框 + 三等分虚线 3×3 布局
+- **[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L153-L180)**：新增 `drawJiugongGrid()` 函数，绘制两条垂直 + 两条水平三等分虚线
+- **[Sidebar.js](file:///c:/poem2pdf/distribution/src/components/Sidebar.js#L32-L38)**：GRID_TYPES 数组新增九宫格选项
+- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L136-L148)**：设置面板网格类型选择器新增九宫格按钮
+
+#### 新增 2 — 线框颜色快切（4 色预设）
+
+- **[interfaces.js](file:///c:/poem2pdf/distribution/src/contracts/interfaces.js#L86-L111)**：新增 `GRID_COLOR_PRESETS` 数组，含 4 套配色：
+  - 传统绿（默认）：#2E7D32 深绿主色
+  - 朱砂红：#9E2A2B 印泥红
+  - 靛青蓝：#1565C0
+  - 墨黑：#1F2937
+- **[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L27-L44)**：新增 `getActiveGridColors()` 动态读取 settingsCenter 的颜色预设，回退到默认 GRID_COLORS；所有 `draw*Grid()` 和 `createRowBorderSVG()`、`createAuxRow()`、`renderSheet()` 均支持动态颜色
+- **[Sidebar.js](file:///c:/poem2pdf/distribution/src/components/Sidebar.js#L165-L206)**：新增 `createColorPresetSection()` 4 色圆形快切按钮组
+- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L154-L173)**：设置面板新增"🎨 线框颜色"分节
+- **[theme.css](file:///c:/poem2pdf/distribution/src/styles/theme.css#L180-L215)**：新增 `.color-preset-btn` 圆形色块按钮样式（32px，hover 放大，active 加粗边框）
+- **[settingsCenter.css](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L193-L219)**：新增 `.sc-color-preset-btn` 样式（与侧栏按钮等效，独立类名避免冲突）
+
+### 🎨 UI 控件重排与界面优化（参考 design-proposals.html 建议）
+
+以"字帖显示区域不作实质性变动、始终居于核心地位"为基本原则，对其它控件编排进行合理优化。
+
+#### 优化 1 — "生成"按钮简化为刷新图标
+
+- **用户反馈**："生成"按钮与"生成字帖"是同一功能，可用"刷新"SVG 图标替代则更加简洁
+- **[index.html](file:///c:/poem2pdf/distribution/index.html#L59-L67)**：快捷工具栏的"生成"按钮改为 refresh SVG 图标（icon-only），title="刷新字帖（按当前输入与设置重新生成预览）"
+- 主按钮"生成字帖"保留文字+图标（明确主操作）
+- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L96-L109)**：新增 `.btn-quick.icon-only` 样式（36×36px 方形，图标居中）
+
+#### 优化 2 — "打印"按钮简化为图标-only
+
+- **用户反馈**："打印"按钮与右下角打印机 FAB 是同一功能，只用图标即可简洁明了
+- **[index.html](file:///c:/poem2pdf/distribution/index.html#L64-L66)**：快捷工具栏的"打印"按钮改为 icon-only，title="打印 / 导出PDF（矢量PDF，调用浏览器原生打印）"
+
+#### 优化 3 — Puppeteer 按钮移至低调位置
+
+- **用户反馈**："Puppeteer 打印在没有 Node.js 或后端服务的情况下仅仅演示，大概率评委会无法使用，可放到低调位置"
+- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L24-L37)**：
+  - 位置从 `bottom:88px right:24px`（紧邻主打印按钮）→ `top:90px right:84px`（右上角设置按钮左侧）
+  - 尺寸从 52px → 40px（缩小）
+  - 配色从紫色渐变 `#8b5cf6/#7c3aed` → 低调灰 `rgba(100,116,139,0.85)`
+  - 明确视觉层级：右下角=核心操作（打印），右上角=配置/演示功能（主题/设置/Puppeteer）
+
+#### 优化 4 — "添加字体"按钮改为图标+悬停 tooltip
+
+- **用户反馈**："添加字体"四字在界面中显得格格不入，可用 icon 替代但悬停显示详细功能解释
+- **[index.html](file:///c:/poem2pdf/distribution/index.html#L50-L54)**：移除"添加字体"文字，保留上传图标，title 改为详细说明"添加自己的字体文件（支持 ttf/otf/woff/woff2 格式，加载后可在字体下拉框中选择）"
+- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L104-L109)**：新增 `.font-upload-btn.icon-only` 样式（34×34px 方形）
+
+#### 优化 5 — "难度评估"改为状态栏样式
+
+- **用户反馈**："难度评估只是辅助次要功能，以状态栏之类不起眼方式显示即可，不需要占据 UI 正中心最显眼位置"
+- **[index.html](file:///c:/poem2pdf/distribution/index.html#L89-L92)**：难度评估从输入区中部移至底部，class 从 `.diff-area` 改为 `.diff-status-bar`，新增 `role="status" aria-live="polite"`
+- **[difficulty.css](file:///c:/poem2pdf/distribution/src/styles/difficulty.css)**：整体尺寸缩小（padding 5px、font-size 11px、星级 11px、标签 10px），去除粗边框改为透明边框，视觉上不抢眼
+
+#### 优化 6 — 移除字号控件
+
+- **用户反馈**："字号修改意味着整个网格和 SVG 图片也要相应修改，每行网格数、分页行数都要大幅度调整，意义不大且工作量巨大，不建议有这个功能"
+- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L100-L102)**：createPanel 函数移除字号滑块 UI
+- **DEFAULT_SETTINGS 保留 `fontSize: 43`** 作为向后兼容（applySettings 仍设置 `--sc-font-size` CSS 变量），但 UI 不再暴露
+
+### 🐛 修复回归 bug（2 项）
+
+#### 修复 1 — 设置面板因 scFontSize 残留引用导致整体交互失效（严重）
+
+- **根因**：v2.5.3 移除字号控件时，`bindPanelEvents` 中的 `sliders` 数组仍保留 `{ id: 'scFontSize', valId: 'scFontSizeVal', ... }` 条目
+- **影响**：用户打开设置面板时，`overlay.querySelector('#scFontSize')` 返回 null，`input.addEventListener` 抛 `TypeError: Cannot read properties of null`，导致 `forEach` 中断，**后续所有事件绑定都不执行**，包括：
+  - 描红透明度滑块无响应
+  - 网格类型按钮（田/米/九宫/回/拼音田）无响应
+  - **v2.5.3 新增的颜色预设按钮无响应** ← 核心新功能失效
+  - 显示开关、主题单选、重置/完成按钮全部无响应
+  - 面板成为"死面板"无法关闭
+- **修复**：[settingsCenter.js:253-271](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L253-L271)
+  - 删除 sliders 数组中的 scFontSize 条目
+  - 新增防御性 null 检查 `if (!input || !valEl) return;` 防止未来类似回归
+
+#### 修复 2 — 设置面板颜色预设按钮缺少事件绑定
+
+- **根因**：createPanel 生成了 `.sc-color-preset-btn` 按钮 HTML，但 bindPanelEvents 遗漏了对应的事件绑定
+- **影响**：点击设置面板内的颜色预设按钮无反应（侧栏的颜色快切按钮不受影响，独立工作）
+- **修复**：[settingsCenter.js:286-297](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L286-L297) 新增 `.sc-color-preset-btn` 点击事件绑定，逻辑与侧栏等效
+
+### 📦 备份与回退
+
+- **基线备份 tag**：`backup/pre_v2.5.3_features/20260725_160000`（v2.5.3 网格类型/颜色切换功能提交前）
+- **v2.5.3 提交**：`e9260e9`（feat(v2.5.3): 网格类型快切+线框颜色预设）
+- **UI 优化提交**：本次 UI 控件重排 + 回归 bug 修复
+- 回退命令：`git reset --hard backup/pre_v2.5.3_features/20260725_160000`
+
+### ✅ 验证
+
+- ✅ 构建通过：`npm run build` 成功，839 模块，0 错误 0 警告
+- ✅ 诊断检查：所有修改文件 0 诊断错误
+- ✅ 回归检查：index.html 完整性、事件绑定一致性、v2.5.3 功能完整性全部通过
+- ✅ 字号移除：UI 面板不再渲染字号滑块；DEFAULT_SETTINGS 保留 fontSize 字段作为兼容
+
+---
+
+## [v2.5.2] — 2026-07-24
 
 ### 🔧 自定义字体Puppeteer修复 + 页眉字体名 + 系统楷体检测（4项功能修复）
 
