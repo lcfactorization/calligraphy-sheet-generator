@@ -5,6 +5,34 @@
 
 ---
 
+## [v2.8.8] — 2026-07-25
+
+> v2.8.7 真机验证发现：三星浏览器分页正常（18 页）但页眉页脚不显示。根因定位为移动端打印引擎对 `display: flex` 支持不完整，当 flex 被拒绝时回退到全局 `display: none` 导致 header/footer 消失。
+
+### 🐛 修复
+
+#### 修复 1 — 移动端页眉页脚消失（display:flex 兼容性）
+
+- **位置**：`src/styles/print.css`
+- **根因**：
+  1. 屏幕态全局规则 `.page-section-header, .page-section-footer { display: none; }` 与 @media print 内 `display: flex !important` 层叠冲突
+  2. 三星浏览器等移动端打印引擎对 `display: flex` 值支持不完整，被拒绝时**回退到全局 `display: none`**（而非 `display: block`），导致 header/footer 完全消失
+  3. `.print-page-section` 的 `display: block !important` 不受影响（block 是最基础值），所以分页正常
+- **修复**：
+  1. 删除屏幕态全局规则中的 `.page-section-header, .page-section-footer`（父元素 `.print-page-section` 已 `display: none`，子元素自然不可见，无需额外隐藏）
+  2. header/footer 的 `display: flex` → `display: table`（打印兼容性最佳）
+  3. 子元素 `flex: 1` → `display: table-cell; vertical-align: middle`
+  4. 添加 `-webkit-print-color-adjust: exact !important`（确保边框/背景/文字颜色打印）
+  5. 文字 `color` 添加 `!important`（确保 CSS 变量回退值生效）
+- **验证**：桌面 Chrome + 三星浏览器真机验证页眉页脚正常显示
+
+### 🔄 回退
+
+- 备份 tag：`backup/pre_v288_header_footer/20260725_193608`
+- 回退命令：`git reset --hard backup/pre_v288_header_footer/20260725_193608`
+
+---
+
 ## [v2.8.7] — 2026-07-25
 
 > 移动端打印分页根因修复版本。在 v2.8.6 基础上，针对移动端真机打印长期存在的「分页错乱、二次打印失效、拼音行被撕页」等根因进行集中修复，覆盖 6 个根因（RC1-RC5 + RC6 验证方法论）。代码修改由代码 agent 完成，本条目仅同步版本号与文档。
