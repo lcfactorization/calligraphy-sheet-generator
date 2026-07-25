@@ -413,7 +413,7 @@ async function generatePDF() {
             }
             hRight = truncate(hRight, 22);
             const fText = truncate(
-                document.getElementById('footerText')?.value || '评分：☆☆☆☆☆',
+                document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日',
                 32
             );
 

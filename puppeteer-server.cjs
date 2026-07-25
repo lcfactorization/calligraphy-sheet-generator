@@ -178,7 +178,7 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath) {
                     22),
                 hCenter: truncate(document.getElementById('headerCenter')?.value || '练习字帖', 16),
                 hRight: truncate(hRight, 22),
-                fText: truncate(document.getElementById('footerText')?.value || '评分：☆☆☆☆☆', 32)
+                fText: truncate(document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日', 32)
             };
         });
 

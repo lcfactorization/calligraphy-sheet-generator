@@ -140,7 +140,7 @@ export async function exportVectorPDF(opts = {}) {
         }
         headerRight = truncate(headerRight, 22);
         const footerText = truncate(
-            opts.footerText ?? (document.getElementById('footerText')?.value || '评分：☆☆☆☆☆'),
+            opts.footerText ?? (document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日'),
             32
         );
 
@@ -265,7 +265,7 @@ export function printDirect() {
         if (cn4.length > 6) { let c=0,r=''; for (const ch of fn2) { if (/[\u4e00-\u9fff]/.test(ch)) c++; if (c>6) break; r+=ch; } fn2=r; }
         hRight = fn2 ? fn2 + '练习' : '';
     }
-    const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆';
+    const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日';
 
     // v2.4.12：将字格按 page-break 拆分为独立分页段，每段正常文档流布局
     // DOM 顺序：header → content(字格) → footer

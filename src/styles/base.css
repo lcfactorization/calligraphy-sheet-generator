@@ -27,8 +27,13 @@ body::before{
     min-height:calc(100vh - 64px);
 }
 
-/* ── 标题区 ── */
-.app-header{text-align:center;padding:8px 0 24px;border-bottom:1px solid var(--border);margin-bottom:24px}
-.app-header h1{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--title-color);margin-bottom:6px}
+/* ── 标题区（v2.5.4：压缩高度，左对齐，h1+副标题同行） ── */
+.app-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:4px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px;
+}
+.app-header .header-title{display:flex;align-items:baseline;gap:10px;min-width:0}
+.app-header h1{font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--title-color);margin:0;white-space:nowrap}
 .app-header h1 .accent{background:linear-gradient(120deg,#6366f1,#ec4899,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}
-.app-header p{color:var(--desc-color);font-size:13px}
+.app-header p{color:var(--desc-color);font-size:11px;margin:0;white-space:nowrap}
+.app-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}

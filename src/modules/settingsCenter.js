@@ -116,21 +116,6 @@ function createPanel() {
             </div>
             <div class="sc-body">
                 <div class="sc-section">
-                    <div class="sc-section-title">📐 格子与排版</div>
-                    <div class="sc-field">
-                        <label>格子大小 <span class="sc-value" id="scGridSizeVal">${settings.gridSize}px</span></label>
-                        <input type="range" id="scGridSize" min="40" max="80" step="2" value="${settings.gridSize}">
-                    </div>
-                    <div class="sc-field">
-                        <label>每行字数 <span class="sc-value" id="scCharsPerRowVal">${settings.charsPerRow}</span></label>
-                        <input type="range" id="scCharsPerRow" min="4" max="12" step="1" value="${settings.charsPerRow}">
-                    </div>
-                    <div class="sc-field">
-                        <label>每页行数 <span class="sc-value" id="scRowsPerPageVal">${settings.rowsPerPage}</span></label>
-                        <input type="range" id="scRowsPerPage" min="5" max="15" step="1" value="${settings.rowsPerPage}">
-                    </div>
-                </div>
-                <div class="sc-section">
                     <div class="sc-section-title">🔲 网格类型</div>
                     <div class="sc-grid-type-group" role="group" aria-label="网格类型切换">
                         ${[
@@ -251,11 +236,10 @@ function bindPanelEvents(overlay) {
     });
 
     // 滑块绑定（v2.5.3：移除 scFontSize 条目，因面板 UI 已删除字号控件；
-    //   残留引用会导致 querySelector 返回 null，throw TypeError 中断后续事件绑定）
+    //   残留引用会导致 querySelector 返回 null，throw TypeError 中断后续事件绑定
+    // v2.5.4：移除 scGridSize/scCharsPerRow/scRowsPerPage 条目，SVG引擎用静态
+    //   SHEET_LAYOUT，这些控件不生效；保留 DEFAULT_SETTINGS 字段作为兼容）
     const sliders = [
-        { id: 'scGridSize', valId: 'scGridSizeVal', key: 'gridSize', suffix: 'px' },
-        { id: 'scCharsPerRow', valId: 'scCharsPerRowVal', key: 'charsPerRow', suffix: '' },
-        { id: 'scRowsPerPage', valId: 'scRowsPerPageVal', key: 'rowsPerPage', suffix: '' },
         { id: 'scTraceOpacity', valId: 'scTraceOpacityVal', key: 'traceOpacity', suffix: '', isFloat: true }
     ];
     sliders.forEach(s => {

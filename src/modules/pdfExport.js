@@ -42,7 +42,7 @@ export async function printToPDF() {
             }
             hRight = fontName ? fontName + '练习' : '';
         }
-        var footerText = document.getElementById('footerText').value || '评分：☆☆☆☆☆';
+        var footerText = document.getElementById('footerText').value || '评分：☆☆☆☆☆　______年___月___日';
 
         // 截断页眉页脚文本，防止打印时超出 @page margin 造成重叠或裁切
         function truncateText(text, max){

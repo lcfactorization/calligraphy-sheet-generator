@@ -30,7 +30,7 @@ const hfDefaults = {
     headerLeft: '',
     headerCenter: '练习字帖',
     headerRight: '字体练习',
-    footerText: '评分：☆☆☆☆☆　___年___月___日'
+    footerText: '评分：☆☆☆☆☆　______年___月___日'
 };
 
 export function resetHF() {

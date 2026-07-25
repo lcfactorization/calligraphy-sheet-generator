@@ -15,7 +15,7 @@ export default defineConfig({
                 short_name: '字帖',
                 description: '离线汉字字帖生成工具',
                 lang: 'zh-CN',
-                theme_color: '#667eea',
+                theme_color: '#9E2A2B',
                 background_color: '#ffffff',
                 display: 'standalone',
                 start_url: './',

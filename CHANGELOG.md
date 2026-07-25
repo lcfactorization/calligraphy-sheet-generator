@@ -5,6 +5,94 @@
 
 ---
 
+## [v2.5.4] — 2026-07-25
+
+### 🔧 修复与优化
+
+#### 修复 1 — 页脚年份空格不足
+
+- **用户反馈**："评分：☆☆☆☆☆　___年___月___日" 中"年"前面空间太少
+- **修复**：`___年` → `______年`（3个下划线 → 6个下划线），统一修改 6 处：
+  - [index.html:117](file:///c:/poem2pdf/distribution/index.html#L117) — footerText 输入框默认值
+  - [settings.js:33](file:///c:/poem2pdf/distribution/src/modules/settings.js#L33) — hfDefaults.footerText
+  - [pdfExport.js:143,268](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L143) — 2处兜底默认值
+  - [modules/pdfExport.js:45](file:///c:/poem2pdf/distribution/src/modules/pdfExport.js#L45) — 兜底默认值
+  - [puppeteer-pdf.cjs:416](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L416) — Puppeteer 兜底默认值
+  - [puppeteer-server.cjs:181](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L181) — Puppeteer Server 兜底默认值
+
+#### 优化 2 — 顶部标题区压缩
+
+- **用户反馈**：标题区空白太大，可放到左上角边缘、高度适当压缩
+- **修复**：[base.css:30-39](file:///c:/poem2pdf/distribution/src/styles/base.css#L30)
+  - 改为 flex 左对齐布局（原居中）
+  - h1 + 副标题同一行（原上下两行）
+  - padding 从 `8px 0 24px` → `4px 0 6px`
+  - margin-bottom 从 `24px` → `8px`
+  - h1 字号从 24px → 18px，副标题从 13px → 11px
+- [index.html:26-32](file:///c:/poem2pdf/distribution/index.html#L26)：添加 `.header-title` 和 `.app-header-actions` 容器
+
+#### 优化 3 — Puppeteer 按钮移至右侧主列最下面
+
+- **用户反馈**：Puppeteer 按钮应与右侧控件同列、放最下面不显眼位置
+- **修复**：[fab.css:24-34](file:///c:/poem2pdf/distribution/src/styles/fab.css#L24)
+  - 位置从 `top:90px right:84px`（偏离主列）→ `top:148px right:20px`（与主列同列）
+  - 右侧控件列从上到下：☀主题(20px) → ⚙设置(84px) → Puppeteer(148px,40px灰) → [间隔] → 🖨打印(右下角)
+- [settingsCenter.css:6](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L6)：设置按钮从 `top:212px` → `top:84px`（紧跟主题按钮）
+- 移动端定位同步调整
+
+### 🐛 回归修复（5项）
+
+#### 修复 4 — 移除3个失效设置控件
+
+- **问题**：设置面板的"格子大小/每行字数/每页行数"滑块 UI 有反应但实际不影响字帖渲染（SVG引擎用静态值）
+- **修复**：[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js) createPanel 移除3个滑块 HTML + sliders 数组移除对应条目
+- 保留 DEFAULT_SETTINGS 字段作为兼容
+
+#### 修复 5 — 修复4个显示开关CSS选择器
+
+- **问题**：showPinyin/showZuci/showStrokes/showStrokeOrder 的 CSS 选择器不匹配实际 SVG 类名
+- **修复**：[settingsCenter.css:268-271](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L268)
+  - `.pinyin-row` → `.grid-svg-pinyin-box`
+  - `.tianzi-cell` → `.grid-svg-cell[data-grid-type="pinyin-zuci"]`
+  - `.stroke-container` → `.grid-svg-stroke-box`
+  - `.stroke-container .stroke-svg` → `.grid-svg-stroke-box .stroke-svg`
+
+#### 修复 6 — 学习报告按钮覆盖主题按钮
+
+- **问题**：reportPanel.js 期望 `.app-header-actions` 容器但不存在，降级到 `top:16px right:16px` 与 fab-theme 重叠
+- **修复**：
+  - [index.html:31](file:///c:/poem2pdf/distribution/index.html#L31)：添加 `.app-header-actions` 容器
+  - [reportPanel.js:372](file:///c:/poem2pdf/distribution/src/modules/reportPanel.js#L372)：降级位置从 `right:16px` → `left:16px`（避免冲突）
+
+#### 修复 7 — PWA theme_color 不一致
+
+- **问题**：manifest theme_color `#667eea`（紫蓝）与 meta theme-color `#9E2A2B`（印泥红）不一致
+- **修复**：[vite.config.js:18](file:///c:/poem2pdf/distribution/vite.config.js#L18) 统一为 `#9E2A2B`
+
+#### 修复 8 — print.css 遗漏 .fab-settings
+
+- **问题**：print.css 的隐藏列表缺少 .fab-settings 和 #settingsPanel
+- **修复**：[print.css:30-31](file:///c:/poem2pdf/distribution/src/styles/print.css#L30) 补充
+
+### 📚 文档
+
+- 新增 [docs/INDEX_HTML_说明.md](file:///c:/poem2pdf/distribution/docs/INDEX_HTML_说明.md) — 详细解释 index.html 的作用、为什么不能双击打开、三者关系（源文件→构建→外壳）
+
+### 📦 备份与回退
+
+- **基线备份 tag**：`backup/pre_v254_tasks/20260725_180000`（本批任务前）
+- **本地备份**：`backup_v253_complete_20260725_080347/`
+- 回退命令：`git reset --hard backup/pre_v254_tasks/20260725_180000`
+
+### ✅ 验证
+
+- ✅ 构建通过：`npm run build` 成功，10.87s，0 错误 0 警告
+- ✅ PWA 正常：sw.js + workbox + manifest.webmanifest 生成
+- ✅ 浏览器验证：页脚6下划线 ✅、设置面板功能 ✅、九宫格渲染 ✅、颜色预设 ✅、3个失效控件已移除 ✅
+- ✅ 诊断检查：所有修改文件 0 诊断错误
+
+---
+
 ## [v2.5.3] — 2026-07-25
 
 ### ✨ 新功能：网格类型快切（田/米/九宫）+ 线框颜色预设（4色）

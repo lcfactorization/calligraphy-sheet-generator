@@ -368,8 +368,8 @@ function createReportButton(onClick) {
     if (host) {
         host.appendChild(btn);
     } else {
-        // 降级：固定浮动按钮
-        btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9000;';
+        // v2.5.4：降级位置改为左上角，避免与右侧 fab-theme(20px,20px) 冲突
+        btn.style.cssText = 'position:fixed;top:16px;left:16px;z-index:9000;';
         document.body.appendChild(btn);
     }
     return btn;

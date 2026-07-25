@@ -22,10 +22,13 @@
 
 <div class="app app-dual">
 
-    <!-- ════════ 标题区 ════════ -->
+    <!-- ════════ 标题区（v2.5.4：压缩高度，左对齐，副标题保留但紧凑） ════════ -->
     <div class="app-header">
-        <h1>✏️ <span class="accent">字帖生成器</span></h1>
-        <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
+        <div class="header-title">
+            <h1>✏️ <span class="accent">字帖生成器</span></h1>
+            <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF</p>
+        </div>
+        <div class="app-header-actions"></div>
     </div>
 
     <!-- ════════ 输入面板（v2.4.3 调整控件顺序：字体→汉字输入+清除→生成字帖） ════════ -->
@@ -114,7 +117,7 @@
             </div>
             <div class="hf-field">
                 <label>📝 页脚 (评语/签名等)</label>
-                <input type="text" id="footerText" maxlength="30" value="评分：☆☆☆☆☆　___年___月___日" placeholder="如：评分：☆☆☆☆☆">
+                <input type="text" id="footerText" maxlength="30" value="评分：☆☆☆☆☆　______年___月___日" placeholder="如：评分：☆☆☆☆☆">
             </div>
         </div>
     </div>

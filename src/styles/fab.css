@@ -21,13 +21,13 @@
     border-color:transparent;
 }
 
-/* ── v2.5.3：Puppeteer 按钮移至低调位置 ──
-   原位置 bottom:88px 紧邻主打印按钮，过于显眼；
-   现移至右上角（与主题/设置按钮同区域），尺寸缩小为 40px，
-   配色改为低调灰，明确表示这是演示性辅助功能（需 Node.js 环境）
-   位置：top:90px right:84px（在设置按钮左侧，略低对齐视觉中线） */
+/* ── v2.5.4：Puppeteer 按钮移至右侧主列最下面（低调位置） ──
+   与 .fab-theme(right:20px) / .fab-settings(right:20px) 同列，
+   放在设置按钮下方，尺寸缩小为 40px，配色低调灰
+   布局从上到下：theme(52px) → settings(52px) → puppeteer(40px,灰) → [间隔] → print(52px,右下)
+   明确表示这是演示性辅助功能（需 Node.js 环境） */
 .fab-puppeteer{
-    top:90px;right:84px;bottom:auto;
+    top:148px;right:20px;bottom:auto;
     width:40px;height:40px;
     background:rgba(100,116,139,0.85);
     border-color:transparent;
@@ -60,11 +60,11 @@
 .puppeteer-toast.info{background:rgba(99,102,241,0.95)}
 
 /* ── 移动端：FAB 组缩小到 40px ── */
-/* v2.5.3：Puppeteer 已移至右上角，移动端保持 top-right 定位 */
+/* v2.5.4：Puppeteer 与 settings 同列，移动端保持右上角垂直排列 */
 @media (max-width:680px){
     .fab-print{width:40px;height:40px;bottom:24px;right:24px}
     .fab-print svg{width:20px;height:20px}
-    .fab-puppeteer{width:36px;height:36px;top:84px;right:20px}
+    .fab-puppeteer{width:36px;height:36px;top:148px;right:24px}
     .fab-puppeteer svg{width:16px;height:16px}
 }
 
