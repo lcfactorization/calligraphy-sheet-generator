@@ -62,12 +62,44 @@ loadFonts().then(() => {
 
 // 事件绑定
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+// v2.8.5：检测微信/QQ 内置浏览器（X5 内核拦截 window.print()）
+// 在这些浏览器中打印按钮不响应，需引导用户在外部浏览器打开
+function isWeChatX5Browser() {
+    const ua = navigator.userAgent || '';
+    return /MicroMessenger|QQBrowser\/[0-9]\.|QQ\//i.test(ua) && !/Windows NT|Macintosh/i.test(ua);
+}
+
+function handlePrintClick() {
+    if (isWeChatX5Browser()) {
+        console.warn('[main] 检测到微信/QQ 内置浏览器，window.print() 被 X5 内核拦截');
+        // 用 toast 提示用户在外部浏览器打开
+        const existing = document.querySelector('.puppeteer-toast');
+        if (existing) existing.remove();
+        const t = document.createElement('div');
+        t.className = 'puppeteer-toast info';
+        t.style.cssText = 'max-width:90vw;line-height:1.6;padding:16px 20px;text-align:left;';
+        t.innerHTML = '<div style="font-size:14px;font-weight:bold;margin-bottom:8px;">⚠ 微信/QQ 内置浏览器不支持打印</div>' +
+            '<div style="font-size:13px;">请按以下步骤操作：<br>' +
+            '1. 点击右上角「⋯」菜单<br>' +
+            '2. 选择「在浏览器中打开」<br>' +
+            '3. 在新打开的浏览器中再点打印按钮</div>';
+        document.body.appendChild(t);
+        setTimeout(() => {
+            t.style.opacity = '0';
+            setTimeout(() => { if (t.parentNode) t.remove(); }, 300);
+        }, 8000);
+        return;
+    }
+    return exportPDF({ track: 'client-print' });
+}
+
 // 打印按钮：浏览器原生打印（轨 1a）
-document.getElementById('printBtn').addEventListener('click', () => exportPDF({ track: 'client-print' }));
+document.getElementById('printBtn').addEventListener('click', handlePrintClick);
 
 // v2.4.11：快捷工具栏 — 生成 + 打印（主题用右上角☀）
 document.getElementById('quick-generate-btn').addEventListener('click', handleGenerate);
-document.getElementById('quick-print-btn').addEventListener('click', () => exportPDF({ track: 'client-print' }));
+document.getElementById('quick-print-btn').addEventListener('click', handlePrintClick);
 
 document.getElementById('fontUpload').addEventListener('change', function(e) {
     handleFontUpload(e.target.files[0]);

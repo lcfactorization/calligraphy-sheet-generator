@@ -5,6 +5,66 @@
 
 ---
 
+## [v2.8.5] — 2026-07-25（hotfix）
+
+> 针对 v2.8.4 在移动端实测中暴露的 4 个根因进行精准修复。所有修复均基于深度代码审核报告 v2.8.5-pre 的 double 验证结论，Puppeteer 5 平台模拟测试全部从 19 页修正为 18 页。
+
+### 🐛 修复
+
+#### 修复 1 — 末页强制 min-height 导致多 1 空白页（19 页 → 18 页）
+
+- **位置**：`src/styles/print.css` `.print-page-section:last-child`
+- **根因**：`.print-page-section { min-height: 295mm; page-break-after: always; }` 对所有 section（包括末页）生效，导致末页即使内容不足也强制占满整页
+- **修复**：末页 `:last-child` 改为 `min-height: 0 !important; page-break-after: auto !important; break-after: auto !important;`
+- **验证**：Puppeteer 模拟 5 平台（MatePad/Samsung/Kiwi/Android Chrome/Desktop）全部从 19 页 → 18 页 ✅
+
+#### 修复 2 — 删除多余 toast 弹窗"请取消勾选页眉和页脚"
+
+- **位置**：`src/utils/pdfExport.js:555`
+- **根因**：移动端浏览器（MatePad/Samsung/Kiwi/微信）的打印对话框根本没有"页眉和页脚"选项，此提示纯属多余；用户反馈"纯属多此一举"
+- **修复**：直接删除 `showToast('正在准备打印…请在对话框中取消勾选「页眉和页脚」', 1500);`
+- **附带**：移动端冗长提示（6 秒）简化为「正在准备打印…」（1.5 秒）
+
+#### 修复 3 — 微信 X5 内核拦截 window.print() 适配
+
+- **位置**：`src/main.js:66-102`
+- **根因**：微信/QQ 内置浏览器（X5/TBS 内核）拦截 `window.print()`，点击打印按钮无任何反应，用户不知道是"不支持"还是"按钮坏了"
+- **修复**：新增 `isWeChatX5Browser()` 检测 `MicroMessenger` / `QQBrowser` UA，检测到时禁用打印流程，弹出引导提示（8 秒）告知用户"点击右上角「⋯」→「在浏览器中打开」"
+- **覆盖**：同时绑定 `printBtn` 和 `quick-print-btn` 两个打印入口
+
+#### 修复 4 — 移动端日志增强（便于排查）
+
+- **位置**：`src/utils/pdfExport.js` `printDirect` 函数
+- **修复**：在 `window.print()` 调用前后增加 4 行关键日志：
+  - UA（前 80 字符）
+  - 视口尺寸 + DPR
+  - `print-page-section` 数量（应为 18）
+  - `page-break` 标记数量（应为 17）
+- **用途**：移动端无开发者工具时，可通过远程调试或日志收集快速定位问题
+
+### ✅ 验证
+
+- **Puppeteer 5 平台测试**：MatePad Chrome 114 / Samsung Internet 23 / Kiwi 120 / Android Chrome 115 / Desktop Chrome 120，全部 18 页 ✅
+- **视觉验证**：页眉（日期/标题/字体名）、页脚（评分/页码）、11 行/页、四线格、笔画 SVG 全部正常
+- **颜色同步**：切换网格颜色预设后页眉页脚颜色同步变化（`var(--grid-primary-color)` 已在 v2.8.3 就位，本次确认无回退）
+- **默认 198 字**：与用户期望完全一致（逐字符 diff 0 差异）
+- **文本过滤器**：3 处使用同一正则 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g`，已实测过滤中文标点、英文标点、空格、数字、字母、emoji、日韩文
+
+### 📚 文档
+
+- 新增 `docs/复赛发布说明_v2.8.5.md` — 复赛发布帖完整说明（含 PWA 安装、跨平台矩阵、飞书问卷数据）
+- 新增 `docs/移动端功能测试清单_v2.8.5.md` — 51 项逐项打钩验证清单
+- 新增 `docs/PWA安装二维码_v2.8.5.md` — PWA 二维码与 4 平台安装步骤
+- 新增 `docs/飞书问卷提交数据_v2.8.5.md` — 飞书问卷模拟数据（含 Session ID 和 JSON 格式）
+- 新增 `docs/深度代码审核报告_v2.8.5-pre.md` — 修复前的 double 验证报告
+
+### 🗂 备份与回退
+
+- **回退 tag**：`v2.8.4-rollback-pre-v2.8.5`（已推送 origin）
+- **回退命令**：`git checkout v2.8.4-rollback-pre-v2.8.5`
+
+---
+
 ## [v2.8.4] — 2026-07-25
 
 > 本次升级由 4 个独立小组并行完成（A 核心修复分页+页眉页脚+CSS压缩 / B 验证笔画SVG+字数+过滤器 / C 文档与数据生成 / D 日志增强+跨平台分析），针对 v2.8.3 修复在 MatePad 实机上未生效的根因进行深度修复。

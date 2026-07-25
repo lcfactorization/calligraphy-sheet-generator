@@ -532,12 +532,10 @@ export function printDirect() {
         // v2.4.5：显示加载遮罩，等待字体+笔画就绪后再打印
         const printOverlay = showLoadingOverlay();
 
-        // v2.8.1：移动端优先提示，引导用户使用浏览器原生"网页转 PDF"
+        // v2.8.5：移动端简化提示（原 6 秒冗长提示改为 1.5 秒简短提示）
+        // 原因：用户已主动点击打印按钮，再提示"用浏览器菜单"已无意义
         if (isMobileUA) {
-            const hint = isHarmonyOS
-                ? '📱 MatePad/华为手机用户：建议点击浏览器底部 ∷ 菜单 → 保存 PDF（或 更多 → WPS 网页转 PDF），效果更佳。即将打开打印对话框…'
-                : '📱 移动端建议使用浏览器菜单 → 网页转 PDF / 保存为 PDF。即将打开打印对话框…';
-            showToast(hint, 6000);
+            showToast('正在准备打印…', 1500);
         }
 
         console.log('[pdfExport] 字体等待开始');
@@ -550,9 +548,12 @@ export function printDirect() {
             // 给浏览器一点时间渲染最终 DOM
             await new Promise(r => setTimeout(r, 300));
             printOverlay();
-            // v2.7.x 优化：alert 改非阻塞 toast，立即调用 window.print()
-            // 提示用户取消浏览器默认页眉页脚（CSS 无法禁止 Chrome 的页眉页脚选项）
-            showToast('正在准备打印…请在对话框中取消勾选「页眉和页脚」', 1500);
+            // v2.8.5：移除"请取消勾选页眉页脚"toast（移动端浏览器无此选项，纯属多余）
+            // v2.8.5：在 window.print() 调用前后增加详细日志，便于移动端排查
+            console.log('[pdfExport] 准备调用 window.print()，UA=', navigator.userAgent.substring(0, 80));
+            console.log('[pdfExport] 视口=', window.innerWidth + 'x' + window.innerHeight, 'DPR=', window.devicePixelRatio);
+            console.log('[pdfExport] print-page-section 数量=', document.querySelectorAll('.print-page-section').length);
+            console.log('[pdfExport] page-break 标记数量=', document.querySelectorAll('.page-break').length);
 
             // v2.8.1：用 requestAnimationFrame 同步触发 window.print()
             // 原因：移动端浏览器（HarmonyOS / iOS Safari）严格要求 window.print()

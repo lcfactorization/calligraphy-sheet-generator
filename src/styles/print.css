@@ -231,8 +231,12 @@
         break-before: auto;
     }
     .print-page-section:last-child {
-        page-break-after: auto;
-        break-after: auto;
+        /* v2.8.5：末页内容自适应，避免 min-height:295mm 强制占满导致多 1 空白页
+           198 字 / 11 = 18 页，末页通常为完整 11 行（无空白）
+           若末页字数 < 11，允许 section 高度由内容决定，避免末页后多 1 空白页 */
+        min-height: 0 !important;
+        page-break-after: auto !important;
+        break-after: auto !important;
     }
 
     /* v2.4.16：页眉 — 正常文档流（section 第一个子元素），无 position 定位
