@@ -54,6 +54,10 @@ function parseArgs() {
         timeout: 30000,
         url: '',
         fontFile: '',
+        // v2.6.0：支持网格类型和颜色预设（与 web 端 settingsCenter 一致）
+        gridType: '',
+        gridColorPreset: '',
+        traceOpacity: null,
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -98,6 +102,16 @@ function parseArgs() {
             case '--font-file':
                 options.fontFile = args[++i] || '';
                 break;
+            // v2.6.0：网格类型和颜色预设参数
+            case '--grid-type':
+                options.gridType = args[++i] || '';
+                break;
+            case '--grid-color':
+                options.gridColorPreset = args[++i] || '';
+                break;
+            case '--trace-opacity':
+                options.traceOpacity = parseFloat(args[++i]) || null;
+                break;
             case '-h':
             case '--help':
                 console.log(`
@@ -127,6 +141,9 @@ function parseArgs() {
   --landscape             横向打印（默认为纵向）
   --timeout <毫秒>        超时时间 (默认: 30000)
       --url <URL>         直接指定页面 URL（如 http://localhost:3000），优先于 dist/index.html
+  --grid-type <类型>      网格类型: tian(田字格) mizi(米字格) jiugong(九宫格) hui(回字格) pinyin-tian(拼音田)
+  --grid-color <预设>     线框颜色: green(传统绿) red(朱砂红) blue(靛青蓝) ink(墨黑)
+  --trace-opacity <值>    描红透明度 0.05-0.3 (默认: 0.1)
   -h, --help              显示此帮助信息
 
 示例:
@@ -134,6 +151,7 @@ function parseArgs() {
   node puppeteer-pdf.js --input poem.txt --output 我的字帖.pdf --font 华文楷体
   node puppeteer-pdf.js -t "静夜思" --format a3 --landscape --header "李白诗集"
   node puppeteer-pdf.js --text "春眠不觉晓" --footer "" --margin 15mm
+  node puppeteer-pdf.js --text "天地人" --grid-type jiugong --grid-color red
 
 输出特点:
   ✅ 矢量PDF — 放大不失真
@@ -283,6 +301,26 @@ async function generatePDF() {
         });
         // v2.5.1：进一步减少等待（1500ms → 500ms，networkidle2 已保证资源加载）
         await new Promise(r => setTimeout(r, 500));
+
+        // v2.6.0：设置网格类型和颜色预设（与 web 端 settingsCenter 一致）
+        // Puppeteer 加载全新页面，localStorage 为空，必须显式设置
+        if (options.gridType || options.gridColorPreset || options.traceOpacity != null) {
+            console.log(`▶ 设置网格: type=${options.gridType || '默认'}, color=${options.gridColorPreset || '默认'}, opacity=${options.traceOpacity != null ? options.traceOpacity : '默认'}`);
+            await page.evaluate((gt, gcp, to) => {
+                try {
+                    const KEY = 'calligraphy_settings';
+                    let settings = {};
+                    const raw = localStorage.getItem(KEY);
+                    if (raw) settings = JSON.parse(raw);
+                    if (gt) settings.gridType = gt;
+                    if (gcp) settings.gridColorPreset = gcp;
+                    if (to != null) settings.traceOpacity = to;
+                    localStorage.setItem(KEY, JSON.stringify(settings));
+                } catch(e) {
+                    console.warn('设置localStorage失败: ' + e.message);
+                }
+            }, options.gridType || null, options.gridColorPreset || null, options.traceOpacity != null ? options.traceOpacity : null);
+        }
 
         // v2.5.2：加载自定义字体文件（如果指定了 --font-file）
         if (options.fontFile) {

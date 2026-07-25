@@ -5,6 +5,40 @@
 
 ---
 
+## [v2.6.0] — 2026-07-25
+
+### 🐛 修复
+
+#### 修复 1 — Puppeteer PDF 导出不应用网格类型和颜色预设（严重功能缺陷）
+
+- **用户反馈**：切换田字格/回字格/九宫格以及网格颜色时，对 Puppeteer 方式导出的 PDF 矢量图没有任何影响
+- **根因**：Puppeteer 加载全新 dist/index.html 页面，localStorage 为空，GridEngine.js 读取到默认值（米字格+绿色）。客户端 `puppeteerClient.js` 未将用户的网格设置传递给服务端
+- **修复方案**：三文件协同修复
+  1. [puppeteerClient.js:57-70](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L57) — 新增读取 localStorage `calligraphy_settings`，提取 `gridType`/`gridColorPreset`/`traceOpacity`
+  2. [puppeteerClient.js:90-102](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L90) — 请求体新增 3 个字段
+  3. [puppeteer-server.cjs:62](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L62) — `generatePDF` 函数签名新增 3 个参数
+  4. [puppeteer-server.cjs:73-92](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L73) — 在点击 generate-btn 前，将设置写入 Puppeteer 页面的 localStorage
+  5. [puppeteer-server.cjs:312](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L312) — 从请求体提取 3 个新字段
+  6. [puppeteer-server.cjs:336](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L336) — 调用 generatePDF 时传递新参数
+- **同步修复**：[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs) CLI 工具新增 `--grid-type`/`--grid-color`/`--trace-opacity` 参数
+- **验证**：
+  - CLI 测试：`--grid-type jiugong --grid-color red` ✅ 生成 79.3KB PDF
+  - CLI 测试：`--grid-type tian --grid-color blue` ✅ 生成 78.1KB PDF
+  - HTTP 测试：发送 gridType=jiugong, gridColorPreset=red ✅ 生成 72.3KB PDF
+  - 服务器日志确认：`[Server] 生成PDF: 3字, 网格=jiugong, 颜色=red`
+
+### 🔧 技术说明
+
+> [!NOTE] 数据流修复说明
+> 修复后的完整数据流：
+> 1. 用户在浏览器切换网格类型/颜色 → settingsCenter 写入 localStorage
+> 2. 用户点击 Puppeteer 按钮 → puppeteerClient.js 读取 localStorage，发送 gridType/gridColorPreset
+> 3. puppeteer-server.cjs 接收参数 → 在 Puppeteer 页面加载后、点击生成按钮前，写入 localStorage
+> 4. GridEngine.js 的 `getSidebarState()`/`getActiveGridColors()` 读取 localStorage → 渲染正确的网格类型和颜色
+> 5. Puppeteer 生成 PDF → 网格类型和颜色正确应用
+
+---
+
 ## [v2.5.5] — 2026-07-25
 
 ### 🐛 修复

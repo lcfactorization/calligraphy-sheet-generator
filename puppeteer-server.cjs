@@ -59,7 +59,7 @@ async function getBrowser() {
     return browserInstance;
 }
 
-async function generatePDF(text, fontDisplayName, fontValue, tempFontPath) {
+async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridType, gridColorPreset, traceOpacity) {
     const browser = await getBrowser();
     const page = await browser.newPage();
     try {
@@ -69,6 +69,27 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath) {
         // v2.5.1：进一步减少固定等待（networkidle2 已确保网络空闲）
         await page.goto(fileUrl, { waitUntil: 'networkidle2', timeout: 60000 });
         await new Promise(r => setTimeout(r, 500));
+
+        // v2.6.0：在页面加载后、点击生成按钮前，设置 localStorage 中的网格设置
+        // Puppeteer 加载的是全新页面，localStorage 为空，GridEngine 会使用默认值（米字格+绿色）
+        // 必须在点击 generate-btn 之前写入 localStorage，这样 handleGenerate → getSidebarState → getSettings 才能读到正确的值
+        if (gridType || gridColorPreset || traceOpacity != null) {
+            await page.evaluate((gt, gcp, to) => {
+                try {
+                    const KEY = 'calligraphy_settings';
+                    let settings = {};
+                    const raw = localStorage.getItem(KEY);
+                    if (raw) settings = JSON.parse(raw);
+                    if (gt) settings.gridType = gt;
+                    if (gcp) settings.gridColorPreset = gcp;
+                    if (to != null) settings.traceOpacity = to;
+                    localStorage.setItem(KEY, JSON.stringify(settings));
+                    console.log('[Puppeteer] 已设置网格: type=' + gt + ', color=' + gcp + ', opacity=' + to);
+                } catch(e) {
+                    console.warn('[Puppeteer] 设置localStorage失败: ' + e.message);
+                }
+            }, gridType || null, gridColorPreset || null, traceOpacity != null ? traceOpacity : null);
+        }
 
         // v2.5.2：注册自定义字体（如果有）
         if (tempFontPath && fontValue) {
@@ -288,13 +309,13 @@ const server = http.createServer(async (req, res) => {
                 } else {
                     throw new Error('请求体中未找到有效 JSON');
                 }
-                const { text, font, fontValue, fontDataUrl } = parsed;
+                const { text, font, fontValue, fontDataUrl, gridType, gridColorPreset, traceOpacity } = parsed;
                 if (!text || !text.trim()) {
                     res.writeHead(400, { 'Content-Type': 'application/json', 'Connection': 'close' });
                     res.end(JSON.stringify({ error: '文本不能为空' }));
                     return;
                 }
-                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}, 自定义字体=${fontDataUrl ? '是' : '否'}`);
+                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}, 网格=${gridType || '默认'}, 颜色=${gridColorPreset || '默认'}, 自定义字体=${fontDataUrl ? '是' : '否'}`);
 
                 // v2.5.2：如果有自定义字体数据，保存到临时文件供页面加载
                 let tempFontPath = null;
@@ -312,7 +333,7 @@ const server = http.createServer(async (req, res) => {
                     }
                 }
 
-                const pdfBuffer = await generatePDF(text, font || '文鼎楷体', fontValue || '', tempFontPath);
+                const pdfBuffer = await generatePDF(text, font || '文鼎楷体', fontValue || '', tempFontPath, gridType, gridColorPreset, traceOpacity);
 
                 // 清理临时字体文件
                 if (tempFontPath) {

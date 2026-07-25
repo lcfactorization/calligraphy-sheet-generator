@@ -54,6 +54,21 @@ if (btn) {
         const fontValue = selectedOption ? selectedOption.value : '';
         const fontDataUrl = (selectedOption && selectedOption.dataset && selectedOption.dataset.fontDataUrl) ? selectedOption.dataset.fontDataUrl : '';
 
+        // v2.6.0：读取当前网格类型、颜色预设、描红透明度（来自 settingsCenter 的 localStorage）
+        // Puppeteer 加载的是全新页面，localStorage 为空，必须显式传递这些设置
+        let gridType = 'mizi';
+        let gridColorPreset = 'green';
+        let traceOpacity = 0.1;
+        try {
+            const rawSettings = localStorage.getItem('calligraphy_settings');
+            if (rawSettings) {
+                const s = JSON.parse(rawSettings);
+                gridType = s.gridType || gridType;
+                gridColorPreset = s.gridColorPreset || gridColorPreset;
+                traceOpacity = s.traceOpacity != null ? s.traceOpacity : traceOpacity;
+            }
+        } catch (e) { /* 静默降级到默认值 */ }
+
         if (!text.trim()) {
             showToast('\u8bf7\u5148\u8f93\u5165\u8981\u751f\u6210\u5b57\u5e16\u7684\u6587\u672c', 'error');
             requestInProgress = false;
@@ -77,6 +92,10 @@ if (btn) {
                 font: font,
                 fontValue: fontValue,
                 fontDataUrl: fontDataUrl,
+                // v2.6.0：传递网格设置，确保 Puppeteer PDF 正确渲染用户选择的网格类型和颜色
+                gridType: gridType,
+                gridColorPreset: gridColorPreset,
+                traceOpacity: traceOpacity,
                 format: 'a4',
                 header: '',
                 footer: '\u7b2c {page} \u9875 / \u5171 {total} \u9875'
