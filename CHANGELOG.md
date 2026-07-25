@@ -5,6 +5,83 @@
 
 ---
 
+## [v2.8.7] — 2026-07-25
+
+> 移动端打印分页根因修复版本。在 v2.8.6 基础上，针对移动端真机打印长期存在的「分页错乱、二次打印失效、拼音行被撕页」等根因进行集中修复，覆盖 6 个根因（RC1-RC5 + RC6 验证方法论）。代码修改由代码 agent 完成，本条目仅同步版本号与文档。
+
+### 🐛 修复
+
+#### 修复 1 — RC1：移动端打印清理竞态
+
+- **位置**：打印触发与清理链路（`src/modules/pdfExport.js` 调用方）
+- **根因**：原实现使用 `setTimeout(cleanup, 1000)` 兜底清理，与 `window.print()` 的同步阻塞行为在移动端产生竞态——`print()` 返回后 1s 内若用户仍在打印对话框操作，清理会提前撕掉打印 DOM，导致首末页内容缺失或样式未还原
+- **修复**：
+  - 删除 1s `setTimeout` 兜底
+  - 改为 `afterprint` / `visibilitychange` / `focus` 三事件驱动清理
+  - 增加 120s 兜底超时（极端情况下防止清理永不触发）
+  - 清理函数加幂等保护（多次触发安全）
+
+#### 修复 2 — RC2+RC3：print.css 移动端重构
+
+- **位置**：`src/styles/print.css`
+- **根因**：
+  - RC2：`@media (max-width: 1200px)` 伪断点在移动端误命中，覆盖了桌面端严格物理单位规则
+  - RC3：分断元素（`.page-break` 等）使用 `display:flex` / `inline-block`，移动端浏览器对非 `block` 元素的 `break-after:page` 支持不一致
+- **修复**：
+  - 删除 1200px 伪断点
+  - 删除 210mm 宽度锁（让 `@page` 与 A4 物理宽度自然对齐）
+  - 分断元素统一改为普通 `block` 显示
+  - 固定几何：`header 8mm + content 261mm + footer 8mm = 277mm`（A4 - 2×10mm）
+  - 末页 `height:auto`，消除空白尾页
+
+#### 修复 3 — RC4：cleanup 恢复 .page-break（二次打印不再失效）
+
+- **位置**：打印清理逻辑
+- **根因**：v2.8.6 之前的 cleanup 在还原 DOM 时遗漏重建 `.page-break` 分断元素，导致用户首次打印后再次打印时，所有内容堆在一页无法分页
+- **修复**：cleanup 完整恢复 `.page-break` 节点，二次/多次打印分页行为一致
+
+### ✨ 新增
+
+#### 新增 1 — RC5：.print-row-pair 行对防撕
+
+- **位置**：`src/styles/print.css` + 字帖渲染逻辑
+- **需求**：移动端部分浏览器在跨页时会把「拼音行 + 汉字行」拆到两页，导致拼音与汉字分离
+- **实现**：将相邻的拼音行与汉字行包裹为 `.print-row-pair` 容器，应用 `break-inside: avoid`，强制行对在同一页内不被撕开
+
+#### 新增 2 — 每页首行强制页顶线
+
+- **位置**：`src/styles/print.css`
+- **实现**：每页首行（行对）应用 `break-before: page` + 顶线对齐规则，确保每页第一行精确落在页顶，避免移动端渲染抖动导致首行位置漂移
+
+#### 新增 3 — ?printdebug=1 真机日志浮层
+
+- **位置**：URL 参数解析 + 调试浮层
+- **实现**：访问 `https://lcfactorization.github.io/calligraphy-sheet-generator/?printdebug=1` 时，页面右下角显示半透明日志浮层，实时输出 `section` 数量、`page-break` 数量、`window.print()` 调用前后时间戳、UA、视口尺寸等关键诊断信息，便于真机排查
+
+### 🗑 清理
+
+#### 清理 1 — 删除死代码
+
+- 删除 `src/modules/pdfExport.js`（v2.8.5 已停用，v2.8.6 审查报告 P3 遗留）
+- 删除 `src/modules/gridRenderer.js`（v2.4.0 起被 GridEngine.js 替代，长期未引用）
+
+### 📋 验证
+
+- **方法论（RC6）**：明确 Puppeteer 仅用于桌面回归，移动端验收以真机为准
+- **真机验收标准**：
+  - 198 字 = 18 页
+  - 页眉页脚齐全
+  - 拼音行不撕页
+  - `?printdebug=1` 日志浮层显示正常
+- **测试链接**：https://lcfactorization.github.io/calligraphy-sheet-generator/?printdebug=1
+
+### 🔄 回退
+
+- 备份 tag：`backup/pre_v287_mobileprint/20260725_185852`
+- 回退命令：`git reset --hard backup/pre_v287_mobileprint/20260725_185852`
+
+---
+
 ## [v2.8.6] — 2026-07-25
 
 > 在 v2.8.5-hotfix 基础上增加版本号可视化与一致性修复。基于多 Agent 协同审查（功能退化审查报告 v2.8.5），确认核心功能零退化后，修补 1 项 P2 一致性问题。

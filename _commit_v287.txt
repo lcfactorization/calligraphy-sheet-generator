@@ -1,0 +1,27 @@
+fix(v2.8.7): 移动端打印分页根因修复——清理竞态/CSS冲突/行对防撕/二次打印
+
+## 根因修复（6 项）
+- RC1 清理竞态：删除 setTimeout(cleanup, 1000)，改 afterprint/visibilitychange/focus 三触发 + 120s 兜底 + 幂等保护
+- RC2 CSS 冲突：删除 @media print and (max-width:1200px) 伪断点 + 删除 210mm 宽度锁（防 fit-to-width 缩放）
+- RC3 分断元素结构：.print-page-section 改普通 block，overflow 下沉到 .page-section-content
+- RC4 二次打印：removedBreakRows 记录被移除的 .page-break，cleanup 时恢复
+- RC5 行对防撕：.print-row-pair 包裹拼音辅助行+汉字行，break-inside:avoid
+- RC6 验证方法论：Puppeteer 仅用于桌面回归，移动端验收以真机为准
+
+## 新增
+- ?printdebug=1 真机调试通道（main.js 末尾注入页内日志浮层）
+- 每页首行强制页顶线（classList.add('page-top') 幂等）
+- 固定几何 header8mm + content261mm + footer8mm = 277mm
+
+## 清理
+- 删除死代码 modules/pdfExport.js（旧 printToPDF，无引用）
+- 删除死代码 modules/gridRenderer.js（旧 DOM 引擎，无引用）
+
+## 版本
+- package.json: 2.8.7
+- index.html 版本徽章: v2.8.7
+- 新增文档：复赛发布说明_v2.8.7.md / PWA安装指南_v2.8.7.md / 飞书问卷提交数据_v2.8.7.md
+
+## 回退
+- 备份 tag: backup/pre_v287_mobileprint/20260725_185852
+- 回退命令: git reset --hard backup/pre_v287_mobileprint/20260725_185852

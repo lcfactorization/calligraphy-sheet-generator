@@ -154,3 +154,23 @@ if ('serviceWorker' in navigator) {
         setTimeout(() => toast.remove(), 10000);
     });
 }
+
+// v2.8.7：?printdebug=1 时注入页内日志浮层，真机验证打印管线行为
+if (/[?&]printdebug=1/.test(location.search)) {
+    const box = document.createElement('pre');
+    box.id = 'printdebug-log';
+    box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;' +
+        'background:rgba(0,0,0,.85);color:#0f0;font:10px/1.4 monospace;z-index:999999;' +
+        'margin:0;padding:6px;white-space:pre-wrap;pointer-events:auto;';
+    document.body.appendChild(box);
+    const orig = console.log;
+    console.log = function(...a) {
+        box.textContent += a.map(x => { try { return typeof x === 'object' ? JSON.stringify(x) : String(x); } catch { return '[obj]'; } }).join(' ') + '\n';
+        box.scrollTop = box.scrollHeight;
+        orig.apply(console, a);
+    };
+    const mq = window.matchMedia('print');
+    mq.addEventListener('change', e => console.log('[printdebug] matchMedia print =', e.matches));
+    window.addEventListener('afterprint', () => console.log('[printdebug] afterprint fired'));
+    window.addEventListener('beforeprint', () => console.log('[printdebug] beforeprint fired'));
+}

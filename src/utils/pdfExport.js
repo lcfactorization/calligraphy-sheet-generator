@@ -429,96 +429,94 @@ export function printDirect() {
     wrapper.className = 'a4-page pdf-print-wrapper';
     wrapper.style.cssText = 'position:relative;width:100%;';
 
+    const removedBreakRows = [];   // RC4：记录被移除 page-break 的行，cleanup 时恢复
+
     pages.forEach((pageChildren, idx) => {
         const section = document.createElement('div');
         section.className = 'print-page-section';
-        // v2.4.15：用 JS 类名标记首页和末页，比 :first-child/:last-child 更可靠
         const isFirstPage = idx === 0;
         const isLastPage = idx === totalPages - 1;
         if (isFirstPage) section.classList.add('first-page-section');
         if (isLastPage) section.classList.add('last-page-section');
-        console.log('[pdfExport] 创建 section 元素:', {
-            idx,
-            isFirstPage,
-            isLastPage,
-            childCount: pageChildren.length
-        });
 
-        // 1. 页眉（DOM 第一个，正常流在 section 顶部 = padding-top 处）
+        // 1. 页眉
         const header = document.createElement('div');
         header.className = 'page-section-header';
-        const _hLeftTrunc = truncate(hLeft, 22);
-        const _hCenterTrunc = truncate(hCenter, 16);
-        const _hRightTrunc = truncate(hRight, 22);
         header.innerHTML =
-            `<span class="ph-left">${_hLeftTrunc}</span>` +
-            `<span class="ph-center">${_hCenterTrunc}</span>` +
-            `<span class="ph-right">${_hRightTrunc}</span>`;
+            `<span class="ph-left">${truncate(hLeft, 22)}</span>` +
+            `<span class="ph-center">${truncate(hCenter, 16)}</span>` +
+            `<span class="ph-right">${truncate(hRight, 22)}</span>`;
         section.appendChild(header);
 
-        // 2. 内容区（字格，正常流，在页眉和页脚之间）
+        // 2. 内容区：行对包裹（aux + row 两两一对）
         const content = document.createElement('div');
         content.className = 'page-section-content';
+        let pair = null;
         for (const c of pageChildren) {
-            // v2.4.17：移除每页最后一行的 .page-break 类和 data-page-break 属性
-            // 根因：.grid-svg-row.page-break 的 page-break-after:always 在 section 内部
-            // 触发分页，把页脚 .page-section-footer 顶到下一页，导致页脚丢失/空白页
-            // 每页的分页由 section 边界自然完成（min-height:295mm 占满页面），
-            // 内容内部不需要 page-break
             if (c.classList && c.classList.contains('page-break')) {
+                removedBreakRows.push(c);                 // RC4：先记录
                 c.classList.remove('page-break');
                 c.removeAttribute('data-page-break');
             }
-            content.appendChild(c);
+            if (c.classList && c.classList.contains('grid-svg-aux-row')) {
+                pair = document.createElement('div');     // RC5：新行对
+                pair.className = 'print-row-pair';
+                content.appendChild(pair);
+                pair.appendChild(c);
+            } else if (pair) {
+                pair.appendChild(c);
+                pair = null;
+            } else {
+                content.appendChild(c);                   // 兜底：无配对直接插入
+            }
         }
+        // 每页第一个辅助行强制页顶线（幂等）
+        const firstAux = content.querySelector('.grid-svg-aux-row');
+        if (firstAux) firstAux.classList.add('page-top');
         section.appendChild(content);
 
-        // 3. 页脚（DOM 最后，margin-top:auto 推到 section 底部）
+        // 3. 页脚
         const footer = document.createElement('div');
         footer.className = 'page-section-footer';
-        const _fTextTrunc = truncate(fText, 32);
-        const _footerPageText = `第 ${idx + 1} 页 / 共 ${totalPages} 页`;
         footer.innerHTML =
-            `<span class="pf-center">${_fTextTrunc}</span>` +
-            `<span class="pf-page">${_footerPageText}</span>`;
+            `<span class="pf-center">${truncate(fText, 32)}</span>` +
+            `<span class="pf-page">第 ${idx + 1} 页 / 共 ${totalPages} 页</span>`;
         section.appendChild(footer);
-        console.log('[pdfExport] 注入页眉页脚完成:', {
-            idx,
-            hLeft: _hLeftTrunc,
-            hCenter: _hCenterTrunc,
-            hRight: _hRightTrunc,
-            fText: _fTextTrunc,
-            footerPageText: _footerPageText
-        });
 
         wrapper.appendChild(section);
     });
 
     grid.parentNode.insertBefore(wrapper, grid);
 
-    // v2.8.5-hotfix：移除动态注入的 @page margin:0
-    // 原因：v2.8.5-hotfix 重构后，print.css 的 @page margin:10mm 是正确的物理边距
-    //       .page-sheet 严格 190mm×277mm = A4 - 2×10mm，与 @page margin 协同工作
-    //       无需再用 JavaScript 动态覆盖
-    // 保留 pageMarginStyle 变量为 null，cleanup 逻辑兼容
-    const pageMarginStyle = null;
-
+    // RC1 修复：cleanup 幂等 + 恢复 page-break + 事件/可见性双触发，删除 1 秒兜底
+    let cleaned = false;
     const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
         console.log('[pdfExport] cleanup 开始');
-        // v2.8.5-hotfix：pageMarginStyle 已不再注入，兼容性保留判断
-        if (pageMarginStyle && pageMarginStyle.parentNode) {
-            pageMarginStyle.parentNode.removeChild(pageMarginStyle);
-        }
-        // 恢复：将子元素移回 grid
+        removedBreakRows.forEach(r => {                   // RC4：恢复分页标记
+            r.classList.add('page-break');
+            r.setAttribute('data-page-break', '');
+        });
         pages.flat().forEach(c => grid.appendChild(c));
         if (wrapper.parentNode) {
             wrapper.parentNode.insertBefore(grid, wrapper);
             wrapper.remove();
         }
         window.removeEventListener('afterprint', cleanup);
+        document.removeEventListener('visibilitychange', onVisible);
+        window.removeEventListener('focus', cleanup);
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
         console.log('[pdfExport] cleanup 完成');
     };
+    const onVisible = () => {
+        if (document.visibilityState === 'visible') cleanup();
+    };
     window.addEventListener('afterprint', cleanup);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', cleanup);
+    // 仅作内存回收的超长兜底（120 秒），绝不影响打印管线的读取窗口
+    let fallbackTimer = setTimeout(cleanup, 120000);
 
     // v2.8.1：移动端检测（HarmonyOS / Android / iOS / 手机浏览器）
     // 移动端 window.print() 对 @media print 支持有限，需特殊引导
@@ -568,8 +566,6 @@ export function printDirect() {
                         console.error('[pdfExport] window.print 抛错:', e);
                         showToast('打印失败：' + (e && e.message ? e.message : '未知错误') + '，建议使用浏览器菜单的「网页转 PDF」', 5000);
                     }
-                    // 兜底清理（部分浏览器 afterprint 不触发）
-                    setTimeout(cleanup, 1000);
                 });
             });
         });

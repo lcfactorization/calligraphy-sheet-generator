@@ -1,17 +1,26 @@
 /* ════════════════════════════════════════════════════════════════
- * 打印样式表 v2.4.9 — A4 物理级排版 + 页眉页脚 + 页码
+ * 打印样式表 v2.8.7 — 移动端兼容重构
  * ════════════════════════════════════════════════════════════════
- * 版式规范：
- *  - A4 纵向，上 29mm / 下 8mm / 左右 15.9mm 边距
- *    左右边距 = (210mm - 178.2mm) / 2 = 15.9mm，使内容区=字格宽度
- *  - 页眉/页脚 padding 15.9mm，左右边缘与字格完全对齐
- *  - 页眉在顶部边距区（top:-9mm，高8mm，底部距内容区1mm）
- *  - 页脚在底部边距区（bottom:0，高8mm），评分居中
- *  - 页码由 Puppeteer footerTemplate 渲染（右对齐，右边缘=字格右边缘）
- *  - v2.4.9：左右边距6mm→15.9mm，页眉页脚与字格左右对齐
+ * 设计原则（针对 Android/HarmonyOS window.print() 异步打印管线）：
+ *  1. 分断承载元素 .print-page-section 是普通 block：
+ *     不用 flex、不写 overflow、不写 transform —— 最大化各引擎对
+ *     page-break-after / break-after 的遵守率
+ *  2. 几何唯一来源：@page{size:A4;margin:10mm} → 打印区 190mm×277mm
+ *     section 严格 190mm×277mm，内部 header8 + content261 + footer8 = 277mm
+ *     任何元素宽度不得超过 190mm，杜绝移动端 fit-to-width 自动缩放
+ *  3. overflow:hidden 只出现在内部 .page-section-content（裁剪用），
+ *     绝不出现在带 break-after 的元素上
+ *  4. 不再存在 @media print and (max-width:1200px) 之类的伪移动端断点
+ *     （A4 打印时纸宽 793.7px 恒 < 1200px，该断点永远命中只会制造冲突）
+ *
+ * 根因修复对照：
+ *  RC2 — 删除 @media print and (max-width:1200px) 伪断点
+ *  RC2 — 删除 html/body/.app 的 210mm 宽度锁（防 fit-to-width 缩放）
+ *  RC3 — 分断元素 .print-page-section 改为普通 block，overflow 下沉到 .page-section-content
+ *  RC5 — 新增 .print-row-pair 行对防撕保护
  */
 
-/* 屏幕隐藏打印专用元素 */
+/* ── 屏幕态：打印专用元素一律隐藏 ── */
 .print-only-header,
 .print-only-footer,
 .print-page-section,
@@ -21,6 +30,7 @@
 }
 
 @media print {
+    /* ── UI 元素全部隐藏（显式 display:none，不依赖 visibility 继承） ── */
     .app-header,
     .panel,
     #input-container,
@@ -30,66 +40,8 @@
     .fab-settings,
     #settingsPanel,
     .puppeteer-toast,
-    .history-fab,
-    .history-sidebar,
-    .sidebar-drawer-toggle,
-    .sidebar-backdrop {
-        display: none !important;
-    }
-    .app {
-        box-shadow: none;
-        backdrop-filter: none;
-        border-radius: 0;
-        background: #fff;
-        max-width: 100%;
-        padding: 0;
-    }
-    body { background: #fff; }
-    .black span, .black-char, .cell span, .cell .char { color: #000 !important; }
-}
-
-/* === v2.4.4 A4 物理级排版锁定（11 格/行 + 辅助行版式 + 页眉页脚） === */
-@media print {
-    /* v2.4.12：@page margin 29mm/15.9mm/16mm/15.9mm（Puppeteer 路径用）
-       bottom 16mm：给 footerTemplate 上移 8mm 的空间（页脚距页底 8mm）
-       headerTemplate padding-top:10mm 让页眉距页顶 10mm（下移 1cm）
-       window.print() 路径由 printDirect() 动态注入 @page margin:0 覆盖
-       v2.8.5-hotfix：@page margin 统一为 10mm，配合 .page-sheet 严格物理单位 190mm×277mm
-         内容区 = A4(210mm) - 2×10mm = 190mm 宽；A4(297mm) - 2×10mm = 277mm 高
-         确保 11 行 × 24mm = 264mm 内容 + 8mm 页眉 + 5mm 间距 = 277mm，精确填满单页 */
-    @page {
-        size: A4 portrait;
-        margin: 10mm !important;
-    }
-
-    html, body {
-        background: #ffffff !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* v2.4.7：打印时去掉 grid-container 的屏幕预览 padding AND margin */
-    #grid-container.svg-mode {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    #grid-container {
-        margin: 0 !important;
-    }
-
-    /* v2.8.1：废弃 visibility:hidden/visible 方案（移动端 HarmonyOS 浏览器、移动 Chrome、
-       iOS Safari 在 @media print 下 visibility 继承机制不可靠，导致打印预览全空白）
-       改用 display:none 显式隐藏 UI 元素，保留 .a4-page / .print-page-section 正常显示 */
-    /* 显式隐藏所有已知 UI 元素（不依赖 visibility 继承） */
-    .app-header,
-    .panel,
-    #input-container,
-    .fab-theme,
-    .fab-print,
-    .fab-puppeteer,
-    .fab-settings,
-    #settingsPanel,
-    .puppeteer-toast,
+    .toast,
+    .loading-overlay,
     .history-fab,
     .history-sidebar,
     .sidebar-drawer-toggle,
@@ -98,14 +50,26 @@
     .quick-toolbar,
     .char-counter,
     .diff-status-bar,
-    .puppeteer-toast,
-    .toast,
-    .loading-overlay,
     .hf-reset {
         display: none !important;
     }
 
-    /* v2.4.6：中和 .a4-page 祖先容器的布局偏移 */
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;          /* 严禁锁 210mm：超宽会触发移动端适应页宽缩放 */
+        max-width: none !important;
+    }
+
+    .black span, .black-char, .cell span, .cell .char { color: #000 !important; }
+
+    /* 中和屏幕布局容器（不再锁宽度） */
     .app,
     .app-workbench,
     .app-canvas,
@@ -124,203 +88,129 @@
         border: 0 !important;
     }
 
-    /* v2.8.4 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
-       需要显式声明容器宽度并保留 SVG 可见性
-       v2.8.1 曾用 min-height:auto 避免空白页，但导致 14 行/页（非 11 行）+ 页脚丢失
-       v2.8.3 修复：恢复 min-height:295mm + 段后强制分页，确保 11 行/页
-       v2.8.4 修复：断点从 900px 扩展到 1200px，覆盖 MatePad（768×1024 DPR=2
-                 实际渲染宽度 1536px，部分 HarmonyOS 浏览器在 print 媒体查询中
-                 基于设备宽度而非纸张宽度判断，900px 断点未触发导致 14 行/页） */
-    @media print and (max-width: 1200px) {
-        html, body {
-            width: 210mm !important;
-            max-width: 210mm !important;
-            background: #fff !important;
-        }
-        .app,
-        .app-workbench,
-        .app-canvas,
-        .a4-preview {
-            width: 210mm !important;
-            max-width: 210mm !important;
-        }
-        /* v2.8.3：恢复 295mm 最小高度，与桌面端完全一致，确保 11 行/页
-           padding 也恢复 15.9mm，与桌面端字格左右对齐 */
-        .print-page-section {
-            min-height: 295mm !important;
-            width: 210mm !important;
-            padding: 8mm 15.9mm 5mm 15.9mm !important;
-            box-sizing: border-box !important;
-            page-break-after: always !important;
-            break-after: page !important;
-        }
-        .print-page-section:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-        }
-        /* SVG 字格在移动端必须显式 visible，防止继承机制丢失 */
-        .grid-svg-row,
-        .grid-svg-aux-row,
-        .grid-svg-cell,
-        .grid-svg-row-border,
-        .grid-svg-cell rect,
-        .grid-svg-cell line,
-        .grid-svg-stroke-box,
-        .grid-svg-stroke-box svg path,
-        .pinyin-four-line,
-        .pinyin-four-line line,
-        .page-section-header,
-        .page-section-footer,
-        .page-section-content {
-            visibility: visible !important;
-        }
-        .page-section-content {
-            display: block !important;
-        }
-        .page-section-header,
-        .page-section-footer {
-            display: flex !important;
-        }
-        /* v2.8.3：笔画 SVG 强制垂直居中，修复移动端偏移 */
-        .grid-svg-stroke-box {
-            display: flex !important;
-            align-items: center !important;
-        }
-        .grid-svg-stroke-box svg,
-        .grid-svg-stroke-box .stroke-svg {
-            vertical-align: middle !important;
-            display: block !important;
-        }
-    }
-
-    .a4-page {
-        position: static;
+    #grid-container,
+    #grid-container.svg-mode {
+        padding: 0 !important;
         margin: 0 !important;
-        box-shadow: none !important;
-        transform: none !important;
-        page-break-after: always;
     }
-    .a4-page:last-child { page-break-after: auto; }
-    /* v2.4.12：pdf-print-wrapper 是 printDirect() 创建的外层容器，
-       内部 .print-page-section 自带分页，wrapper 自身不分页 */
-    .a4-page.pdf-print-wrapper { page-break-after: auto; }
 
-    /* v2.4.12：.print-only-header/.print-only-footer 已废弃，改用 .page-section-header/footer
-       保留 display:none 以防旧元素残留 */
+    /* ── 分页段：普通 block，严格等于打印区 190mm×277mm ──
+       break-after + page-break-after 双写；元素本身无 flex/overflow/transform
+       RC3 修复：不用 flex、不写 overflow，最大化各引擎对强制分页的遵守率 */
+    .print-page-section {
+        display: block !important;
+        width: 190mm;
+        height: 277mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: relative;
+        background: #fff;
+        box-sizing: border-box;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    /* 末页：不强制分页，高度由内容决定，避免空白尾页 */
+    .print-page-section.last-page-section {
+        page-break-after: auto !important;
+        break-after: auto !important;
+        height: auto !important;
+        max-height: 277mm;
+    }
+
+    /* wrapper 自身不分页（分页由 section 承担） */
+    .a4-page { page-break-after: auto; }
+    .a4-page.pdf-print-wrapper { page-break-after: auto !important; }
     .print-only-header, .print-only-footer { display: none !important; }
 
-    /* v2.4.16：per-page 分页段 — 正常文档流布局（flex column）
-       v2.8.5-hotfix：重构为严格物理单位 .page-sheet（兼容旧名 .print-page-section）
-         - width: 190mm = A4(210mm) - 2×@page margin(10mm)
-         - height: 277mm = A4(297mm) - 2×@page margin(10mm)，严格锁定防溢出
-         - overflow: hidden 防止内容溢出导致额外分页
-         - 禁用 vh/px/flex-grow 等相对单位，确保跨平台一致
-         - 11 行 × 24mm = 264mm 内容 + 8mm 页眉 + 2mm 间距 + 3mm 页脚 = 277mm
-         - break-after: page 强制分页（与 page-break-after: always 双重保险） */
-    .print-page-section,
-    .page-sheet {
+    /* ── 页眉：固定 8mm，正常文档流位于 section 顶部 ── */
+    .page-section-header {
         display: flex !important;
-        flex-direction: column;
-        width: 190mm !important;
-        height: 277mm !important;
-        box-sizing: border-box;
-        overflow: hidden;
-        padding: 0 !important;
-        margin: 0 !important;
-        /* v2.8.3：每个 section 后强制分页，确保 11 行/页
-           v2.8.5-hotfix：break-after + page-break-after 双重保险，覆盖所有浏览器引擎 */
-        break-after: page !important;
-        page-break-after: always !important;
-        break-before: auto !important;
-        page-break-before: auto !important;
-    }
-    .print-page-section:last-child,
-    .page-sheet:last-child {
-        /* v2.8.5：末页内容自适应，避免强制占满导致多 1 空白页
-           v2.8.5-hotfix：末页 height 改为 auto，由内容决定高度 */
-        height: auto !important;
-        min-height: 0 !important;
-        break-after: auto !important;
-        page-break-after: auto !important;
-    }
-
-    /* v2.8.5-hotfix：DOM 实装页眉（兼容旧名 .page-section-header）
-       严格物理高度 8mm，padding 0~5mm（左右与字格对齐）
-       色彩同步：通过 --grid-theme-color 变量联动（兼容旧名 --grid-primary-color） */
-    .page-section-header,
-    .sheet-header {
-        display: flex !important;
-        height: 8mm !important;
-        flex-shrink: 0;
-        margin: 0 5mm 2mm 5mm;
+        height: 8mm;
+        margin: 0 5.9mm;                 /* (190-178.2)/2 = 5.9mm，与字格左右对齐 */
         padding: 0 !important;
         justify-content: space-between;
         align-items: center;
+        box-sizing: border-box;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
         font-size: 9pt;
-        /* v2.8.5-hotfix：颜色变量统一为 --grid-theme-color，向后兼容 --grid-primary-color */
         color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
-        z-index: 9999;
         background: #fff;
         border-bottom: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
+        overflow: hidden;
     }
-    .page-section-header .ph-center,
-    .sheet-header .ph-center {
-        flex: 1;
-        text-align: center;
-    }
+    .page-section-header span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .page-section-header .ph-left   { flex: 1; text-align: left; }
+    .page-section-header .ph-center { flex: 1; text-align: center; }
+    .page-section-header .ph-right  { flex: 1; text-align: right; }
 
-    /* v2.4.12：页脚 — 正常文档流（section 最后子元素），margin-top:auto 推到底部
-       v2.8.5-hotfix：严格物理高度 8mm，色彩同步 */
-    .page-section-footer,
-    .sheet-footer {
-        display: flex !important;
-        height: 8mm !important;
-        flex-shrink: 0;
-        margin: 0 5mm;
-        padding: 0 !important;
-        margin-top: auto;
-        justify-content: space-between;
-        align-items: center;
-        font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
-        font-size: 9pt;
-        /* v2.8.5-hotfix：颜色变量统一为 --grid-theme-color */
-        color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
-        z-index: 9999;
-        border-top: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
-    }
-    .page-section-footer .pf-center,
-    .sheet-footer .pf-center {
-        flex: 1;
-        text-align: center;
-    }
-
-    /* v2.8.5-hotfix：单页内容区（页眉与页脚之间的字格区）
-       严格物理高度 259mm = 277mm - 8mm(header) - 2mm(margin) - 8mm(footer)
-       11 行 × 24mm = 264mm，略超出但 overflow:hidden 容错 */
-    .page-section-content,
-    .sheet-content {
-        flex: 0 0 auto;
-        margin: 0 5mm;
+    /* ── 内容区：固定 261mm = 277 - 8(header) - 8(footer) ──
+       11 行 × 21.6mm = 237.6mm ≤ 261mm，余 23.4mm
+       overflow 只在这里出现，绝不出现在分断元素上
+       RC3 修复：overflow 下沉到内部 content */
+    .page-section-content {
+        display: block !important;
+        height: 261mm;
+        margin: 0;
         padding: 0 !important;
         overflow: hidden;
     }
+    .print-page-section.last-page-section .page-section-content {
+        height: auto;
+        max-height: 261mm;
+    }
 
-    /* 字格行 + 辅助行不可跨页断格 */
+    /* ── 页脚：固定 8mm，紧跟 content 之后（277mm 内自然到底） ── */
+    .page-section-footer {
+        display: flex !important;
+        height: 8mm;
+        margin: 0 5.9mm;
+        padding: 0 !important;
+        justify-content: space-between;
+        align-items: center;
+        box-sizing: border-box;
+        font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
+        font-size: 9pt;
+        color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
+        background: #fff;
+        border-top: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
+        overflow: hidden;
+    }
+    .page-section-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .page-section-footer .pf-center { flex: 1; text-align: center; }
+
+    /* ── 行对：拼音辅助行 + 汉字行物理绑定，绝不允许拆到两页 ──
+       RC5 修复：即使分页被引擎忽略，拼音行与汉字行也物理上不可拆 */
+    .print-row-pair {
+        display: block;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    /* 字格行在 190mm 内容宽内水平居中（行宽 178.2mm） */
+    .page-section-content .grid-svg-row,
+    .page-section-content .grid-svg-aux-row {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* 行内部不跨页 */
     .grid-svg-row,
     .grid-svg-aux-row {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }
 
-    /* 强制矢量网格绿色打印 */
+    /* 强制矢量网格颜色打印 */
     .grid-svg-cell rect,
     .grid-svg-cell line,
     .grid-svg-row-border rect,
     .grid-svg-row-border line,
     .pinyin-four-line line,
-    .grid-svg-stroke-box svg path {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+    .grid-svg-stroke-box svg path,
+    .grid-svg-aux-row.page-top {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
