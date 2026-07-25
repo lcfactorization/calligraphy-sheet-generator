@@ -16,14 +16,20 @@ const BINARY_EXTS = ['xlsx', 'docx'];
  * 从文本中过滤出纯汉字字符
  * 字帖主要支持汉字的米字格、笔画笔顺拆分、组词、描摹等，
  * 非汉字字符（标点、字母、数字、空格、换行等）统统忽略
+ * v2.8.2：扩展 Unicode 覆盖范围，支持繁体及扩展区汉字
+ *   - U+4E00 ~ U+9FFF：CJK 基本汉字 + 基本区扩展（含原 U+9FA6 ~ U+9FFF）
+ *   - U+3400 ~ U+4DBF：CJK 扩展 A 区（罕用汉字，如「㐀㐁㐂」）
+ *   - U+F900 ~ U+FAFF：CJK 兼容汉字（繁体/异体字，如「豈更車」）
+ *   注：兼容表意文字补充区（U+2F800 ~ U+2FA1F）暂不纳入，
+ *       因其码点超出 JS 正则的 \u 范围，且实际使用极少
  * @param {string} text - 原始文本
  * @returns {string} 纯汉字字符串（可能为空字符串）
  */
 function filterChineseChars(text) {
     if (!text || typeof text !== 'string') return '';
     const beforeLen = text.length;
-    // 仅匹配 CJK 基本汉字（U+4E00 ~ U+9FA5），其余字符一律忽略
-    const matches = text.match(/[\u4e00-\u9fa5]/g);
+    // 匹配 CJK 基本汉字 + 基本区扩展 + 扩展 A 区 + 兼容汉字，其余字符一律忽略
+    const matches = text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
     const filtered = matches ? matches.join('') : '';
     console.log('[FileImporter] 汉字过滤：' + beforeLen + ' -> ' + filtered.length + ' 字符');
     return filtered;
@@ -443,5 +449,5 @@ export function registerFileImporter() {
     fileImporter.init();
 }
 
-export { FileImporter };
+export { FileImporter, filterChineseChars };
 export default fileImporter;

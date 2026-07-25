@@ -109,6 +109,7 @@ function truncate(text, max) {
  * @param {Object} opts - { headerLeft, headerCenter, headerRight, footerText, format, landscape }
  */
 export async function exportVectorPDF(opts = {}) {
+    console.log('[pdfExport] exportVectorPDF 入口', opts);
     const removeOverlay = showLoadingOverlay();
     try {
         await waitForFonts();
@@ -250,8 +251,10 @@ export async function exportVectorPDF(opts = {}) {
  * 依赖 src/styles/print.css 的 @page + .a4-page 规则
  */
 export function printDirect() {
+    console.log('[pdfExport] printDirect 入口');
     const grid = document.getElementById('grid-container');
     if (!grid) {
+        console.error('[pdfExport] 未找到 #grid-container');
         alert('未找到 #grid-container，请先生成字帖');
         return;
     }
@@ -266,6 +269,9 @@ export function printDirect() {
     const fontDisplayName = fontSelect
         ? fontSelect.options[fontSelect.selectedIndex].text
         : '';
+    console.log('[pdfExport] UA:', navigator.userAgent);
+    console.log('[pdfExport] 字数:', inputText.value.length);
+    console.log('[pdfExport] 字体:', fontDisplayName);
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const hLeft = document.getElementById('headerLeft')?.value ||
@@ -303,6 +309,7 @@ export function printDirect() {
     }
     if (currentPage.length > 0) pages.push(currentPage);
     const totalPages = pages.length;
+    console.log('[pdfExport] 分页段数:', pages.length, '总字数:', gridChildren.length);
 
     // 创建分页段容器
     const wrapper = document.createElement('div');
@@ -365,6 +372,7 @@ export function printDirect() {
     document.head.appendChild(pageMarginStyle);
 
     const cleanup = () => {
+        console.log('[pdfExport] cleanup 开始');
         // 移除动态注入的 @page margin:0 样式
         if (pageMarginStyle.parentNode) pageMarginStyle.parentNode.removeChild(pageMarginStyle);
         // 恢复：将子元素移回 grid
@@ -374,6 +382,7 @@ export function printDirect() {
             wrapper.remove();
         }
         window.removeEventListener('afterprint', cleanup);
+        console.log('[pdfExport] cleanup 完成');
     };
     window.addEventListener('afterprint', cleanup);
 
@@ -383,6 +392,7 @@ export function printDirect() {
     const isMobileUA = /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(ua)
         && !/Windows NT|Macintosh|CrOS|X11/i.test(ua);
     const isHarmonyOS = /HarmonyOS|HuaweiBrowser/i.test(ua);
+    console.log('[pdfExport] 移动端检测: isMobileUA=', isMobileUA, 'isHarmonyOS=', isHarmonyOS);
 
     try {
         // v2.4.5：显示加载遮罩，等待字体+笔画就绪后再打印
@@ -396,9 +406,13 @@ export function printDirect() {
             showToast(hint, 6000);
         }
 
+        console.log('[pdfExport] 字体等待开始');
         waitForFonts().then(async () => {
+            console.log('[pdfExport] 字体等待完成');
             // v2.7.x 优化：等待笔画队列加载完成（最多等2秒，原10秒过长）
+            console.log('[pdfExport] waitForStrokes 开始 (2000ms)');
             await waitForStrokes(2000);
+            console.log('[pdfExport] waitForStrokes 完成');
             // 给浏览器一点时间渲染最终 DOM
             await new Promise(r => setTimeout(r, 300));
             printOverlay();
@@ -411,8 +425,10 @@ export function printDirect() {
             // 在用户手势上下文内调用，async/await 链会脱离手势上下文导致调用被吞
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
+                    console.log('[pdfExport] 调用 window.print()');
                     try {
                         window.print();
+                        console.log('[pdfExport] window.print() 调用成功');
                     } catch (e) {
                         console.error('[pdfExport] window.print 抛错:', e);
                         showToast('打印失败：' + (e && e.message ? e.message : '未知错误') + '，建议使用浏览器菜单的「网页转 PDF」', 5000);

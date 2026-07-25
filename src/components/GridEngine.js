@@ -600,8 +600,15 @@ export function renderSheet(input = '', options = {}) {
     // 颜色来源：settingsCenter.gridColorPreset → GRID_COLOR_PRESETS → 回退 GRID_COLORS
     const colors = getActiveGridColors();
 
+    // v2.8.2：预过滤 — 仅保留汉字字符（含繁体、扩展A区、兼容汉字），过滤所有标点、字母、数字、空白
+    // 用户原则：字帖里用不上其他符号，这是基本原则
+    const filteredInput = (function() {
+        if (!input) return '';
+        const matches = String(input).match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+        return matches ? matches.join('') : '';
+    })();
     // 过滤掉空白字符，每个汉字对应一行
-    const chars = Array.from(input).filter(c => /\S/.test(c) && c !== '\n' && c !== '\r');
+    const chars = Array.from(filteredInput).filter(c => /\S/.test(c) && c !== '\n' && c !== '\r');
     const { miziCount, tianCount, rowsPerPage } = SHEET_LAYOUT;
 
     chars.forEach((char, idx) => {

@@ -41,7 +41,11 @@ let prevLen = 0;
 export function updateCharCounter() {
     const input = document.getElementById('inputText');
     const counter = document.getElementById('charCounter');
-    const len = input.value.length;
+    // v2.8.2：字数计数器基于过滤后字数（仅汉字）
+    // 用户原则：字帖里用不上标点/字母/数字等符号，计数应反映实际渲染的汉字数
+    const raw = input.value || '';
+    const filtered = (raw.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).join('');
+    const len = filtered.length;
     counter.textContent = len + ' / ' + RECOMMENDED_LIMIT;
     // 三级样式：正常 / 警告（>330）/ 错误（>1000）
     counter.classList.toggle('over', len > HARD_LIMIT);

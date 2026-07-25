@@ -5,6 +5,96 @@
 
 ---
 
+## [v2.8.2] — 2026-07-25
+
+> 本次升级由 3 个独立小组并行完成（A 默认文本调整 / B 文本过滤器强化 / C pdfExport 日志+MatePad 模拟测试），基于深度审查报告驱动。
+
+### 🐛 修复
+
+#### 修复 1 — 文本过滤器 Unicode 范围过窄（v2.8.2 基本原则修复）
+
+- **用户原则**："请务必只保留汉字字符，繁体简体都可以，但其它符号都务必过滤掉，哪怕是中文的标点符号，也必须过滤掉，因为练字的时候字帖里永不上，这是一个基本原则"
+- **多 Agent 调查结论**：
+  - 根因 1：[fileImporter.js:26](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js#L26) `filterChineseChars` 正则 `/[\u4e00-\u9fa5]/g` 仅覆盖 CJK 基本区，缺扩展 A 区（U+3400–U+4DBF）、基本区扩展（U+9FA6–U+9FFF）、兼容汉字（U+F900–U+FAFF）
+  - 根因 2：[GridEngine.js:604](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L604) `renderSheet` 入口仅过滤空白换行，textarea 直接粘贴的中文标点/字母/数字被当作字符渲染进字格
+  - 根因 3：[settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 基于 `textarea.value.length` 统计，含标点，与实际渲染字数不一致
+- **修复**：
+  - [fileImporter.js:26](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js#L26) 正则扩展为 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g`，覆盖基本区+扩展 A+兼容汉字
+  - [fileImporter.js](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js) export 新增 `filterChineseChars`，供其他模块复用
+  - [GridEngine.js:603-611](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L603) `renderSheet` 入口加预过滤 IIFE，渲染前已是纯汉字
+  - [settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 改为基于过滤后字数，与实际渲染一致
+- **验证**：构建通过（839 模块，0 错误），IDE 诊断 0 错误
+
+### ✨ 新增
+
+#### 新增 1 — 默认文本调整为 198 字（18 页正好）
+
+- **用户反馈**：希望默认文本为指定 200 字内容，刚好 18 页；如果多了从末尾删一两个
+- **字数验证**：
+  - 原文本 200 字 → ⌈200/11⌉ = 19 页（11 字/页，多 1 页）
+  - 删末尾 "替骂" 2 字 → 198 字 → 18 页正好
+- **修复**：[index.html:74](file:///c:/poem2pdf/distribution/index.html#L74) textarea 默认值改为 198 字版本
+- **验证**：PowerShell 实测 `Default text length: 198` / `Pages (11 chars/page): 18`
+
+#### 新增 2 — pdfExport.js 关键节点日志（移动端调试增强）
+
+- **背景**：MatePad 移动端无法直接查看 console.log，排查空白问题困难
+- **新增日志节点**（8 个，全部 `[pdfExport]` 前缀）：
+  - [pdfExport.js:254](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L254) printDirect 入口（UA + 字数 + 字体）
+  - [pdfExport.js:395](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L395) 移动端检测（isMobileUA + isHarmonyOS）
+  - [pdfExport.js:312](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L312) 分页段创建（页数 + 字数）
+  - [pdfExport.js:409-411](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L409) 字体等待开始/完成
+  - [pdfExport.js:413-415](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L413) waitForStrokes 开始/完成
+  - [pdfExport.js:428-431](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L428) window.print() 调用
+  - [pdfExport.js:375,385](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L375) cleanup 开始/完成
+  - [pdfExport.js:112](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L112) exportVectorPDF 入口
+- **使用方法**：移动端 Chrome 远程调试（USB）或 vConsole 注入后，按 `[pdfExport]` 过滤日志
+
+#### 新增 3 — MatePad 模拟测试脚本（本地验证网格颜色）
+
+- **背景**：用户要求"帮我构造一个模拟的 MatePad 环境数据，在本地运行一下导出 PDF 的测试，验证网格颜色是否正常"
+- **新增**：[matepad-simulate.cjs](file:///c:/poem2pdf/distribution/matepad-simulate.cjs)
+- **特性**：
+  - MatePad UA：`Mozilla/5.0 (Linux; Android 10; HARMONYOS; MatePad Pro) AppleWebKit/537.36 Chrome/114.0.0.0 Safari/537.36`
+  - 视口 768×1024 DPR=2（MatePad 横屏）
+  - 3 个测试用例：米字格+传统绿 / 田字格+朱砂红 / 九宫格+靛青蓝
+  - 复用本地 puppeteer Chromium（与 puppeteer-server.cjs 同源）
+  - 收集 `[pdfExport]` 日志并输出
+  - 输出 3 个 PDF：matepad_test_green.pdf / matepad_test_red.pdf / matepad_test_jiugong_blue.pdf
+- **用法**：`node matepad-simulate.cjs --url http://localhost:3000`（需先启动 `npm run dev`）
+
+### 📝 文档
+
+#### 文档 1 — 深度审查报告（改动前）
+
+- 新增 [docs/深度审查报告_v2.8.2_pre_change.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.2_pre_change.md)
+- 涵盖：字数与页数关系、过滤器缺陷、pdfExport 日志节点、MatePad 模拟方案、回归检测、改动影响评估、多 Agent 任务分配
+
+### 🔧 工程化
+
+- 创建备份 tag `backup/pre_v282_tasks/20260725_220000` 并推送到 GitHub
+- 多 Agent 并行：A 默认文本 / B 过滤器强化（3 文件协同）/ C 日志+模拟脚本
+- 所有修改通过 `npm run build` 构建验证（839 模块，0 错误，9.56s）
+- 所有修改文件通过 IDE 诊断检查（0 错误，0 警告）
+
+### 📚 引用文档（v2.8.1 已生成，本轮复用）
+
+> [!NOTE]
+> 用户任务 4-7（MatePad 适配 / HarmonyOS 说明 / 飞书问卷数据 / 测试清单 / PWA 二维码）已在 v2.8.1 完成，本轮引用：
+> - [docs/移动端打印替代方案_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端打印替代方案_v2.8.1.md)
+> - [docs/飞书问卷提交数据_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.1.md)
+> - [docs/PWA安装指南_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.1.md)
+> - [docs/移动端功能测试清单_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.1.md)
+> - [docs/复赛发布_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.1.md)
+
+### ✅ GitHub Pages 部署状态
+
+- **在线访问**：https://lcfactorization.github.io/calligraphy-sheet-generator/
+- **部署方式**：GitHub Actions 自动部署（push 到 `retake` 分支触发）
+- **v2.8.2 推送后**：Actions 将自动重新构建并部署（约 1-3 分钟）
+
+---
+
 ## [v2.8.1] — 2026-07-25
 
 > 本次升级由 6 个独立小组并行完成（A 核心代码修复 / B 替代方案研究 / C 飞书问卷数据 / D 测试清单更新 / E PWA 安装指南 / F 复赛发布帖与 CHANGELOG），基于多 Agent 协同调查 + 修复。
