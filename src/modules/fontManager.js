@@ -12,14 +12,46 @@ export const FONT_LIST = [
 let customFontCounter = 0;
 
 export async function loadFonts() {
-    for (const [name, url] of FONT_LIST) {
+    // v2.7.x 性能优化：按需加载 + 并行加载 + display:swap
+    // 关键路径：仅加载当前选中字体 + 拼音字体（TeXGyreAdventor 始终需要）
+    // 非关键字体：setTimeout(0) 后台延迟加载，不阻塞首屏渲染和首次打印
+    const fontSelect = document.getElementById('font-select');
+    const selectedFont = fontSelect ? fontSelect.value : 'TW-Kai';
+
+    const criticalFonts = FONT_LIST.filter(([name]) =>
+        name === selectedFont || name === 'TeXGyreAdventor'
+    );
+    const deferredFonts = FONT_LIST.filter(([name]) =>
+        name !== selectedFont && name !== 'TeXGyreAdventor'
+    );
+
+    // 并行加载关键字体（display:swap 兜底，单字体失败不阻塞其余）
+    await Promise.all(criticalFonts.map(async ([name, url]) => {
         try {
-            const ff = new FontFace(name, 'url(' + url + ')');
+            const ff = new FontFace(name, 'url(' + url + ')', { display: 'swap' });
             await ff.load();
             document.fonts.add(ff);
-        } catch(e) { console.warn('字体加载失败: ' + name); }
-    }
-    console.log('FontFace loading complete');
+        } catch (e) {
+            console.warn('字体加载失败:', name, e);
+        }
+    }));
+    console.log('FontFace critical loading complete');
+
+    // 后台延迟加载其余字体（让出主线程，不阻塞首屏与首次打印）
+    setTimeout(() => {
+        deferredFonts.forEach(([name, url]) => {
+            try {
+                const ff = new FontFace(name, 'url(' + url + ')', { display: 'swap' });
+                ff.load().then(loaded => {
+                    document.fonts.add(loaded);
+                }).catch(e => {
+                    console.warn('字体延迟加载失败:', name, e);
+                });
+            } catch (e) {
+                console.warn('字体延迟加载失败:', name, e);
+            }
+        });
+    }, 0);
 }
 
 export function handleFontUpload(file) {

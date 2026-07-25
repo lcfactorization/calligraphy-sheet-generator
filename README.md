@@ -62,8 +62,8 @@ distribution/
 │       ├── pdfExport.js     ← [旧] window.print PDF（v2.4 保留作回退）
 │       ├── puppeteerClient.js
 │       ├── history.js       ← 历史记录（localStorage 20条）
-│       ├── feedback.js      ← 练习反馈（整体+单字，状态色环）
-│       ├── settingsCenter.js← 设置中心（4滑块+4开关+3主题）
+│       ├── feedback.js      ← [v2.3.0 已移除 UI] 练习反馈（文件保留为 reportPanel 依赖）
+│       ├── settingsCenter.js← 设置中心（1滑块+5网格类型+4色预设+4开关+3主题）
 │       ├── difficulty.js    ← 难度评估（cnchar笔画数+5级星级）
 │       ├── fileImporter.js  ← 文件导入（txt/md/csv/xlsx/docx）
 │       ├── recommender.js   ← AI智能推荐（离线规则版）
@@ -142,7 +142,7 @@ npm run preview      # 预览构建结果
 | # | 功能 | 模块 | 说明 |
 |:--:|:-----|:-----|:-----|
 | 16 | **历史记录** | history.js | 每次生成自动保存到 localStorage（最多20条），右侧可折叠侧边栏，支持重新生成/删除/清空 |
-| 17 | **设置中心** | settingsCenter.js | 模态框含 4 滑块 + 4 开关 + 3 主题选项，实时更新预览 |
+| 17 | **设置中心** | settingsCenter.js | 模态框含 1 滑块（描红透明度）+ 5 网格类型 + 4 色线框预设 + 4 Toggle 开关 + 3 主题选项，实时更新预览 |
 | 18 | **难度评估** | difficulty.js | cnchar.stroke() 笔画数，5 级星级，实时评估 |
 | 19 | **内置模板库** | templates.js | 20 个预设模板（唐诗宋词8+三字经2+千字文2+常用字3+成语3+节日2） |
 | 20 | **分级字库** | vocabulary.js | 3 级 18 分类（初级1-5画/中级6-10画/高级10+画） |

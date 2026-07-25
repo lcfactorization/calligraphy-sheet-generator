@@ -31,12 +31,45 @@ export function toggleTheme() {
     } catch (e) { /* 静默降级 */ }
 }
 
+// v2.7.1：字数上限从 200 扩展到 330（约 30 页，推荐上限）
+// 超过 330 仍可输入（不强制截断），仅显示警告样式 + toast 提示
+// 硬限制 1000 字（与 textarea maxlength="1000" 一致），超过显示错误样式
+const RECOMMENDED_LIMIT = 330;
+const HARD_LIMIT = 1000;
+let prevLen = 0;
+
 export function updateCharCounter() {
     const input = document.getElementById('inputText');
     const counter = document.getElementById('charCounter');
     const len = input.value.length;
-    counter.textContent = len + ' / 200';
-    counter.classList.toggle('over', len >= 200);
+    counter.textContent = len + ' / ' + RECOMMENDED_LIMIT;
+    // 三级样式：正常 / 警告（>330）/ 错误（>1000）
+    counter.classList.toggle('over', len > HARD_LIMIT);
+    counter.classList.toggle('warn', len > RECOMMENDED_LIMIT && len <= HARD_LIMIT);
+    // 跨越 330 推荐上限时提示一次（仅向上跨越触发，避免每次按键都弹）
+    if (prevLen <= RECOMMENDED_LIMIT && len > RECOMMENDED_LIMIT) {
+        showCharToast('超过 30 页推荐上限（330 字），将生成更多页', 'warn');
+    }
+    prevLen = len;
+}
+
+/**
+ * 字数超限 toast 提示（自包含，不依赖 fileImporter / puppeteerClient 的 toast）
+ * @param {string} msg - 提示消息
+ * @param {string} type - warn / error / info
+ */
+function showCharToast(msg, type) {
+    const existing = document.querySelector('.char-limit-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'char-limit-toast char-limit-toast-' + (type || 'info');
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 const hfDefaults = {

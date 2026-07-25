@@ -5,6 +5,77 @@
 
 ---
 
+## [v2.8.0] — 2026-07-25
+
+> 本次升级由 6 个独立小组并行完成（A 模态修复 / B 字数扩展 / C 打印性能 / D 项目重定位 / E 回归检测 / F 文档与版本控制），基于多 Agent 协同调查 + 修复。
+
+### 🐛 修复
+
+#### 修复 1 — 移动端设置中心模态全屏遮挡问题（MatePad 反馈）
+
+- **用户反馈**：华为 MatePad（HarmonyOS）通过 GitHub Pages 访问时，设置中心切换网格类型/颜色后看似不生效
+- **多 Agent 调查结论**：不是性能滞后，也不是功能失效。根因是 `settingsCenter.css` 移动端断点（max-width:680px）让 `.sc-modal` 全屏覆盖（100vh），重渲染发生在被遮挡的背景中
+- **修复**：
+  - [settingsCenter.css](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L277-L282) 移动端模态改为底部抽屉（65vh，留 35vh 预览区）+ 减淡遮罩（0.5 → 0.25）
+  - [main.js](file:///c:/poem2pdf/distribution/src/main.js#L98-L106) 字格容器添加视觉反馈（设置更新后紫色外框闪烁 400ms）
+  - [grid-svg.css](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L208-L213) 新增 `#grid-container.just-updated` 样式
+  - [main.js](file:///c:/poem2pdf/distribution/src/main.js#L114-L124) 末尾追加 PWA 更新提示（避免旧访客持续运行老代码）
+- **验证**：构建通过（839 模块，0 错误），IDE 诊断 0 错误 0 警告
+
+#### 修复 2 — 打印 PDF 性能优化（GitHub Pages 慢）
+
+- **用户反馈**：GitHub Pages 在线版本打印 PDF 非常慢
+- **多 Agent 调查结论**：
+  - 首次访问慢主因：字体串行加载（40MB 跨境下载 30-60 秒）+ alert 阻塞 + waitForStrokes 10s 超时
+  - 二次访问慢主因：笔画串行加载 + SVG DOM 规模（30 页 7590 SVG / 3 万节点）
+- **修复（短期优化，预计性能提升 60-80%）**：
+  - [fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L14-L55) `loadFonts()` 改并行（`Promise.all`）+ `display:swap` + 按需加载（仅加载当前选中字体，其余延迟加载）
+  - [utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L60-L77) 新增 `showToast` 辅助函数
+  - [utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L380-L396) `printDirect()` 中的 `alert()` 改为非阻塞 toast（复用 `.puppeteer-toast` 样式）
+  - `waitForStrokes` 超时从 10s 缩短为 2s（未加载的笔画自然缺失，不阻塞打印）
+
+### ✨ 新增
+
+#### 新增 1 — 字数上限扩展（200 → 330 推荐 + 1000 硬上限）
+
+- **用户反馈**：200 字上限太少，希望增加到 330 字（30 页）
+- **实现**：
+  - [index.html](file:///c:/poem2pdf/distribution/index.html#L74) textarea `maxlength` 从 200 改为 1000
+  - [settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 重写为三级样式（正常/警告/错误）+ 越限 toast 提示
+  - [recommender.js](file:///c:/poem2pdf/distribution/src/modules/recommender.js) 三处 `maxLength || 200` 改为 `|| 1000`
+  - [components.css](file:///c:/poem2pdf/distribution/src/styles/components.css) 新增 `.char-counter.warn` 警告样式 + `.char-limit-toast` toast 样式
+- **行为**：
+  - 0-330 字：正常（灰色）
+  - 331-1000 字：黄色警告 + 跨过 330 时弹一次 toast「超过 30 页推荐上限（330 字），将生成更多页」
+  - >1000 字：浏览器原生 maxlength 阻止继续输入
+  - **不强制截断**：用户输入超过 330 字仍可正常生成字帖
+
+### 📝 文档
+
+#### 文档 1 — 项目定位重新说明
+
+- 早期文档中"纯前端 PWA 离线应用"的描述不准确，已在 [docs/复赛发布_v2.8.0.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.0.md) 开头添加详细的项目定位说明
+- 准确描述："以前端为主、本地 Node.js 服务为辅的混合架构字帖生成工具"
+- GitHub Pages 部署说明：是为了节省服务器成本的临时方案，并非唯一发布路径
+
+#### 文档 2 — 文档一致性修订（避免功能谎言）
+
+- 多 Agent 回归检测发现：v2.7.0 帖子仍宣称"练习反馈闭环 ✅"和"复习计划生成 ✅"，但 v2.3.0 已删除
+- 修订：
+  - 帖子 #17、#18 项标记为"❌ v2.3.0 移除"
+  - 修正"AI 智能推荐"描述（基于分级字库和预设模板，非学习历史）
+  - README.md "4 滑块 + 4 开关 + 3 主题"改为实际的"1 滑块 + 5 网格类型 + 4 色预设 + 4 Toggle + 3 主题"
+  - 学习闭环技术方案章节添加诚实说明（v2.3.0 主动移除反馈/复习以聚焦核心）
+
+### 🔧 工程化
+
+- 创建备份 tag `backup/pre_v280_tasks/20260725_190000` 并推送到 GitHub
+- 多 Agent 并行调查（4 个调查任务同时进行）+ 多 Agent 并行修复（2 个修复任务同时进行）
+- 所有修改通过 `npm run build` 构建验证（839 模块，0 错误，0 警告）
+- 所有修改文件通过 IDE 诊断检查（0 错误，0 警告）
+
+---
+
 ## [v2.7.0] — 2026-07-25
 
 ### 🐛 修复

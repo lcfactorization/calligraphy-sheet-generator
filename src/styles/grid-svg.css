@@ -204,3 +204,10 @@
         print-color-adjust: exact !important;
     }
 }
+
+/* v2.8.0：设置更新后的视觉反馈 */
+#grid-container.just-updated{
+    outline:2px solid rgba(99,102,241,0.6);
+    outline-offset:4px;
+    transition:outline .15s ease;
+}

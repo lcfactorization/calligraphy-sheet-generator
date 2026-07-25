@@ -97,10 +97,28 @@ document.addEventListener('calligraphy:sidebar-updated', () => {
 // 与侧栏按钮等效，改的是同一全局变量（settingsCenter）
 document.addEventListener('calligraphy:settings-updated', () => {
     handleGenerate();
+    // 视觉反馈：字格容器边框闪一下
+    const c = document.getElementById('grid-container');
+    if (c) {
+        c.classList.add('just-updated');
+        setTimeout(() => c.classList.remove('just-updated'), 400);
+    }
 });
 
 // ── Lucide 图标：替换打印按钮图标为标准 Lucide printer SVG ──
 const printBtn = document.getElementById('printBtn');
 if (printBtn) {
     printBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+}
+
+// v2.8.0：PWA 更新提示，避免旧访客持续跑老代码
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        const toast = document.createElement('div');
+        toast.textContent = '✨ 已升级到新版本，点击刷新加载';
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10001;padding:12px 20px;background:#22c55e;color:#fff;border-radius:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-size:14px';
+        toast.onclick = () => location.reload();
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 10000);
+    });
 }

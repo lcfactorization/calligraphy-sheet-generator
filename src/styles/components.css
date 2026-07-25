@@ -79,7 +79,16 @@ textarea#inputText:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99
 
 /* ── 字数计数器 ── */
 .char-counter{font-size:12px;color:var(--desc-color);margin-left:auto;align-self:center}
+.char-counter.warn{color:#f59e0b;font-weight:600}
 .char-counter.over{color:#ef4444;font-weight:600}
+
+/* ── 字数超限 toast（自包含，v2.7.1）── */
+.char-limit-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;padding:12px 22px;border-radius:10px;background:rgba(15,23,42,0.92);color:#fff;font-size:14px;box-shadow:0 8px 32px rgba(0,0,0,0.3);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);max-width:80vw;text-align:center;opacity:0;transition:opacity .3s ease,transform .3s ease}
+.char-limit-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.char-limit-toast-warn{background:rgba(245,158,11,0.95)}
+.char-limit-toast-error{background:rgba(220,38,38,0.95)}
+.char-limit-toast-info{background:rgba(99,102,241,0.95)}
+@media print{.char-limit-toast{display:none!important}}
 
 /* ── 页眉/页脚设置 ── */
 .hf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}

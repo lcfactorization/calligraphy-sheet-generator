@@ -58,6 +58,25 @@ function showLoadingOverlay() {
 }
 
 /**
+ * 显示非阻塞 toast 提示（复用全局 .puppeteer-toast 样式，已含打印时隐藏规则）
+ * v2.7.x：替代 alert 阻塞，避免打印对话框延迟出现
+ * @param {string} msg - 提示文本
+ * @param {number} duration - 持续时间（毫秒），默认 1500
+ */
+function showToast(msg, duration = 1500) {
+    const existing = document.querySelector('.puppeteer-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'puppeteer-toast info';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => { if (t.parentNode) t.remove(); }, 300);
+    }, duration);
+}
+
+/**
  * 等待关键字体就绪（拼音 + 当前汉字字体）
  */
 async function waitForFonts() {
@@ -362,15 +381,15 @@ export function printDirect() {
         // v2.4.5：显示加载遮罩，等待字体+笔画就绪后再打印
         const printOverlay = showLoadingOverlay();
         waitForFonts().then(async () => {
-            // 等待笔画队列加载完成（最多等10秒）
-            await waitForStrokes(10000);
+            // v2.7.x 优化：等待笔画队列加载完成（最多等2秒，原10秒过长）
+            await waitForStrokes(2000);
             // 给浏览器一点时间渲染最终 DOM
             await new Promise(r => setTimeout(r, 300));
             printOverlay();
-            // v2.4.12：提示用户取消浏览器默认页眉页脚
-            // 原因：CSS 无法禁止 Chrome 的"页眉和页脚"选项（日期/标题/URL/页码）
-            // @page margin:0 已减少空间，但 Chrome 仍可能叠加显示，需用户手动取消勾选
-            alert('即将打开打印对话框。\n\n请在对话框中取消勾选「页眉和页脚」选项，\n以避免页面顶端显示时间和文件名。');
+            // v2.7.x 优化：alert 改非阻塞 toast，立即调用 window.print()
+            // 原因：alert 阻塞主线程导致打印对话框延迟；toast 1.5s 自动消失，不阻塞
+            // 提示用户取消浏览器默认页眉页脚（CSS 无法禁止 Chrome 的页眉页脚选项）
+            showToast('正在准备打印…请在对话框中取消勾选「页眉和页脚」', 1500);
             window.print();
             // 兜底清理（部分浏览器 afterprint 不触发）
             setTimeout(cleanup, 1000);

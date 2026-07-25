@@ -316,7 +316,7 @@ const Recommender = {
   appendChar(ch) {
     if (!this.inputEl || !ch) return;
     const cur = this.inputEl.value.replace(/\s+$/, '');
-    const max = this.inputEl.maxLength || 200;
+    const max = this.inputEl.maxLength || 1000;
     this.inputEl.value = (cur + ch).slice(0, max);
     this.dispatchInput();
   },
@@ -325,7 +325,7 @@ const Recommender = {
   appendChars(chars) {
     if (!this.inputEl || !chars) return;
     const cur = this.inputEl.value.replace(/\s+$/, '');
-    const max = this.inputEl.maxLength || 200;
+    const max = this.inputEl.maxLength || 1000;
     this.inputEl.value = (cur + chars).slice(0, max);
     this.dispatchInput();
   },
@@ -333,7 +333,7 @@ const Recommender = {
   /** 覆盖输入框内容（用于模板加载）*/
   replaceText(text) {
     if (!this.inputEl || !text) return;
-    const max = this.inputEl.maxLength || 200;
+    const max = this.inputEl.maxLength || 1000;
     this.inputEl.value = text.slice(0, max);
     this.dispatchInput();
   },
