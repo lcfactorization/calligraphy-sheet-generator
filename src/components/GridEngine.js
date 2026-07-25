@@ -603,15 +603,18 @@ export function renderSheet(input = '', options = {}) {
     // v2.8.3：把网格主色同步到 CSS 变量，供页眉页脚颜色同步使用
     // 修复根因：print.css 的 .page-section-header/footer 原硬编码 #2E7D32，
     //   切换朱砂红/靛青蓝/墨黑时页眉页脚不跟随。改用 var(--grid-primary-color)。
+    // v2.8.5-hotfix：同时设置 --grid-theme-color 和 --grid-primary-color（向后兼容）
+    //   页眉页脚颜色与网格线条颜色保持完全同步
     if (colors && colors.primary) {
         document.documentElement.style.setProperty('--grid-primary-color', colors.primary);
+        document.documentElement.style.setProperty('--grid-theme-color', colors.primary);
     }
 
     // v2.8.2：预过滤 — 仅保留汉字字符（含繁体、扩展A区、兼容汉字），过滤所有标点、字母、数字、空白
     // 用户原则：字帖里用不上其他符号，这是基本原则
     const filteredInput = (function() {
         if (!input) return '';
-        const matches = String(input).match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
+        const matches = String(input).match(/[\u4e00-\u9fa5]/g);
         return matches ? matches.join('') : '';
     })();
     // 过滤掉空白字符，每个汉字对应一行

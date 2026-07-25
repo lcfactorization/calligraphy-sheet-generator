@@ -68,7 +68,10 @@ function applySettings(settings) {
             primaryColor = preset.colors.primary;
         }
     }
+    // v2.8.5-hotfix：同时设置 --grid-theme-color 和 --grid-primary-color（向后兼容）
+    //   页眉页脚颜色与网格线条颜色保持完全同步
     root.style.setProperty('--grid-primary-color', primaryColor);
+    root.style.setProperty('--grid-theme-color', primaryColor);
 }
 
 /** 应用主题设置（与现有 settings.js 协同） */

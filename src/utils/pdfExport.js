@@ -496,19 +496,19 @@ export function printDirect() {
 
     grid.parentNode.insertBefore(wrapper, grid);
 
-    // v2.4.12：动态注入 @page margin:0 覆盖 print.css 的 29mm 边距
-    // 原因：window.print() 路径用 .print-page-section 的 padding 控制边距（17.5mm 顶部给页眉）
-    //       print.css 的 @page margin:29mm 是给 Puppeteer headerTemplate 用的，window.print() 不需要
-    //       此样式在 cleanup 中移除，不影响 Puppeteer 路径
-    const pageMarginStyle = document.createElement('style');
-    pageMarginStyle.id = 'print-direct-page-margin';
-    pageMarginStyle.textContent = '@media print { @page { size: A4 portrait; margin: 0 !important; } }';
-    document.head.appendChild(pageMarginStyle);
+    // v2.8.5-hotfix：移除动态注入的 @page margin:0
+    // 原因：v2.8.5-hotfix 重构后，print.css 的 @page margin:10mm 是正确的物理边距
+    //       .page-sheet 严格 190mm×277mm = A4 - 2×10mm，与 @page margin 协同工作
+    //       无需再用 JavaScript 动态覆盖
+    // 保留 pageMarginStyle 变量为 null，cleanup 逻辑兼容
+    const pageMarginStyle = null;
 
     const cleanup = () => {
         console.log('[pdfExport] cleanup 开始');
-        // 移除动态注入的 @page margin:0 样式
-        if (pageMarginStyle.parentNode) pageMarginStyle.parentNode.removeChild(pageMarginStyle);
+        // v2.8.5-hotfix：pageMarginStyle 已不再注入，兼容性保留判断
+        if (pageMarginStyle && pageMarginStyle.parentNode) {
+            pageMarginStyle.parentNode.removeChild(pageMarginStyle);
+        }
         // 恢复：将子元素移回 grid
         pages.flat().forEach(c => grid.appendChild(c));
         if (wrapper.parentNode) {

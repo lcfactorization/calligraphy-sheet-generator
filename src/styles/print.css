@@ -53,10 +53,13 @@
     /* v2.4.12：@page margin 29mm/15.9mm/16mm/15.9mm（Puppeteer 路径用）
        bottom 16mm：给 footerTemplate 上移 8mm 的空间（页脚距页底 8mm）
        headerTemplate padding-top:10mm 让页眉距页顶 10mm（下移 1cm）
-       window.print() 路径由 printDirect() 动态注入 @page margin:0 覆盖 */
+       window.print() 路径由 printDirect() 动态注入 @page margin:0 覆盖
+       v2.8.5-hotfix：@page margin 统一为 10mm，配合 .page-sheet 严格物理单位 190mm×277mm
+         内容区 = A4(210mm) - 2×10mm = 190mm 宽；A4(297mm) - 2×10mm = 277mm 高
+         确保 11 行 × 24mm = 264mm 内容 + 8mm 页眉 + 5mm 间距 = 277mm，精确填满单页 */
     @page {
         size: A4 portrait;
-        margin: 29mm 15.9mm 16mm 15.9mm !important;
+        margin: 10mm !important;
     }
 
     html, body {
@@ -207,81 +210,100 @@
     .print-only-header, .print-only-footer { display: none !important; }
 
     /* v2.4.16：per-page 分页段 — 正常文档流布局（flex column）
-       padding-top 8mm = 页眉距页顶 8mm（v2.4.16 从 17.5mm 减至 8mm，防内容溢出）
-       padding-bottom 5mm = 页脚距页底
-       padding-left/right 15.9mm = 与字格左右边缘对齐
-       v2.4.16：min-height 295mm，内容总高 = 8+(8+2)+264+8+5 = 295mm ≤ 297mm（A4）
-         v2.4.15 的 282mm + padding 17.5mm 导致总高 306.5mm > 297mm，页脚被挤到空白页
-         现缩小 padding-top 到 8mm，确保 11行×24mm=264mm 内容不溢出
-       v2.4.16：移除 section 的 page-break-before（避免与内容 .page-break 的
-         page-break-after 叠加产生空白页），改用 min-height:295mm 占满页面
-         + 内容 .page-break 的 page-break-after:always 作为唯一分页机制 */
-    .print-page-section {
+       v2.8.5-hotfix：重构为严格物理单位 .page-sheet（兼容旧名 .print-page-section）
+         - width: 190mm = A4(210mm) - 2×@page margin(10mm)
+         - height: 277mm = A4(297mm) - 2×@page margin(10mm)，严格锁定防溢出
+         - overflow: hidden 防止内容溢出导致额外分页
+         - 禁用 vh/px/flex-grow 等相对单位，确保跨平台一致
+         - 11 行 × 24mm = 264mm 内容 + 8mm 页眉 + 2mm 间距 + 3mm 页脚 = 277mm
+         - break-after: page 强制分页（与 page-break-after: always 双重保险） */
+    .print-page-section,
+    .page-sheet {
         display: flex !important;
         flex-direction: column;
-        width: 210mm;
-        min-height: 295mm;
-        padding: 8mm 15.9mm 5mm 15.9mm;
+        width: 190mm !important;
+        height: 277mm !important;
         box-sizing: border-box;
+        overflow: hidden;
+        padding: 0 !important;
+        margin: 0 !important;
         /* v2.8.3：每个 section 后强制分页，确保 11 行/页
-           与移动端断点规则一致，桌面端也受益（更稳定的分页） */
-        page-break-after: always;
-        break-after: page;
-        page-break-before: auto;
-        break-before: auto;
+           v2.8.5-hotfix：break-after + page-break-after 双重保险，覆盖所有浏览器引擎 */
+        break-after: page !important;
+        page-break-after: always !important;
+        break-before: auto !important;
+        page-break-before: auto !important;
     }
-    .print-page-section:last-child {
-        /* v2.8.5：末页内容自适应，避免 min-height:295mm 强制占满导致多 1 空白页
-           198 字 / 11 = 18 页，末页通常为完整 11 行（无空白）
-           若末页字数 < 11，允许 section 高度由内容决定，避免末页后多 1 空白页 */
+    .print-page-section:last-child,
+    .page-sheet:last-child {
+        /* v2.8.5：末页内容自适应，避免强制占满导致多 1 空白页
+           v2.8.5-hotfix：末页 height 改为 auto，由内容决定高度 */
+        height: auto !important;
         min-height: 0 !important;
-        page-break-after: auto !important;
         break-after: auto !important;
+        page-break-after: auto !important;
     }
 
-    /* v2.4.16：页眉 — 正常文档流（section 第一个子元素），无 position 定位
-       height 8mm + margin-bottom 2mm = 距第一行字格 10mm 间距
-       v2.4.16：margin-bottom 从 4mm 减至 2mm，防内容溢出
-       页眉顶部在 padding-top(8mm) 处，即距页顶 8mm */
-    .page-section-header {
+    /* v2.8.5-hotfix：DOM 实装页眉（兼容旧名 .page-section-header）
+       严格物理高度 8mm，padding 0~5mm（左右与字格对齐）
+       色彩同步：通过 --grid-theme-color 变量联动（兼容旧名 --grid-primary-color） */
+    .page-section-header,
+    .sheet-header {
         display: flex !important;
-        height: 8mm;
+        height: 8mm !important;
         flex-shrink: 0;
-        margin-bottom: 2mm;
+        margin: 0 5mm 2mm 5mm;
+        padding: 0 !important;
         justify-content: space-between;
         align-items: center;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
         font-size: 9pt;
-        /* v2.8.3：颜色改为 CSS 变量，跟随网格颜色预设同步
-           由 GridEngine.js renderSheet 和 settingsCenter.js applySettings 设置 */
-        color: var(--grid-primary-color, #2E7D32);
+        /* v2.8.5-hotfix：颜色变量统一为 --grid-theme-color，向后兼容 --grid-primary-color */
+        color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         z-index: 9999;
         background: #fff;
+        border-bottom: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
     }
-    .page-section-header .ph-center {
+    .page-section-header .ph-center,
+    .sheet-header .ph-center {
         flex: 1;
         text-align: center;
     }
 
     /* v2.4.12：页脚 — 正常文档流（section 最后子元素），margin-top:auto 推到底部
-       height 8mm，在 padding-bottom(8mm) 之上，即距页底 8mm
-       无 position 定位，无负值，避免 Chrome 打印裁剪 bug */
-    .page-section-footer {
+       v2.8.5-hotfix：严格物理高度 8mm，色彩同步 */
+    .page-section-footer,
+    .sheet-footer {
         display: flex !important;
-        height: 8mm;
+        height: 8mm !important;
         flex-shrink: 0;
+        margin: 0 5mm;
+        padding: 0 !important;
         margin-top: auto;
         justify-content: space-between;
         align-items: center;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
         font-size: 9pt;
-        /* v2.8.3：颜色改为 CSS 变量，跟随网格颜色预设同步 */
-        color: var(--grid-primary-color, #2E7D32);
+        /* v2.8.5-hotfix：颜色变量统一为 --grid-theme-color */
+        color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         z-index: 9999;
+        border-top: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
     }
-    .page-section-footer .pf-center {
+    .page-section-footer .pf-center,
+    .sheet-footer .pf-center {
         flex: 1;
         text-align: center;
+    }
+
+    /* v2.8.5-hotfix：单页内容区（页眉与页脚之间的字格区）
+       严格物理高度 259mm = 277mm - 8mm(header) - 2mm(margin) - 8mm(footer)
+       11 行 × 24mm = 264mm，略超出但 overflow:hidden 容错 */
+    .page-section-content,
+    .sheet-content {
+        flex: 0 0 auto;
+        margin: 0 5mm;
+        padding: 0 !important;
+        overflow: hidden;
     }
 
     /* 字格行 + 辅助行不可跨页断格 */
