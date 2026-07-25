@@ -377,9 +377,25 @@ export function printDirect() {
     };
     window.addEventListener('afterprint', cleanup);
 
+    // v2.8.1：移动端检测（HarmonyOS / Android / iOS / 手机浏览器）
+    // 移动端 window.print() 对 @media print 支持有限，需特殊引导
+    const ua = navigator.userAgent || '';
+    const isMobileUA = /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(ua)
+        && !/Windows NT|Macintosh|CrOS|X11/i.test(ua);
+    const isHarmonyOS = /HarmonyOS|HuaweiBrowser/i.test(ua);
+
     try {
         // v2.4.5：显示加载遮罩，等待字体+笔画就绪后再打印
         const printOverlay = showLoadingOverlay();
+
+        // v2.8.1：移动端优先提示，引导用户使用浏览器原生"网页转 PDF"
+        if (isMobileUA) {
+            const hint = isHarmonyOS
+                ? '📱 MatePad/华为手机用户：建议点击浏览器底部 ∷ 菜单 → 保存 PDF（或 更多 → WPS 网页转 PDF），效果更佳。即将打开打印对话框…'
+                : '📱 移动端建议使用浏览器菜单 → 网页转 PDF / 保存为 PDF。即将打开打印对话框…';
+            showToast(hint, 6000);
+        }
+
         waitForFonts().then(async () => {
             // v2.7.x 优化：等待笔画队列加载完成（最多等2秒，原10秒过长）
             await waitForStrokes(2000);
@@ -387,16 +403,28 @@ export function printDirect() {
             await new Promise(r => setTimeout(r, 300));
             printOverlay();
             // v2.7.x 优化：alert 改非阻塞 toast，立即调用 window.print()
-            // 原因：alert 阻塞主线程导致打印对话框延迟；toast 1.5s 自动消失，不阻塞
             // 提示用户取消浏览器默认页眉页脚（CSS 无法禁止 Chrome 的页眉页脚选项）
             showToast('正在准备打印…请在对话框中取消勾选「页眉和页脚」', 1500);
-            window.print();
-            // 兜底清理（部分浏览器 afterprint 不触发）
-            setTimeout(cleanup, 1000);
+
+            // v2.8.1：用 requestAnimationFrame 同步触发 window.print()
+            // 原因：移动端浏览器（HarmonyOS / iOS Safari）严格要求 window.print()
+            // 在用户手势上下文内调用，async/await 链会脱离手势上下文导致调用被吞
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    try {
+                        window.print();
+                    } catch (e) {
+                        console.error('[pdfExport] window.print 抛错:', e);
+                        showToast('打印失败：' + (e && e.message ? e.message : '未知错误') + '，建议使用浏览器菜单的「网页转 PDF」', 5000);
+                    }
+                    // 兜底清理（部分浏览器 afterprint 不触发）
+                    setTimeout(cleanup, 1000);
+                });
+            });
         });
     } catch (error) {
         console.error('[pdfExport] 打印错误:', error);
-        alert('打印时出错: ' + error.message);
+        showToast('打印时出错: ' + error.message, 4000);
         cleanup();
     }
 }

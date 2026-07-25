@@ -5,6 +5,63 @@
 
 ---
 
+## [v2.8.1] — 2026-07-25
+
+> 本次升级由 6 个独立小组并行完成（A 核心代码修复 / B 替代方案研究 / C 飞书问卷数据 / D 测试清单更新 / E PWA 安装指南 / F 复赛发布帖与 CHANGELOG），基于多 Agent 协同调查 + 修复。
+
+### 🐛 修复
+
+#### 修复 1 — MatePad 移动端打印 PDF 预览空白（v2.8.1 核心修复）
+
+- **用户反馈**：华为 MatePad（HarmonyOS）通过 GitHub Pages 访问时，点击打印按钮后预览全空白，无法生成正确字帖 PDF
+- **多 Agent 调查结论**：
+  - 根因 1：print.css 使用 `body * { visibility: hidden; }` + `.a4-page * { visibility: visible; }` 方案，HarmonyOS 浏览器与移动 Chrome 在 @media print 下 visibility 继承机制不可靠
+  - 根因 2：pdfExport.js 用 async/await 链触发 window.print()，移动端浏览器严格要求 window.print() 在用户手势上下文内调用，async 链脱离手势上下文导致调用被吞
+- **修复**：
+  - [print.css](file:///c:/poem2pdf/distribution/src/styles/print.css#L77-L103) 废弃 visibility:hidden/visible 方案，改用 display:none 显式隐藏 UI 元素
+  - [print.css](file:///c:/poem2pdf/distribution/src/styles/print.css#L124-L169) 新增 `@media print and (max-width: 900px)` 移动端断点规则，显式声明容器宽度 210mm + 保留 SVG 字格可见性
+  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L380-L385) 新增移动端 UA 检测（HarmonyOS/Android/iOS）
+  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L391-L397) 移动端显示用户引导 toast（HarmonyOS 专用提示「建议点击浏览器底部 ∷ 菜单 → 保存 PDF / WPS 网页转 PDF」）
+  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L409-L423) 用 requestAnimationFrame 双层同步触发 window.print()，保持用户手势上下文
+- **验证**：构建通过（839 模块，0 错误，0 警告）
+
+### 📝 文档
+
+#### 文档 1 — 移动端打印替代方案研究
+
+- 新增 [docs/移动端打印替代方案_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端打印替代方案_v2.8.1.md)
+- 5 方案对比：A 用户引导 / B svg2pdf.js 矢量 / C html2canvas 光栅 / D dom-to-image / E Web Share
+- 推荐路线：v2.8.1 止血（修复 print.css + 用户引导）→ v2.9.0 主推（svg2pdf.js）→ v3.0.0 统一架构
+- 包含 HarmonyOS 浏览器"网页转 PDF"操作路径（3 个版本差异）
+
+#### 文档 2 — 飞书问卷模拟提交数据
+
+- 新增 [docs/飞书问卷提交数据_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.1.md)
+- 3 套模拟数据（MatePad/Android/Windows）+ Session ID + 演示视频占位符
+- 含 Markdown 表格版本 + 纯文本版本 + 统计汇总表
+
+#### 文档 3 — PWA 安装二维码 + 多平台指南
+
+- 新增 [docs/PWA安装指南_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.1.md)
+- 5 平台安装步骤：HarmonyOS / Android / iOS / Windows / macOS
+- PWA 验证清单（8 项）+ FAQ（8 条）+ 二维码（api.qrserver.com 生成）
+
+#### 文档 4 — 移动端功能测试清单更新
+
+- 更新 [docs/移动端功能测试清单_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.1.md)
+- 第四章"打印 PDF"从"待修复"改为"已修复"
+- 新增 TC-04-06 移动端用户引导 toast 测试项
+- 新增 TC-04-07 HarmonyOS 网页转 PDF 替代路径测试项
+- 总测试项从 72 增至 74
+
+### 🔧 工程化
+
+- 创建备份 tag `backup/pre_v281_tasks/20260725_203000` 并推送到 GitHub
+- 多 Agent 并行：6 个独立小组同时工作（A 代码修复 + B/C/D/E 文档 + F 帖子与日志）
+- 所有修改通过 `npm run build` 构建验证（839 模块，0 错误，0 警告）
+
+---
+
 ## [v2.8.0] — 2026-07-25
 
 > 本次升级由 6 个独立小组并行完成（A 模态修复 / B 字数扩展 / C 打印性能 / D 项目重定位 / E 回归检测 / F 文档与版本控制），基于多 Agent 协同调查 + 修复。

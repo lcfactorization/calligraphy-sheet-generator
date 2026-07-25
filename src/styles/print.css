@@ -74,14 +74,33 @@
         margin: 0 !important;
     }
 
-    /* 隐藏屏幕元素，只显示 .a4-page 内容 + 打印页眉页脚 */
-    body * { visibility: hidden; }
-    .a4-page, .a4-page *,
-    .print-only-header, .print-only-header *,
-    .print-page-section, .print-page-section * {
-        visibility: visible;
+    /* v2.8.1：废弃 visibility:hidden/visible 方案（移动端 HarmonyOS 浏览器、移动 Chrome、
+       iOS Safari 在 @media print 下 visibility 继承机制不可靠，导致打印预览全空白）
+       改用 display:none 显式隐藏 UI 元素，保留 .a4-page / .print-page-section 正常显示 */
+    /* 显式隐藏所有已知 UI 元素（不依赖 visibility 继承） */
+    .app-header,
+    .panel,
+    #input-container,
+    .fab-theme,
+    .fab-print,
+    .fab-puppeteer,
+    .fab-settings,
+    #settingsPanel,
+    .puppeteer-toast,
+    .history-fab,
+    .history-sidebar,
+    .sidebar-drawer-toggle,
+    .sidebar-backdrop,
+    .app-sidebar,
+    .quick-toolbar,
+    .char-counter,
+    .diff-status-bar,
+    .puppeteer-toast,
+    .toast,
+    .loading-overlay,
+    .hf-reset {
+        display: none !important;
     }
-    /* v2.4.11：page-section-header/footer 是 print-page-section 的子元素，已被上面规则覆盖 */
 
     /* v2.4.6：中和 .a4-page 祖先容器的布局偏移 */
     .app,
@@ -101,7 +120,53 @@
         box-shadow: none !important;
         border: 0 !important;
     }
-    .app-sidebar { display: none !important; }
+
+    /* v2.8.1 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
+       需要显式声明容器宽度并保留 SVG 可见性 */
+    @media print and (max-width: 900px) {
+        html, body {
+            width: 210mm !important;
+            max-width: 210mm !important;
+            background: #fff !important;
+        }
+        .app,
+        .app-workbench,
+        .app-canvas,
+        .a4-preview {
+            width: 210mm !important;
+            max-width: 210mm !important;
+        }
+        /* 移动端不强制 min-height:295mm，避免触发空白页 */
+        .print-page-section {
+            min-height: auto !important;
+            width: 100% !important;
+            padding: 8mm 12mm 5mm 12mm !important;
+        }
+        /* SVG 字格在移动端必须显式 visible，防止继承机制丢失 */
+        .grid-svg-row,
+        .grid-svg-aux-row,
+        .grid-svg-cell,
+        .grid-svg-row-border,
+        .grid-svg-cell rect,
+        .grid-svg-cell line,
+        .grid-svg-stroke-box,
+        .grid-svg-stroke-box svg path,
+        .pinyin-four-line,
+        .pinyin-four-line line,
+        .page-section-header,
+        .page-section-footer,
+        .page-section-content {
+            visibility: visible !important;
+            display: revert !important;
+        }
+        .page-section-content {
+            display: block !important;
+        }
+        .page-section-header,
+        .page-section-footer {
+            display: flex !important;
+        }
+    }
 
     .a4-page {
         position: static;
