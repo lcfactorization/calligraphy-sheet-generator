@@ -13,9 +13,22 @@ export function applyTheme() {
     btn.title = isDark ? '点击切换日间模式' : '点击切换夜间模式';
 }
 
+/**
+ * v2.7.0：切换主题并同步到 localStorage
+ * 修复：fab-theme 按钮切换主题后不保存到 localStorage，导致页面刷新后主题丢失
+ * 同时清除 'system' 主题监听（用户手动切换表示要覆盖系统主题）
+ */
 export function toggleTheme() {
     isDark = !isDark;
     applyTheme();
+    // 同步主题到 localStorage（与 settingsCenter 使用相同的 key）
+    try {
+        const KEY = 'calligraphy_settings';
+        const raw = localStorage.getItem(KEY);
+        const settings = raw ? JSON.parse(raw) : {};
+        settings.theme = isDark ? 'dark' : 'light';
+        localStorage.setItem(KEY, JSON.stringify(settings));
+    } catch (e) { /* 静默降级 */ }
 }
 
 export function updateCharCounter() {

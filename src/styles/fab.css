@@ -1,5 +1,6 @@
-/* ── 浮动按钮（主题切换 + 打印 + Puppeteer） ── */
-.fab-theme,.fab-print,.fab-puppeteer{
+/* ── 浮动按钮（主题切换 + 打印 + Puppeteer + 设置） ── */
+/* v2.7.0：将 .fab-settings 加入公共选择器，避免 CSS 压缩器丢失 position:fixed/top/right */
+.fab-theme,.fab-print,.fab-puppeteer,.fab-settings{
     position:fixed;z-index:9999;
     width:52px;height:52px;border-radius:50%;
     border:2px solid var(--toggle-border);
@@ -10,9 +11,15 @@
     transition:all .3s var(--ease-out-soft);
     user-select:none;outline:none;color:var(--title-color);
 }
-.fab-theme{top:20px;right:20px;font-size:22px}
+/* v2.7.0：fab-theme 从 top:20px 移到 top:84px，避免与 .app-header-actions 中的"学习报告"按钮重叠
+   布局从上到下：settings(52px,20px) → theme(52px,84px) → puppeteer(40px,148px) → [间隔] → print(52px,右下) */
+.fab-theme{top:84px;right:20px;font-size:22px}
 .fab-theme:hover,.fab-print:hover,.fab-puppeteer:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,0,0,0.2)}
 .fab-theme:active,.fab-print:active,.fab-puppeteer:active{transform:scale(0.93)}
+/* v2.7.0：fab-settings 的 hover/active 由 settingsCenter.css 单独定义（含 rotate(45deg) 效果） */
+/* v2.7.0：独立定位规则 — CSS 压缩器会合并公共属性但可能丢失 .fab-settings 的 position/top/right，
+   此规则确保 .fab-settings 始终有正确的固定定位 */
+.fab-settings{position:fixed;top:20px;right:20px;z-index:9999}
 
 /* ── 右下角主打印按钮：距底边/右边各 24px（核心操作，最显眼） ── */
 .fab-print{
@@ -22,9 +29,10 @@
 }
 
 /* ── v2.5.4：Puppeteer 按钮移至右侧主列最下面（低调位置） ──
-   与 .fab-theme(right:20px) / .fab-settings(right:20px) 同列，
-   放在设置按钮下方，尺寸缩小为 40px，配色低调灰
-   布局从上到下：theme(52px) → settings(52px) → puppeteer(40px,灰) → [间隔] → print(52px,右下)
+   v2.7.0：fab-settings 和 fab-theme 位置互换，避免主题按钮与"学习报告"按钮重叠
+   与 .fab-settings(right:20px) / .fab-theme(right:20px) 同列，
+   放在主题按钮下方，尺寸缩小为 40px，配色低调灰
+   布局从上到下：settings(52px,20px) → theme(52px,84px) → puppeteer(40px,148px,灰) → [间隔] → print(52px,右下)
    明确表示这是演示性辅助功能（需 Node.js 环境） */
 .fab-puppeteer{
     top:148px;right:20px;bottom:auto;
@@ -60,8 +68,9 @@
 .puppeteer-toast.info{background:rgba(99,102,241,0.95)}
 
 /* ── 移动端：FAB 组缩小到 40px ── */
-/* v2.5.4：Puppeteer 与 settings 同列，移动端保持右上角垂直排列 */
+/* v2.7.0：settings(20px) → theme(84px) → puppeteer(148px) 垂直排列，right 统一 24px */
 @media (max-width:680px){
+    .fab-theme{top:84px;right:24px}
     .fab-print{width:40px;height:40px;bottom:24px;right:24px}
     .fab-print svg{width:20px;height:20px}
     .fab-puppeteer{width:36px;height:36px;top:148px;right:24px}

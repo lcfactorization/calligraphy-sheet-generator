@@ -5,6 +5,40 @@
 
 ---
 
+## [v2.7.0] — 2026-07-25
+
+### 🐛 修复
+
+#### 修复 1 — 主题切换不记忆（fab-theme 按钮不保存到 localStorage）
+
+- **用户反馈**：切换 light/dark 模式后，主题没有记忆，刷新页面后恢复默认
+- **根因**：[settings.js:16](file:///c:/poem2pdf/distribution/src/modules/settings.js#L16) `toggleTheme()` 只切换 `data-theme` 属性，不写入 localStorage。`settingsCenter` 的 `settings.theme` 字段保持旧值
+- **修复**：`toggleTheme()` 现在同步写入 `calligraphy_settings.theme` 到 localStorage
+- **验证**：浏览器测试确认 — 切换主题后 localStorage 更新，刷新页面后主题保持
+
+#### 修复 2 — 主题切换按钮与"学习报告"按钮重叠
+
+- **用户反馈**：light/dark 主题切换按钮与"学习报告"按钮重叠，无法直接点击
+- **根因**：`.fab-theme` 位于 `top:20px right:20px`，与 `.app-header-actions` 中的"学习报告"按钮在同一位置
+- **修复**：交换 `.fab-theme` 和 `.fab-settings` 位置
+  - `.fab-settings`: `top:20px`（移到顶部）
+  - `.fab-theme`: `top:84px`（移到下方，避免与"学习报告"重叠）
+  - `.fab-puppeteer`: `top:148px`（不变）
+- **验证**：浏览器测试确认 — fab-theme 可正常点击，不被 fab-settings 拦截
+
+#### 修复 3 — CSS 压缩器丢失 .fab-settings 定位属性
+
+- **问题**：Vite 的 CSS 压缩器（Lightning CSS）在合并公共属性时，丢失了 `.fab-settings` 的 `position:fixed/top/right`
+- **修复**：在 [fab.css:22](file:///c:/poem2pdf/distribution/src/styles/fab.css#L22) 添加独立定位规则 `.fab-settings{position:fixed;top:20px;right:20px;z-index:9999}`
+- **验证**：构建产物确认规则存在
+
+### 🔧 技术说明
+
+> [!NOTE] 网格设置保持说明
+> 经浏览器测试验证，网格类型（gridType）和颜色预设（gridColorPreset）在主题切换过程中**始终保持在 localStorage 中不被重置**。用户之前感知的"重置"实际上是主题不记忆导致页面刷新后视觉不一致的误解。本次修复主题记忆后，所有设置（网格类型、颜色、透明度、显示开关、主题）均能跨刷新保持。
+
+---
+
 ## [v2.6.0] — 2026-07-25
 
 ### 🐛 修复

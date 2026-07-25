@@ -368,7 +368,7 @@ function createReportButton(onClick) {
     if (host) {
         host.appendChild(btn);
     } else {
-        // v2.5.4：降级位置改为左上角，避免与右侧 fab-theme(20px,20px) 冲突
+        // v2.7.0：降级位置改为左上角，避免与右侧 fab-settings(20px,20px) 冲突
         btn.style.cssText = 'position:fixed;top:16px;left:16px;z-index:9000;';
         document.body.appendChild(btn);
     }
