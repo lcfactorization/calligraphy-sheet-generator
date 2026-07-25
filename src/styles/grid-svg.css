@@ -117,6 +117,11 @@
     height: 5mm;
     margin-right: 0.5mm;
     flex: 0 0 auto;
+    /* v2.8.3：修复 MatePad 打印 PDF 中笔画 SVG 向下偏移问题
+       根因：移动端浏览器对 flex 内异步插入 SVG 的默认 vertical-align: baseline 处理不同
+       修复：显式声明 vertical-align: middle + display: block，确保水平居中 */
+    vertical-align: middle;
+    display: block;
 }
 
 /* ── 分页：每 11 行一分页（11 个字格行 + 11 个辅助行 = 22 行 DOM） ── */
@@ -181,9 +186,16 @@
         width: var(--gs-row-w-mm) !important;
         height: var(--gs-aux-h-mm) !important;
     }
-    /* 打印时保留笔画 SVG（用户期望看到笔画拆解） */
+    /* 打印时保留笔画 SVG（用户期望看到笔画拆解）
+       v2.8.3：强制 align-items: center，确保笔画 SVG 与四线格拼音水平居中 */
     .grid-svg-stroke-box {
         display: flex !important;
+        align-items: center !important;
+    }
+    .grid-svg-stroke-box svg,
+    .grid-svg-stroke-box .stroke-svg {
+        vertical-align: middle !important;
+        display: block !important;
     }
     /* 打印时分页符严格生效 */
     .grid-svg-row.page-break {

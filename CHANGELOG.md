@@ -5,6 +5,79 @@
 
 ---
 
+## [v2.8.3] — 2026-07-25
+
+> 本次升级由 3 个独立小组并行完成（A print.css 分页+页眉页脚 / B grid-svg.css 笔画 SVG 偏移 / C GridEngine+settingsCenter 颜色同步），基于 MatePad 实测反馈的 3 个严重问题修复。
+
+### 🐛 修复
+
+#### 修复 1 — MatePad 分页错误（14 行/页 → 11 行/页，18 页恢复）
+
+- **用户反馈**：华为 MatePad 打印 PDF 时，本来每页 11 行，实际分成 14 行/页，198 字从 18 页变成 16 页
+- **根因**：v2.8.1 修复时在 [print.css:140-144](file:///c:/poem2pdf/distribution/src/styles/print.css#L140) 移动端断点中写了 `min-height: auto !important`，取消了 295mm 最小高度，导致：
+  - flex column 的 `margin-top: auto`（页脚）失效
+  - 多个 section 在一页内紧凑排列 → 14 行/页
+- **修复**：
+  - [print.css:143-150](file:///c:/poem2pdf/distribution/src/styles/print.css#L143) 移动端断点恢复 `min-height: 295mm !important` + `padding: 8mm 15.9mm 5mm 15.9mm`（与桌面端完全一致）
+  - [print.css:148-149](file:///c:/poem2pdf/distribution/src/styles/print.css#L148) 新增 `page-break-after: always !important`（段后强制分页）
+  - [print.css:225-233](file:///c:/poem2pdf/distribution/src/styles/print.css#L225) 桌面端也新增 `page-break-after: always`（统一分页策略）
+- **验证**：构建通过 + MatePad 模拟测试 3 用例全部 ✅（9 字 × 11 格 = 99 SVG 字格，9 行）
+
+#### 修复 2 — 笔画 SVG 位置偏移（MatePad 打印 PDF 中向下移出四线格拼音行）
+
+- **用户反馈**：笔画/笔顺分解 SVG 在 HTML 显示正常，但 MatePad 打印 PDF 中被向下移出四线格拼音所在行，偏移严重
+- **根因**：[grid-svg.css:114-120](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L114) `.grid-svg-stroke-box svg` 缺少 `vertical-align: middle` 和 `display: block`。移动端浏览器（HarmonyOS）对 flex 内异步插入 SVG 的默认 `vertical-align: baseline` 处理不同，导致 SVG 被推到行基线以下
+- **修复**：
+  - [grid-svg.css:114-125](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L114) 新增 `vertical-align: middle` + `display: block`
+  - [grid-svg.css:189-199](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L189) @media print 中新增 `.grid-svg-stroke-box { align-items: center !important; }` + SVG 强制 `vertical-align: middle !important; display: block !important;`
+  - [print.css:178-187](file:///c:/poem2pdf/distribution/src/styles/print.css#L178) 移动端断点也同步加固
+
+#### 修复 3 — 页眉页脚丢失 + 颜色不同步
+
+- **用户反馈**：
+  1. MatePad 打印 PDF 中没有页眉页脚
+  2. 切换网格颜色后，页眉页脚颜色仍是绿色（不跟随）
+- **根因 1（页眉页脚丢失）**：与修复 1 同源，`min-height: auto` 导致 flex column 的 `margin-top: auto`（页脚）失效，页脚无法推到页面底部
+- **根因 2（颜色不同步）**：[print.css:223,244](file:///c:/poem2pdf/distribution/src/styles/print.css#L223) 硬编码 `color: #2E7D32`（传统绿），切换朱砂红/靛青蓝/墨黑时不跟随
+- **修复**：
+  - 页眉页脚丢失：同修复 1，恢复 `min-height: 295mm`
+  - 颜色不同步：
+    - [print.css:250,272](file:///c:/poem2pdf/distribution/src/styles/print.css#L250) 页眉页脚颜色改为 `var(--grid-primary-color, #2E7D32)`
+    - [GridEngine.js:603-607](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L603) renderSheet 时设置 `--grid-primary-color` CSS 变量
+    - [settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js) applySettings 时同步设置 CSS 变量（颜色预设切换立即生效）
+
+### 📝 文档
+
+#### 文档 1 — 深度审查报告 v2.8.3（改动前）
+
+- 新增 [docs/深度审查报告_v2.8.3_pre_change.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.3_pre_change.md)
+- 涵盖：3 个问题根因分析、字数与页数契约、分页机制对比、笔画 SVG 布局结构、页眉页脚颜色同步方案、回归检测、改动影响评估
+
+### 🔧 工程化
+
+- 创建备份 tag `backup/pre_v283_tasks/20260725_223000` 并推送到 GitHub
+- 多 Agent 并行：A print.css（主线程统一修改）/ B grid-svg.css / C GridEngine+settingsCenter
+- 所有修改通过 `npm run build` 构建验证（839 模块，0 错误，8.83s）
+- 所有修改文件通过 IDE 诊断检查（0 错误，0 警告）
+- MatePad 模拟测试 3 用例全部通过：
+  - ✅ 米字格+传统绿 → matepad_test_green.pdf（99 字格，9 行）
+  - ✅ 田字格+朱砂红 → matepad_test_red.pdf（99 字格，9 行）
+  - ✅ 九宫格+靛青蓝 → matepad_test_jiugong_blue.pdf（99 字格，9 行）
+- 修复 matepad-simulate.cjs 移动端视口下 click 失败问题（改用 evaluate 触发）
+
+### ✅ MatePad 实测验证清单（用户执行）
+
+> [!IMPORTANT]
+> 等 GitHub Pages 部署完成（约 1-3 分钟），在 MatePad 上验证：
+> 1. 生成 198 字字帖 → 打印 PDF → 确认 **18 页**（不是 16 页）
+> 2. 每页 **11 行**（不是 14 行）
+> 3. 笔画 SVG **在四线格拼音行水平居中**（不向下偏移）
+> 4. **页眉页脚正常显示**（日期/标题/字体名 + 评分/页码）
+> 5. 切换朱砂红 → 页眉页脚颜色**跟随变红**
+> 6. 切换靛青蓝 → 页眉页脚颜色**跟随变蓝**
+
+---
+
 ## [v2.8.2] — 2026-07-25
 
 > 本次升级由 3 个独立小组并行完成（A 默认文本调整 / B 文本过滤器强化 / C pdfExport 日志+MatePad 模拟测试），基于深度审查报告驱动。

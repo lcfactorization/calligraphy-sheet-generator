@@ -3,6 +3,9 @@
 // 设置变更后触发事件 'calligraphy:settings-updated'，通知其他模块更新预览
 
 import { toggleTheme } from './settings.js';
+// v2.8.3：导入网格颜色预设，用于把页眉页脚颜色同步到 CSS 变量
+// 不从 GridEngine.js import getActiveGridColors（会造成循环依赖：GridEngine 已 import 本模块的 getSettings）
+import { GRID_COLORS, GRID_COLOR_PRESETS } from '../contracts/interfaces.js';
 
 const SETTINGS_KEY = 'calligraphy_settings';
 
@@ -52,6 +55,20 @@ function applySettings(settings) {
     document.body.classList.toggle('sc-hide-stroke-order', !settings.showStrokeOrder);
 
     applyThemeSetting(settings.theme);
+
+    // v2.8.3：颜色预设切换时同步 CSS 变量，确保页眉页脚颜色跟随
+    // 复用 GridEngine.getActiveGridColors 的等价逻辑（避免循环依赖而就地实现）
+    // 修复根因：print.css 的 .page-section-header/footer 原硬编码 #2E7D32，
+    //   切换朱砂红/靛青蓝/墨黑时页眉页脚不跟随。改用 var(--grid-primary-color)。
+    const presetId = settings.gridColorPreset;
+    let primaryColor = GRID_COLORS.primary;
+    if (presetId && presetId !== 'green') {
+        const preset = GRID_COLOR_PRESETS.find(p => p.id === presetId);
+        if (preset && preset.colors && preset.colors.primary) {
+            primaryColor = preset.colors.primary;
+        }
+    }
+    root.style.setProperty('--grid-primary-color', primaryColor);
 }
 
 /** 应用主题设置（与现有 settings.js 协同） */

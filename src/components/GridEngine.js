@@ -600,6 +600,13 @@ export function renderSheet(input = '', options = {}) {
     // 颜色来源：settingsCenter.gridColorPreset → GRID_COLOR_PRESETS → 回退 GRID_COLORS
     const colors = getActiveGridColors();
 
+    // v2.8.3：把网格主色同步到 CSS 变量，供页眉页脚颜色同步使用
+    // 修复根因：print.css 的 .page-section-header/footer 原硬编码 #2E7D32，
+    //   切换朱砂红/靛青蓝/墨黑时页眉页脚不跟随。改用 var(--grid-primary-color)。
+    if (colors && colors.primary) {
+        document.documentElement.style.setProperty('--grid-primary-color', colors.primary);
+    }
+
     // v2.8.2：预过滤 — 仅保留汉字字符（含繁体、扩展A区、兼容汉字），过滤所有标点、字母、数字、空白
     // 用户原则：字帖里用不上其他符号，这是基本原则
     const filteredInput = (function() {

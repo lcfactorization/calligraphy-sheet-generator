@@ -121,8 +121,10 @@
         border: 0 !important;
     }
 
-    /* v2.8.1 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
-       需要显式声明容器宽度并保留 SVG 可见性 */
+    /* v2.8.3 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
+       需要显式声明容器宽度并保留 SVG 可见性
+       v2.8.1 曾用 min-height:auto 避免空白页，但导致 14 行/页（非 11 行）+ 页脚丢失
+       v2.8.3 修复：恢复 min-height:295mm + 段后强制分页，确保 11 行/页 */
     @media print and (max-width: 900px) {
         html, body {
             width: 210mm !important;
@@ -136,11 +138,19 @@
             width: 210mm !important;
             max-width: 210mm !important;
         }
-        /* 移动端不强制 min-height:295mm，避免触发空白页 */
+        /* v2.8.3：恢复 295mm 最小高度，与桌面端完全一致，确保 11 行/页
+           padding 也恢复 15.9mm，与桌面端字格左右对齐 */
         .print-page-section {
-            min-height: auto !important;
-            width: 100% !important;
-            padding: 8mm 12mm 5mm 12mm !important;
+            min-height: 295mm !important;
+            width: 210mm !important;
+            padding: 8mm 15.9mm 5mm 15.9mm !important;
+            box-sizing: border-box !important;
+            page-break-after: always !important;
+            break-after: page !important;
+        }
+        .print-page-section:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
         }
         /* SVG 字格在移动端必须显式 visible，防止继承机制丢失 */
         .grid-svg-row,
@@ -157,7 +167,6 @@
         .page-section-footer,
         .page-section-content {
             visibility: visible !important;
-            display: revert !important;
         }
         .page-section-content {
             display: block !important;
@@ -165,6 +174,16 @@
         .page-section-header,
         .page-section-footer {
             display: flex !important;
+        }
+        /* v2.8.3：笔画 SVG 强制垂直居中，修复移动端偏移 */
+        .grid-svg-stroke-box {
+            display: flex !important;
+            align-items: center !important;
+        }
+        .grid-svg-stroke-box svg,
+        .grid-svg-stroke-box .stroke-svg {
+            vertical-align: middle !important;
+            display: block !important;
         }
     }
 
@@ -201,10 +220,16 @@
         min-height: 295mm;
         padding: 8mm 15.9mm 5mm 15.9mm;
         box-sizing: border-box;
-        page-break-after: auto;
-        break-after: auto;
+        /* v2.8.3：每个 section 后强制分页，确保 11 行/页
+           与移动端断点规则一致，桌面端也受益（更稳定的分页） */
+        page-break-after: always;
+        break-after: page;
         page-break-before: auto;
         break-before: auto;
+    }
+    .print-page-section:last-child {
+        page-break-after: auto;
+        break-after: auto;
     }
 
     /* v2.4.16：页眉 — 正常文档流（section 第一个子元素），无 position 定位
@@ -220,7 +245,9 @@
         align-items: center;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
         font-size: 9pt;
-        color: #2E7D32;
+        /* v2.8.3：颜色改为 CSS 变量，跟随网格颜色预设同步
+           由 GridEngine.js renderSheet 和 settingsCenter.js applySettings 设置 */
+        color: var(--grid-primary-color, #2E7D32);
         z-index: 9999;
         background: #fff;
     }
@@ -241,7 +268,8 @@
         align-items: center;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
         font-size: 9pt;
-        color: #2E7D32;
+        /* v2.8.3：颜色改为 CSS 变量，跟随网格颜色预设同步 */
+        color: var(--grid-primary-color, #2E7D32);
         z-index: 9999;
     }
     .page-section-footer .pf-center {

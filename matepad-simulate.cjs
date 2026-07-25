@@ -126,16 +126,21 @@ async function runTest(browser, url, testCase) {
     // 刷新让设置生效（GridEngine 在页面初始化时读取 localStorage）
     await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
 
-    // 输入文本
-    await page.click('#inputText');
-    await page.evaluate(() => {
+    // 输入文本（v2.8.3：用 evaluate 直接设置 value，避免移动端视口下 click 失败）
+    await page.evaluate((txt) => {
         const el = document.getElementById('inputText');
-        if (el) el.value = '';
-    });
-    await page.type('#inputText', TEST_TEXT, { delay: 0 });
+        if (el) {
+            el.value = txt;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }, TEST_TEXT);
 
-    // 点击生成
-    await page.click('#generate-btn');
+    // 点击生成（v2.8.3：用 evaluate 触发 click，避免移动端视口下按钮不可见导致 click 失败）
+    await page.evaluate(() => {
+        const btn = document.getElementById('generate-btn');
+        if (btn) btn.click();
+    });
 
     // 等待字格渲染
     await page.waitForSelector('.grid-svg-row', { timeout: 10000 });
