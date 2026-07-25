@@ -121,11 +121,14 @@
         border: 0 !important;
     }
 
-    /* v2.8.3 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
+    /* v2.8.4 移动端断点：HarmonyOS 浏览器与移动 Chrome 对 @page margin 支持有限，
        需要显式声明容器宽度并保留 SVG 可见性
        v2.8.1 曾用 min-height:auto 避免空白页，但导致 14 行/页（非 11 行）+ 页脚丢失
-       v2.8.3 修复：恢复 min-height:295mm + 段后强制分页，确保 11 行/页 */
-    @media print and (max-width: 900px) {
+       v2.8.3 修复：恢复 min-height:295mm + 段后强制分页，确保 11 行/页
+       v2.8.4 修复：断点从 900px 扩展到 1200px，覆盖 MatePad（768×1024 DPR=2
+                 实际渲染宽度 1536px，部分 HarmonyOS 浏览器在 print 媒体查询中
+                 基于设备宽度而非纸张宽度判断，900px 断点未触发导致 14 行/页） */
+    @media print and (max-width: 1200px) {
         html, body {
             width: 210mm !important;
             max-width: 210mm !important;

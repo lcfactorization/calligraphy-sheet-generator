@@ -86,13 +86,48 @@ async function waitForFonts() {
         const cnFamily = fontSelect ? fontSelect.value : 'TW-Kai';
         const pinyinOk = document.fonts.check('16px TeXGyreAdventor');
         const cnOk = document.fonts.check(`16px ${cnFamily}`);
+        console.log('[pdfExport] waitForFonts 字体就绪状态:', {
+            cnFamily,
+            pinyinReady: pinyinOk,
+            cnReady: cnOk,
+            fontsReady: true
+        });
         if (!pinyinOk || !cnOk) {
+            console.log('[pdfExport] 字体未就绪，等待 1500ms 后重试');
             await new Promise(r => setTimeout(r, 1500));
             await document.fonts.ready;
+            const pinyinOk2 = document.fonts.check('16px TeXGyreAdventor');
+            const cnOk2 = document.fonts.check(`16px ${cnFamily}`);
+            console.log('[pdfExport] waitForFonts 重检状态:', {
+                pinyinReady: pinyinOk2,
+                cnReady: cnOk2
+            });
         }
     } catch (e) {
         console.warn('[pdfExport] 字体等待异常:', e);
     }
+}
+
+/**
+ * UA 平台检测（v2.8.4 跨平台日志增强）
+ * 打印 HarmonyOS / iOS Safari / Android Chrome 检测结果，便于排查兼容性问题
+ * @returns {{ isHarmonyOS:boolean, isIOSSafari:boolean, isAndroidChrome:boolean, isMobile:boolean, ua:string }}
+ */
+function detectPlatform() {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+    const isHarmonyOS = /harmonyos/i.test(ua) || /HuaweiBrowser/i.test(ua);
+    const isIOSSafari = /ipad|iphone|ipod/i.test(ua);
+    const isAndroidChrome = /android/i.test(ua) && /chrome/i.test(ua);
+    const isMobile = isHarmonyOS || isIOSSafari || (/mobile|android|iphone|ipad|ipod|harmonyos|huaweibrowser/i.test(ua)
+        && !/windows nt|macintosh|cros|x11/i.test(ua));
+    console.log('[pdfExport] UA 平台检测结果:', {
+        ua,
+        isHarmonyOS,
+        isIOSSafari,
+        isAndroidChrome,
+        isMobile
+    });
+    return { ua, isHarmonyOS, isIOSSafari, isAndroidChrome, isMobile };
 }
 
 /**
@@ -109,10 +144,22 @@ function truncate(text, max) {
  * @param {Object} opts - { headerLeft, headerCenter, headerRight, footerText, format, landscape }
  */
 export async function exportVectorPDF(opts = {}) {
-    console.log('[pdfExport] exportVectorPDF 入口', opts);
+    const _ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+    const _fontSel = document.getElementById('font-select');
+    const _fontName = _fontSel ? _fontSel.options[_fontSel.selectedIndex].text : '';
+    const _inputText = document.getElementById('inputText');
+    const _charCount = _inputText ? _inputText.value.length : -1;
+    console.log('[pdfExport] exportVectorPDF 入口', {
+        opts,
+        UA: _ua,
+        charCount: _charCount,
+        fontName: _fontName
+    });
+    const platform = detectPlatform();
     const removeOverlay = showLoadingOverlay();
     try {
         await waitForFonts();
+        console.log('[pdfExport] waitForFonts 完成');
 
         const gridContainer = document.getElementById('grid-container');
         if (!gridContainer) {
@@ -122,6 +169,10 @@ export async function exportVectorPDF(opts = {}) {
         // v2.4.1：每行由「辅助行 + 字格行」配对构成，需一并写入
         const auxRows = gridContainer.querySelectorAll('.grid-svg-aux-row');
         const svgRows = gridContainer.querySelectorAll('.grid-svg-row');
+        console.log('[pdfExport] 找到 grid-container:', {
+            auxRowsLength: auxRows.length,
+            svgRowsLength: svgRows.length
+        });
         if (svgRows.length === 0) {
             throw new Error('未检测到字格行（.grid-svg-row），请先生成字帖');
         }
@@ -163,6 +214,12 @@ export async function exportVectorPDF(opts = {}) {
             opts.footerText ?? (document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日'),
             32
         );
+        console.log('[pdfExport] 读取页眉页脚输入:', {
+            headerLeft,
+            headerCenter,
+            headerRight,
+            footerText
+        });
 
         const format = opts.format || 'a4';
         const orientation = opts.landscape ? 'landscape' : 'portrait';
@@ -170,6 +227,11 @@ export async function exportVectorPDF(opts = {}) {
         const pdf = new jsPDF({ orientation, unit: 'mm', format });
 
         const totalPages = Math.ceil(svgRows.length / ROWS_PER_PAGE);
+        console.log('[pdfExport] 计算总页数:', {
+            totalPages,
+            ROWS_PER_PAGE,
+            svgRowsLength: svgRows.length
+        });
 
         for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
             if (pageIdx > 0) pdf.addPage();
@@ -179,10 +241,20 @@ export async function exportVectorPDF(opts = {}) {
             // 字格行 + 辅助行（SVG 矢量写入）
             const startRow = pageIdx * ROWS_PER_PAGE;
             const endRow = Math.min(startRow + ROWS_PER_PAGE, svgRows.length);
+            console.log('[pdfExport] 页循环开始:', {
+                pageIdx,
+                startRow,
+                endRow
+            });
             for (let r = startRow; r < endRow; r++) {
                 // 辅助行先写入（位于字格行上方）
                 const auxEl = auxRows[r];
                 const auxY = FIRST_ROW_Y_MM + (r - startRow) * ROW_HEIGHT_MM;
+                console.log('[pdfExport] SVG 写入前:', {
+                    rowIndex: r,
+                    auxY,
+                    hasAux: !!auxEl
+                });
                 if (auxEl) {
                     try {
                         await svg2pdf(auxEl, pdf, { x: START_X_MM, y: auxY });
@@ -193,8 +265,14 @@ export async function exportVectorPDF(opts = {}) {
                 // 字格行写入（辅助行下方 6mm + 1mm 间距）
                 const svgEl = svgRows[r];
                 const y = auxY + SHEET_LAYOUT.auxRowMM + SHEET_LAYOUT.rowGapMM;
+                console.log('[pdfExport] SVG 字格写入:', {
+                    rowIndex: r,
+                    y,
+                    hasSvgEl: !!svgEl
+                });
                 try {
                     await svg2pdf(svgEl, pdf, { x: START_X_MM, y });
+                    console.log('[pdfExport] SVG 字格写入成功:', { rowIndex: r });
                 } catch (err) {
                     console.warn(`[pdfExport] 第 ${r + 1} 行字格行 SVG 写入失败:`, err);
                 }
@@ -212,12 +290,8 @@ export async function exportVectorPDF(opts = {}) {
             pdf.setTextColor(46, 125, 50);  // 绿色 #2E7D32
             pdf.text(headerLeft, START_X_MM, HEADER_Y_MM, { align: 'left' });
             pdf.text(headerCenter, CENTER_X_MM, HEADER_Y_MM, { align: 'center' });
-            pdf.text(
-                `${headerRight} · 第 ${pageIdx + 1} 页共 ${totalPages} 页`,
-                RIGHT_X_MM,
-                HEADER_Y_MM,
-                { align: 'right' }
-            );
+            const _headerRightText = `${headerRight} · 第 ${pageIdx + 1} 页共 ${totalPages} 页`;
+            pdf.text(_headerRightText, RIGHT_X_MM, HEADER_Y_MM, { align: 'right' });
 
             // 页脚 — 重置字体设置后绘制
             pdf.setFont('helvetica', 'normal');
@@ -226,17 +300,34 @@ export async function exportVectorPDF(opts = {}) {
             pdf.text(footerText, CENTER_X_MM, FOOTER_Y_MM, { align: 'center' });
             // 页脚右下角页码
             pdf.setFontSize(8);
-            pdf.text(`第 ${pageIdx + 1} / ${totalPages} 页`, RIGHT_X_MM, FOOTER_Y_MM, { align: 'right' });
+            const _footerPageText = `第 ${pageIdx + 1} / ${totalPages} 页`;
+            pdf.text(_footerPageText, RIGHT_X_MM, FOOTER_Y_MM, { align: 'right' });
+            console.log('[pdfExport] 页眉页脚绘制完成:', {
+                pageIdx,
+                headerLeft,
+                headerCenter,
+                headerRightDrawn: _headerRightText,
+                footerTextDrawn: footerText,
+                footerPageDrawn: _footerPageText
+            });
         }
 
         const ts =
             `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
             `_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
         const filename = `字帖_${ts}.pdf`;
+        console.log('[pdfExport] PDF 保存前:', {
+            filename,
+            totalPages,
+            platform: platform.isHarmonyOS ? 'HarmonyOS' : (platform.isIOSSafari ? 'iOS' : (platform.isAndroidChrome ? 'Android' : 'Desktop'))
+        });
         pdf.save(filename);
         return filename;
     } catch (error) {
         console.error('[pdfExport] 矢量 PDF 生成错误:', error);
+        if (error && error.stack) {
+            console.error('[pdfExport] error.stack:', error.stack);
+        }
         alert('生成矢量 PDF 时出错: ' + error.message);
         throw error;
     } finally {
@@ -251,7 +342,17 @@ export async function exportVectorPDF(opts = {}) {
  * 依赖 src/styles/print.css 的 @page + .a4-page 规则
  */
 export function printDirect() {
-    console.log('[pdfExport] printDirect 入口');
+    const _ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+    const _fontSel = document.getElementById('font-select');
+    const _fontName = _fontSel ? _fontSel.options[_fontSel.selectedIndex].text : '';
+    const _inputText = document.getElementById('inputText');
+    const _charCount = _inputText ? _inputText.value.length : -1;
+    console.log('[pdfExport] printDirect 入口', {
+        UA: _ua,
+        charCount: _charCount,
+        fontName: _fontName
+    });
+    const platform = detectPlatform();
     const grid = document.getElementById('grid-container');
     if (!grid) {
         console.error('[pdfExport] 未找到 #grid-container');
@@ -269,9 +370,6 @@ export function printDirect() {
     const fontDisplayName = fontSelect
         ? fontSelect.options[fontSelect.selectedIndex].text
         : '';
-    console.log('[pdfExport] UA:', navigator.userAgent);
-    console.log('[pdfExport] 字数:', inputText.value.length);
-    console.log('[pdfExport] 字体:', fontDisplayName);
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const hLeft = document.getElementById('headerLeft')?.value ||
@@ -291,6 +389,12 @@ export function printDirect() {
         hRight = fn2 ? fn2 + '练习' : '';
     }
     const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日';
+    console.log('[pdfExport] printDirect 页眉页脚读取完成:', {
+        hLeft,
+        hCenter,
+        hRight,
+        fText
+    });
 
     // v2.4.12：将字格按 page-break 拆分为独立分页段，每段正常文档流布局
     // DOM 顺序：header → content(字格) → footer
@@ -309,7 +413,16 @@ export function printDirect() {
     }
     if (currentPage.length > 0) pages.push(currentPage);
     const totalPages = pages.length;
-    console.log('[pdfExport] 分页段数:', pages.length, '总字数:', gridChildren.length);
+    const _pagesInfo = pages.map((p, i) => ({
+        pageIdx: i,
+        childCount: p.length,
+        charCount: p.filter(c => c && c.classList && c.classList.contains('grid-svg-row')).length
+    }));
+    console.log('[pdfExport] 分页段计算完成:', {
+        pagesLength: pages.length,
+        totalChildren: gridChildren.length,
+        pagesInfo: _pagesInfo
+    });
 
     // 创建分页段容器
     const wrapper = document.createElement('div');
@@ -320,16 +433,27 @@ export function printDirect() {
         const section = document.createElement('div');
         section.className = 'print-page-section';
         // v2.4.15：用 JS 类名标记首页和末页，比 :first-child/:last-child 更可靠
-        if (idx === 0) section.classList.add('first-page-section');
-        if (idx === totalPages - 1) section.classList.add('last-page-section');
+        const isFirstPage = idx === 0;
+        const isLastPage = idx === totalPages - 1;
+        if (isFirstPage) section.classList.add('first-page-section');
+        if (isLastPage) section.classList.add('last-page-section');
+        console.log('[pdfExport] 创建 section 元素:', {
+            idx,
+            isFirstPage,
+            isLastPage,
+            childCount: pageChildren.length
+        });
 
         // 1. 页眉（DOM 第一个，正常流在 section 顶部 = padding-top 处）
         const header = document.createElement('div');
         header.className = 'page-section-header';
+        const _hLeftTrunc = truncate(hLeft, 22);
+        const _hCenterTrunc = truncate(hCenter, 16);
+        const _hRightTrunc = truncate(hRight, 22);
         header.innerHTML =
-            `<span class="ph-left">${truncate(hLeft, 22)}</span>` +
-            `<span class="ph-center">${truncate(hCenter, 16)}</span>` +
-            `<span class="ph-right">${truncate(hRight, 22)}</span>`;
+            `<span class="ph-left">${_hLeftTrunc}</span>` +
+            `<span class="ph-center">${_hCenterTrunc}</span>` +
+            `<span class="ph-right">${_hRightTrunc}</span>`;
         section.appendChild(header);
 
         // 2. 内容区（字格，正常流，在页眉和页脚之间）
@@ -352,10 +476,20 @@ export function printDirect() {
         // 3. 页脚（DOM 最后，margin-top:auto 推到 section 底部）
         const footer = document.createElement('div');
         footer.className = 'page-section-footer';
+        const _fTextTrunc = truncate(fText, 32);
+        const _footerPageText = `第 ${idx + 1} 页 / 共 ${totalPages} 页`;
         footer.innerHTML =
-            `<span class="pf-center">${truncate(fText, 32)}</span>` +
-            `<span class="pf-page">第 ${idx + 1} 页 / 共 ${totalPages} 页</span>`;
+            `<span class="pf-center">${_fTextTrunc}</span>` +
+            `<span class="pf-page">${_footerPageText}</span>`;
         section.appendChild(footer);
+        console.log('[pdfExport] 注入页眉页脚完成:', {
+            idx,
+            hLeft: _hLeftTrunc,
+            hCenter: _hCenterTrunc,
+            hRight: _hRightTrunc,
+            fText: _fTextTrunc,
+            footerPageText: _footerPageText
+        });
 
         wrapper.appendChild(section);
     });
@@ -440,6 +574,9 @@ export function printDirect() {
         });
     } catch (error) {
         console.error('[pdfExport] 打印错误:', error);
+        if (error && error.stack) {
+            console.error('[pdfExport] error.stack:', error.stack);
+        }
         showToast('打印时出错: ' + error.message, 4000);
         cleanup();
     }

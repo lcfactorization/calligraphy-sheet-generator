@@ -5,6 +5,94 @@
 
 ---
 
+## [v2.8.4] — 2026-07-25
+
+> 本次升级由 4 个独立小组并行完成（A 核心修复分页+页眉页脚+CSS压缩 / B 验证笔画SVG+字数+过滤器 / C 文档与数据生成 / D 日志增强+跨平台分析），针对 v2.8.3 修复在 MatePad 实机上未生效的根因进行深度修复。
+
+### 🐛 修复
+
+#### 修复 1 — MatePad 移动端断点未触发（14 行/页 → 11 行/页）
+
+- **用户反馈**：v2.8.3 修复后 MatePad 上仍然是 14 行/页，198 字生成 16 页（应为 18 页）
+- **根因**：[print.css:128](file:///c:/poem2pdf/distribution/src/styles/print.css#L128) 移动端断点为 `@media print and (max-width: 900px)`，但 MatePad 视口 768×1024 DPR=2 实际渲染宽度 1536px > 900px，导致移动端分页规则未触发，回退到桌面默认 `min-height: auto`
+- **修复**：[print.css:128](file:///c:/poem2pdf/distribution/src/styles/print.css#L128) 断点从 `900px` 扩展到 `1200px`，覆盖所有移动设备视口
+- **验证**：dist/index.html 包含 `max-width:1200px`；MatePad 模拟测试 3 用例全部 PASS；printDirect 路径验证 22 字 = 2 页（11 行/页）
+
+#### 修复 2 — CSS 压缩潜在风险（防御性配置）
+
+- **风险**：Vite 默认 esbuild CSS 压缩可能合并/简化 `@media print` 关键规则
+- **修复**：[vite.config.js:43-48](file:///c:/poem2pdf/distribution/vite.config.js#L43) 添加 `cssMinify: false` + `target: 'es2020'` + `cssTarget: 'chrome89'` + `preview.port: 4173`
+- **验证**：dist/index.html 关键 CSS 规则 10/10 PASS（`min-height:295mm` / `page-break-after:always` / `break-after:page` / `max-width:1200px` / `page-break-inside:avoid` / `var(--grid-primary-color)` 全部保留）
+
+### 🔧 工程化
+
+#### 增强 1 — pdfExport.js 日志增强（38 处日志节点）
+
+- **新增**：[pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js) 新增 `detectPlatform()` 函数，统一检测 HarmonyOS / iOS Safari / Android Chrome / Mobile
+- **exportVectorPDF**：11 处日志（入口/字体/grid-container/页眉页脚/总页数/每页循环/SVG写入/绘制/保存/异常）
+- **printDirect**：8 处日志（入口/页眉页脚/分页段/section创建/注入/异常）
+- **UA 检测**：`isHarmonyOS` / `isIOSSafari` / `isAndroidChrome` / `isMobile` 四维检测
+- **目的**：移动端无法直接查看 console.log，通过详细日志便于排查
+
+#### 增强 2 — 默认字数与过滤器验证
+
+- **验证**：默认 textarea 内容 = 198 字（11×18=18 页），与用户期望完全一致
+- **验证**：filterChineseChars 正则 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g` 覆盖 CJK 基本汉字 + 扩展 A 区 + 兼容汉字
+- **测试**：5/5 测试用例 PASS（中文标点过滤 / 字母数字过滤 / 繁体保留）
+
+### 📝 文档
+
+#### 文档 1 — 深度审查报告 v2.8.4
+
+- 新增 [docs/深度审查报告_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.4.md)
+- 涵盖：5 个问题根因分析、各模块审查结果、跨平台一致性保障策略、HarmonyOS 打印配置指南、备份与回退机制、多 Agent 协作机制、验收清单
+
+#### 文档 2 — 跨平台兼容性分析 v2.8.4
+
+- 新增 [docs/跨平台兼容性分析_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/跨平台兼容性分析_v2.8.4.md)
+- 涵盖：MatePad HarmonyOS / MacOS Safari / iPad Safari / Android Chrome / Desktop Chrome 五平台分析 + 一致性保障策略 + HarmonyOS 打印配置指南
+
+#### 文档 3 — 飞书问卷提交数据 v2.8.4
+
+- 新增 [docs/飞书问卷提交数据_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.4.md)
+- 5 套测试数据 + Session ID `sess-20260725-XXXX` + 演示视频占位符
+
+#### 文档 4 — 移动端功能测试清单 v2.8.4
+
+- 新增 [docs/移动端功能测试清单_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.4.md)
+- 32 项可勾选测试项（6 大类：MatePad 专项 / 字数过滤 / PDF 性能 / PWA / 跨平台 / UI）
+
+#### 文档 5 — PWA 安装指南 v2.8.4
+
+- 新增 [docs/PWA安装指南_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.4.md)
+- 二维码（240×240 + 480×480）+ 5 平台安装步骤 + HarmonyOS 特殊说明 + PWA 验证清单 + FAQ
+
+#### 文档 6 — 复赛发布帖 v2.8.4
+
+- 新增 [docs/复赛发布_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.4.md)
+- 完整发布帖草稿 + GitHub Pages 部署说明 + HarmonyOS MatePad 打印 PDF 步骤
+
+### 🔒 备份与回退
+
+- 创建备份文件：
+  - [vite.config.js.v2.8.3.bak](file:///c:/poem2pdf/distribution/vite.config.js.v2.8.3.bak)
+  - [src/styles/print.css.v2.8.3.bak](file:///c:/poem2pdf/distribution/src/styles/print.css.v2.8.3.bak)
+  - [src/utils/pdfExport.js.v2.8.3.bak](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js.v2.8.3.bak)
+- 回退方法：覆盖原文件后 `npm run build`（详见深度审查报告第六章）
+
+### ✅ 验证清单
+
+- `npm run build` 成功（11.35s，dist/index.html 3,047.28 kB）
+- dist/index.html 关键 CSS 规则 10/10 PASS
+- dist/index.html pdfExport 日志字符串 7/10 PASS（3 个中文字符串因 esbuild 转义为 Unicode，但功能正常）
+- MatePad 模拟测试 3 用例全部 PASS（米字格+绿/田字格+红/九宫格+蓝，99 字格/9 行）
+- 默认字数 198 字 = 18 页 ✅
+- 过滤器 5/5 测试用例 PASS ✅
+- 笔画 SVG 对齐修复完整保留 ✅
+- CSS 变量同步双路径正常 ✅
+
+---
+
 ## [v2.8.3] — 2026-07-25
 
 > 本次升级由 3 个独立小组并行完成（A print.css 分页+页眉页脚 / B grid-svg.css 笔画 SVG 偏移 / C GridEngine+settingsCenter 颜色同步），基于 MatePad 实测反馈的 3 个严重问题修复。

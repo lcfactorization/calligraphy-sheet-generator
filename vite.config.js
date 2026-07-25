@@ -40,6 +40,17 @@ export default defineConfig({
             }
         })
     ],
-    build: { outDir: 'dist', emptyOutDir: true },
-    server: { port: 3000, open: true }
+    build: {
+        outDir: 'dist',
+        emptyOutDir: true,
+        // v2.8.4：禁用 CSS 压缩，确保 @media print 关键规则（min-height:295mm、
+        // page-break-after:always、break-after:page、移动端断点、var(--grid-primary-color)）
+        // 不被 esbuild 压缩器合并/丢弃。MatePad 打印分页与页眉页脚依赖这些规则。
+        cssMinify: false,
+        // 保留 ES2020+ 语法，避免 target 过低触发额外转换
+        target: 'es2020',
+        cssTarget: 'chrome89'
+    },
+    server: { port: 3000, open: true },
+    preview: { port: 4173, open: false }
 });

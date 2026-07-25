@@ -7,3 +7,6 @@ backup_*/
 _preview_*.pdf
 _tmp_measure/
 *.pdf
+# v2.8.4：排除本地备份文件（本地保留用于回退，不污染仓库）
+*.bak
+*.v2.8.3.bak
