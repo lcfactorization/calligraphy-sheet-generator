@@ -35,5 +35,7 @@ body::before{
 .app-header .header-title{display:flex;align-items:baseline;gap:10px;min-width:0}
 .app-header h1{font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--title-color);margin:0;white-space:nowrap}
 .app-header h1 .accent{background:linear-gradient(120deg,#6366f1,#ec4899,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.app-header h1 .version-tag{font-size:10px;font-weight:500;color:var(--desc-color);background:rgba(99,102,241,0.1);padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0}
 .app-header p{color:var(--desc-color);font-size:11px;margin:0;white-space:nowrap}
+.app-header p .build-info{opacity:.7;margin-left:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .app-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}

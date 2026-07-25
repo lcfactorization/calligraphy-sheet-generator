@@ -5,6 +5,89 @@
 
 ---
 
+## [v2.8.6] — 2026-07-25
+
+> 在 v2.8.5-hotfix 基础上增加版本号可视化与一致性修复。基于多 Agent 协同审查（功能退化审查报告 v2.8.5），确认核心功能零退化后，修补 1 项 P2 一致性问题。
+
+### ✨ 新增
+
+#### 新增 1 — HTML 页面版本号显示
+
+- **位置**：`index.html:28-29` + `src/styles/base.css:38-40`
+- **需求**：用户复赛测试要求在页面显眼位置可见当前版本号，便于移动端测试时确认部署版本
+- **实现**：
+  - 标题 `字帖生成器` 后增加 `<span class="version-tag">v2.8.6</span>` 紫色圆角徽章
+  - 副标题 `输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF` 后追加 `· build 2026-07-25` 灰色等宽文字
+- **样式**：10px 等宽字体，紫色半透明背景，与现有 UI 风格一致；不占用核心显示区
+
+### 🐛 修复
+
+#### 修复 1 — puppeteerClient.js 默认字体名硬编码为已删除字体
+
+- **位置**：`src/modules/puppeteerClient.js:52`
+- **根因**：v2.5.x 之前字体列表含「姜浩硬笔楷书」，v2.5.x 起替换为「文鼎楷体」等新字体，但 `puppeteerClient.js` 的 fallback 字体名仍硬编码为 `'\u59dc\u6d69\u786c\u7b14\u6977\u4e66'`（姜浩硬笔楷书）
+- **影响**：当 `font-select` 元素无选中项时，Puppeteer 路径会传不存在的字体名到服务端，可能导致 PDF 生成失败或字体回退到默认
+- **修复**：fallback 改为 `'\u6587\u9f0e\u6977\u4f53'`（文鼎楷体），与 `index.html` 的 `<option value="TW-Kai" selected>文鼎楷体</option>` 一致
+
+### 📋 审查
+
+#### 多 Agent 协同审查 — 功能退化深度核查
+
+- **审查报告**：`docs/功能退化审查报告_v2.8.5.md`（372 行）
+- **审查范围**：v2.4.x → v2.8.5-hotfix 升级过程中 29 项核心功能的演进追踪
+- **审查结论**：
+  - ✅ 29 项核心功能零丢失、零回退
+  - ✅ v2.8.5-hotfix 4 项修复（末页空白 / 多余 toast / 微信 X5 / 日志增强）无副作用
+  - ⚠️ 1 项 P1 死代码（DEFAULT_SETTINGS 残留 4 个失效字段，不影响功能）
+  - ⚠️ 1 项 P2 一致性问题（puppeteerClient.js 字体名，本次修复）
+  - ℹ️ 2 项 P3 遗留未引用模块（modules/pdfExport.js, modules/gridRenderer.js，可后续清理）
+
+### 🔄 回退
+
+- 备份 tag：`backup/pre_v285_hotfix2/20260725_173418`（v2.8.5-hotfix 状态）
+- 回退命令：`git reset --hard backup/pre_v285_hotfix2/20260725_173418`
+
+---
+
+## [v2.8.5-hotfix] — 2026-07-25
+
+> 在 v2.8.5 基础上重构打印样式为严格物理单位 + DOM 页眉页脚 + 色彩同步。Puppeteer 5 平台（MatePad/Samsung/Kiwi/Android/Desktop）全部 18 页验证通过。
+
+### 🐛 修复
+
+#### 修复 1 — 打印分页严格物理单位（解决 198 字 18 页变 15/16 页）
+
+- **位置**：`src/styles/print.css`
+- **根因**：移动端浏览器对 `vh/px/%` 相对单位处理不一致，导致每页高度无法精确匹配 A4 物理高度
+- **修复**：
+  - `@page margin` 统一为 `10mm`
+  - `.page-sheet` 严格 `190mm × 277mm`（A4 - 2×10mm）
+  - `break-after:page` + `page-break-after:always` 双重保险
+  - 末页 `height:auto + min-height:0` 消除空白尾页
+
+#### 修复 2 — DOM 实装页眉页脚（解决移动端页眉页脚消失）
+
+- **位置**：`src/styles/print.css` + `src/utils/pdfExport.js`
+- **根因**：移动端浏览器默认隐蔽浏览器原生页眉页脚
+- **修复**：在每个 `.page-sheet` 内部植入 `.sheet-header`（日期/标题/字体）与 `.sheet-footer`（评分/页码），色彩通过 `--grid-theme-color` CSS 变量与网格同步
+
+#### 修复 3 — 色彩同步联动
+
+- **位置**：`src/components/GridEngine.js` + `src/modules/settingsCenter.js`
+- **修复**：新增 `--grid-theme-color` CSS 变量（兼容旧 `--grid-primary-color`），切换网格颜色时同步更新页眉页脚色彩
+
+#### 修复 4 — 文本过滤器简化
+
+- **位置**：`src/modules/fileImporter.js` + `src/modules/settings.js` + `src/components/GridEngine.js`
+- **修复**：3 处正则从 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g` 简化为 `/[\u4e00-\u9fa5]/g`
+
+#### 修复 5 — 移除多余 @page margin 动态注入
+
+- **位置**：`src/utils/pdfExport.js`
+- **修复**：移除 `printDirect()` 中动态注入的 `@page margin:0`，与 `print.css` 的 `@page margin:10mm` 协同
+
+---
+
 ## [v2.8.5] — 2026-07-25（hotfix）
 
 > 针对 v2.8.4 在移动端实测中暴露的 4 个根因进行精准修复。所有修复均基于深度代码审核报告 v2.8.5-pre 的 double 验证结论，Puppeteer 5 平台模拟测试全部从 19 页修正为 18 页。

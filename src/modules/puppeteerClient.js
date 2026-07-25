@@ -49,7 +49,8 @@ if (btn) {
         const text = textEl ? textEl.value : '';
         const fontSelect = document.getElementById('font-select');
         const selectedOption = fontSelect ? fontSelect.options[fontSelect.selectedIndex] : null;
-        const font = selectedOption ? selectedOption.text : '\u59dc\u6d69\u786c\u7b14\u6977\u4e66';
+        // v2.8.6：修正默认字体名（原 '\u59dc\u6d69\u786c\u7b14\u6977\u4e66' 姜浩硬笔楷书 已不存在于字体列表）
+        const font = selectedOption ? selectedOption.text : '\u6587\u9f0e\u6977\u4f53';
         // v2.5.2：获取自定义字体的 data URL 和内部名称，供服务器端注册
         const fontValue = selectedOption ? selectedOption.value : '';
         const fontDataUrl = (selectedOption && selectedOption.dataset && selectedOption.dataset.fontDataUrl) ? selectedOption.dataset.fontDataUrl : '';
