@@ -5,6 +5,33 @@
 
 ---
 
+## [v2.9.2] — 2026-07-26
+
+> v2.9.1 的两项精准调优：①顶部边距 29mm→20mm，恢复 198 字 18 页（v2.9.1 的 29mm 导致 printableArea 仅 252mm，余量 14.4mm 太紧，溢出 19 页尾页空白）；②页眉页脚颜色跟随字帖网格颜色预设（绿/红/蓝/黑），不再硬编码深绿色。
+
+### 🐛 修复
+
+#### 修复 1 — 顶部边距调优 29mm → 20mm
+
+- **位置**：`puppeteer-server.cjs` 第 173 行（@page margin 注入）+ 第 254 行（page.pdf margin.top）
+- **问题**：v2.9.1 用 29mm 修复页眉重叠，但 printableArea 仅 252mm（297-29-16），11 行字格 237.6mm 余量仅 14.4mm，198 字从 18 页溢出为 19 页（尾页空白）
+- **修复**：调为 20mm，printableArea=261mm（=window.print() 路径的 `.page-section-content` 高度），余量 23.4mm，恢复 18 页
+- **间距**：页眉文字 y=10mm（headerTemplate padding-top:10mm），字格 y=20mm，间距 10mm 足够避免重叠
+
+#### 修复 2 — 页眉页脚颜色跟随网格颜色
+
+- **位置**：`puppeteer-server.cjs` 第 207-210 行（hfInfo 读取 gridColor）+ 第 237/240/247 行（headerTemplate/footerTemplate 使用动态 color）
+- **问题**：headerTemplate/footerTemplate 硬编码 `color:#2E7D32`（深绿色），切换朱砂红/靛青蓝/墨黑网格时页眉页脚不跟随
+- **修复**：在 `page.evaluate` 中读取 `--grid-theme-color` / `--grid-primary-color` CSS 变量（由 `GridEngine.js` 第 609-610 行设置），传给 headerTemplate/footerTemplate
+- **兼容**：颜色变量未设置时回退 `#2E7D32` 默认深绿色
+
+### 📋 多 Agent 协同
+
+- **审查报告**：`docs/Puppeteer字帖贴顶问题_根因分析与修复方案_v2.9.0.md`
+- **审查范围**：4 agent 并行分析（项目分析师 / 系统分析师与架构师 / 前端开发工程师 / 全栈工程师）
+
+---
+
 ## [v2.9.1] — 2026-07-26
 
 > Puppeteer 导出 PDF 字帖贴顶/页眉重叠问题的**精准回归修复**。v2.8.7 移动端重构时将 `print.css` 的 `@page margin` 从 29mm 改为 10mm，但遗漏了为 Puppeteer 路径保留 29mm 覆盖；`page.pdf({preferCSSPageSize:true})` 让 CSS @page 优先，导致 Puppeteer 实际顶部边距只有 10mm，headerTemplate 文字与第一行字格在 y=10mm 处纵向坐标完全重合。v2.9.1 恢复 v2.8.3 历史架构，为 Puppeteer headless 页面注入专用 @page margin。
