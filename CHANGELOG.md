@@ -5,6 +5,34 @@
 
 ---
 
+## [v2.9.1] — 2026-07-26
+
+> Puppeteer 导出 PDF 字帖贴顶/页眉重叠问题的**精准回归修复**。v2.8.7 移动端重构时将 `print.css` 的 `@page margin` 从 29mm 改为 10mm，但遗漏了为 Puppeteer 路径保留 29mm 覆盖；`page.pdf({preferCSSPageSize:true})` 让 CSS @page 优先，导致 Puppeteer 实际顶部边距只有 10mm，headerTemplate 文字与第一行字格在 y=10mm 处纵向坐标完全重合。v2.9.1 恢复 v2.8.3 历史架构，为 Puppeteer headless 页面注入专用 @page margin。
+
+### 🐛 修复
+
+#### 修复 1 — Puppeteer 路径专用 @page margin 覆盖
+
+- **位置**：`puppeteer-server.cjs` 第 163-173 行（`page.evaluate` 内，移除 `.print-page-section` 之后）
+- **根因**（多 Agent 审查 + 历史铁证，详见报告）：
+  - v2.8.3 及之前：CSS `@page margin: 29mm`（Puppeteer 路径用），`printDirect()` 动态注入 `margin:0` 覆盖给 `window.print()` 路径，两路径互不干扰
+  - v2.8.7 重构：CSS `@page margin` 改为 `10mm`（服务 `window.print()` 路径的 `.print-page-section` 190×277mm 几何），但**未同步为 Puppeteer 路径保留 29mm 覆盖**
+  - `page.pdf({preferCSSPageSize:true})` 使 CSS @page 优先，`page.pdf()` 的 `margin.top:29mm` 被覆盖为 10mm
+  - 结果：headerTemplate 文字（padding-top:10mm → y=10mm）与第一行字格（从 y=10mm 开始）**纵向坐标完全重合**，且多页字帖每页都重叠
+- **修复**：在 `puppeteer-server.cjs` 的 `page.evaluate` 中注入 `<style>@media print{@page{margin:29mm 15.9mm 16mm 15.9mm !important}}</style>`，仅作用于 Puppeteer headless 页面
+- **隔离性**：`window.print()` 路径不经过 `puppeteer-server.cjs`，零影响；`print.css` 完全不改；字格几何不变（printableArea 宽 178.2mm = 字格行宽）
+- **多页修复**：@page margin 作用于每一页，多页字帖每页页眉都不再重叠（padding-top 方案只能修第一页）
+
+### 📋 多 Agent 协同审查
+
+- **审查报告**：`docs/Puppeteer字帖贴顶问题_根因分析与修复方案_v2.9.0.md`
+- **补丁文件**：`docs/patch_v2.9.1_puppeteer_margin_fix.diff`
+- **审查范围**：4 个 agent 并行分析（项目分析师 / 系统分析师与架构师 / 前端开发工程师 / 全栈工程师与高级软件开发工程师）
+- **铁证**：`src/styles/print.css.v2.8.3.bak` 第 53-60 行记录历史 @page margin:29mm 架构
+- **回退 tag**：`backup/pre_v291_puppeteer_margin/20260726`
+
+---
+
 ## [v2.9.0] — 2026-07-25
 
 > 移动端打印页眉页脚缺失问题的**架构级根治版本**。在 v2.8.9 基础上（v2.8.9 修错方向——假设"元素在 DOM 里但不显示"，而真相是"元素被打印时已不在 DOM 里"），引入**隐藏 iframe 静态独立打印文档架构**，从架构层面消除"cleanup 时机 vs 异步打印管线读取"的竞态。
