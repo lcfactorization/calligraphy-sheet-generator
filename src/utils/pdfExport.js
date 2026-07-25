@@ -15,6 +15,7 @@ import { jsPDF } from 'jspdf';
 import { svg2pdf } from 'svg2pdf.js';
 import { A4_SHEET_LAYOUT, SHEET_LAYOUT } from '../contracts/interfaces.js';
 import { waitForStrokes } from '../modules/strokes.js';
+import { getFontSources } from '../modules/fontManager.js';
 
 /** 每页行数（11 行/页，依据 SHEET_LAYOUT.rowsPerPage） */
 const ROWS_PER_PAGE = SHEET_LAYOUT.rowsPerPage;  // 11
@@ -340,8 +341,13 @@ export async function exportVectorPDF(opts = {}) {
  * 先把 #grid-container 内容包装进 .a4-page 容器再打印
  * v2.4.4：添加打印专用页眉页脚元素（position:fixed 每页重复）
  * 依赖 src/styles/print.css 的 @page + .a4-page 规则
+ *
+ * v2.9.0：printDirect 改为 async，入口加移动端 UA 路由
+ *   - 移动端（HarmonyOS/Android/iOS/iPadOS 13+）改走 printViaIframe() 静态独立打印文档
+ *   - 桌面维持现有逻辑零改动（已验证正确）
+ *   - 异常自动回退到就地打印
  */
-export function printDirect() {
+export async function printDirect() {
     const _ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
     const _fontSel = document.getElementById('font-select');
     const _fontName = _fontSel ? _fontSel.options[_fontSel.selectedIndex].text : '';
@@ -352,6 +358,27 @@ export function printDirect() {
         charCount: _charCount,
         fontName: _fontName
     });
+
+    // v2.9.0：移动端 UA 路由（含 iPadOS 13+ 触屏判定）
+    // 根因：移动端打印管线异步读取实时 DOM，cleanup 永远先于分页渲染执行，
+    //       含页眉页脚的 wrapper 被销毁后管线读到的是屏幕态 DOM（无页眉页脚）
+    // 桌面 print() 模态阻塞无此问题，维持现有路径零退化
+    const _isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const _mobileUA = _isIPadOS || (
+        /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(_ua)
+        && !/Windows NT|Macintosh|CrOS|X11/i.test(_ua)
+    );
+    if (_mobileUA) {
+        try {
+            return await printViaIframe();
+        } catch (e) {
+            console.error('[pdfExport] iframe 打印路径异常，回退到就地打印:', e);
+            // 清理可能已创建的 iframe（防泄漏）
+            document.querySelectorAll('iframe.print-frame').forEach(f => f.remove());
+            // 继续执行下面的现有 printDirect 逻辑作为降级
+        }
+    }
+
     const platform = detectPlatform();
     const grid = document.getElementById('grid-container');
     if (!grid) {
@@ -491,7 +518,8 @@ export function printDirect() {
     // RC1 修复 v2（v2.8.9）：精确感知打印状态，删除误触发的 focus/visibilitychange
     // 根因：v2.8.7 的 focus/visibilitychange 在移动端打印预览生命周期中会误触发 cleanup
     // 导致 wrapper 被提前销毁，打印管线读到屏幕态 DOM（无页眉页脚）
-    // 改用 matchMedia('print').change 精确感知打印状态 + afterprint + pagehide + 120s 兜底
+    // v2.9.0：删除 pagehide 监听——系统打印预览不触发 pagehide，该监听无收益且在国产 ROM 冻结场景有隐患
+    // 改用 matchMedia('print').change 精确感知打印状态 + afterprint + 120s 兜底
     let cleaned = false;
     let printMediaQuery = null;
     let onPrintChange = null;
@@ -511,7 +539,6 @@ export function printDirect() {
             wrapper.remove();
         }
         window.removeEventListener('afterprint', cleanup);
-        window.removeEventListener('pagehide', cleanup);
         if (printMediaQuery && onPrintChange) {
             try {
                 if (printMediaQuery.removeEventListener) {
@@ -545,11 +572,11 @@ export function printDirect() {
             printMediaQuery.addListener(onPrintChange);
         }
     } catch (e) {
-        console.warn('[pdfExport] matchMedia(print) 不支持，仅依赖 afterprint + pagehide', e);
+        console.warn('[pdfExport] matchMedia(print) 不支持，仅依赖 afterprint', e);
     }
 
-    // pagehide：移动端极端兜底（用户切到后台、关闭页面等）
-    window.addEventListener('pagehide', cleanup);
+    // v2.9.0：pagehide 监听已删除（系统打印预览不触发 pagehide，无收益且有国产 ROM 冻结隐患）
+    // 移动端已改走 iframe 静态打印文档路径，本 cleanup 仅服务桌面/降级路径
 
     // 120s 超长兜底（仅作内存回收，绝不影响打印管线读取窗口）
     fallbackTimer = setTimeout(cleanup, 120000);
@@ -612,6 +639,212 @@ export function printDirect() {
         }
         showToast('打印时出错: ' + error.message, 4000);
         cleanup();
+    }
+}
+
+/**
+ * v2.9.0：移动端专用——隐藏 iframe 静态独立打印文档
+ *
+ * 根因：移动端打印管线异步读取实时 DOM，cleanup 永远先于分页渲染执行，
+ *       含页眉页脚的 wrapper 被销毁后管线读到的是屏幕态 DOM（无页眉页脚）。
+ * 方案：创建独立 iframe 打印文档，主文档零改动、零 cleanup。
+ *       iframe 文档静态恒定，异步打印管线任意时刻读取结果一致。
+ *
+ * 销毁策略（多 Agent 审查后调整）：
+ *   - 删除 afterprint/focus/60s 三重触发器（复刻原 bug 竞态拓扑）
+ *   - 仅保留 window.pagehide（用户离开页面时回收内存）
+ *   - 下次打印开头清旧 iframe（幂等清理，本函数入口已实现）
+ *   - iframe 常驻 opacity:0/pointer-events:none，无视觉/交互成本
+ *
+ * 手势上下文（多 Agent 审查后调整）：
+ *   - iwin.print() 用 requestAnimationFrame 嵌套调用，与现有 printDirect 一致
+ *   - 最大限度保留用户手势上下文，防止 iOS Safari 静默吞掉 print()
+ */
+async function printViaIframe() {
+    const grid = document.getElementById('grid-container');
+    if (!grid) {
+        showToast('未找到字帖内容，请先生成字帖', 2500);
+        return;
+    }
+    const inputText = document.getElementById('inputText');
+    if (inputText && !inputText.value.trim()) {
+        showToast('请先输入汉字并生成字帖', 2500);
+        return;
+    }
+
+    // ── 页眉页脚文本（与 printDirect 相同的读取/截断逻辑） ──
+    const fontSelect = document.getElementById('font-select');
+    const fontDisplayName = fontSelect ? fontSelect.options[fontSelect.selectedIndex].text : '';
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const hLeft = document.getElementById('headerLeft')?.value ||
+        `${now.getFullYear()}年${pad(now.getMonth() + 1)}月${pad(now.getDate())}日 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const hCenter = document.getElementById('headerCenter')?.value || '练习字帖';
+    const _hrInput = document.getElementById('headerRight')?.value || '';
+    let hRight;
+    if (_hrInput && _hrInput !== '字体练习') {
+        hRight = _hrInput;
+    } else {
+        let fn = (fontDisplayName || '').replace(/^★\s*/, '').replace(/\.(ttf|otf|woff|woff2)$/i, '');
+        const cn = (fn.match(/[\u4e00-\u9fff]/g) || []);
+        if (cn.length > 6 && fn.includes('体')) fn = fn.replace(/体/, '');
+        const cn2 = (fn.match(/[\u4e00-\u9fff]/g) || []);
+        if (cn2.length > 6) { let c = 0, r = ''; for (const ch of fn) { if (/[\u4e00-\u9fff]/.test(ch)) c++; if (c > 6) break; r += ch; } fn = r; }
+        hRight = fn ? fn + '练习' : '';
+    }
+    const fText = document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日';
+
+    // ── 网格主色解析为具体色值（内联使用，不依赖 CSS 变量） ──
+    const gridColor = (document.documentElement.style.getPropertyValue('--grid-theme-color') || '').trim()
+        || (document.documentElement.style.getPropertyValue('--grid-primary-color') || '').trim()
+        || '#2E7D32';
+
+    const removeOverlay = showLoadingOverlay();
+    let iframe = null;
+    try {
+        console.log('[iframe-print] 等待字体与笔画…');
+        await waitForFonts();
+        await waitForStrokes(2000);
+
+        // 清理上一轮遗留 iframe（懒清理策略：本入口是唯一清理点）
+        document.querySelectorAll('iframe.print-frame').forEach(f => f.remove());
+
+        // ── 创建隐藏 iframe（禁用 display:none / visibility:hidden，部分引擎会跳过渲染） ──
+        iframe = document.createElement('iframe');
+        iframe.className = 'print-frame';
+        iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(iframe);
+        const iwin = iframe.contentWindow;
+        const idoc = iframe.contentDocument;
+
+        // ── 骨架（<base> 让 ./fonts/ 相对路径可解析） ──
+        const baseUrl = location.href.substring(0, location.href.lastIndexOf('/') + 1);
+        idoc.open();
+        idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="' + baseUrl + '"></head><body style="margin:0;padding:0;background:#fff"></body></html>');
+        idoc.close();
+
+        // ── 克隆主文档全部 <style> 节点（含 grid-svg.css 的 mm 尺寸、print.css 的 @page 与 @media print，零漂移） ──
+        document.querySelectorAll('style').forEach(s => {
+            try { idoc.head.appendChild(idoc.importNode(s, true)); } catch (e) { /* 跳过异常样式节点 */ }
+        });
+
+        // ── iframe 内重新注册字体（document.fonts 每文档独立） ──
+        const fontSources = getFontSources();
+        await Promise.all(fontSources.map(([name, url]) => {
+            try {
+                const ff = new iwin.FontFace(name, 'url(' + url + ')', { display: 'swap' });
+                return Promise.race([
+                    ff.load().then(f => idoc.fonts.add(f)),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('font timeout')), 5000))
+                ]).catch(e => console.warn('[iframe-print] 字体加载失败:', name, e));
+            } catch (e) { console.warn('[iframe-print] FontFace 创建失败:', name, e); return Promise.resolve(); }
+        }));
+        await idoc.fonts.ready;
+        console.log('[iframe-print] 字体就绪，已注册:', fontSources.map(f => f[0]).join(','));
+
+        // ── 按 .page-break 分组（只读主文档，不做任何修改） ──
+        const gridChildren = Array.from(grid.children);
+        const pages = [];
+        let currentPage = [];
+        for (const child of gridChildren) {
+            currentPage.push(child);
+            if (child.classList && child.classList.contains('page-break')) {
+                pages.push(currentPage);
+                currentPage = [];
+            }
+        }
+        if (currentPage.length > 0) pages.push(currentPage);
+        const totalPages = pages.length;
+        console.log('[iframe-print] 分页段数:', totalPages);
+
+        // ── 组装分页段（克隆进 iframe 文档） ──
+        const wrapper = idoc.createElement('div');
+        wrapper.className = 'a4-page pdf-print-wrapper';
+        pages.forEach((pageChildren, idx) => {
+            const section = idoc.createElement('div');
+            section.className = 'print-page-section';
+            if (idx === 0) section.classList.add('first-page-section');
+            if (idx === totalPages - 1) section.classList.add('last-page-section');
+
+            // 页眉（颜色内联具体色值）
+            const header = idoc.createElement('div');
+            header.className = 'page-section-header';
+            header.style.cssText = 'color:' + gridColor + ';border-bottom-color:' + gridColor + ';';
+            header.innerHTML =
+                '<span class="ph-left">' + truncate(hLeft, 22) + '</span>' +
+                '<span class="ph-center">' + truncate(hCenter, 16) + '</span>' +
+                '<span class="ph-right">' + truncate(hRight, 22) + ' · 第 ' + (idx + 1) + ' 页共 ' + totalPages + ' 页</span>';
+            section.appendChild(header);
+
+            // 内容：行对包裹 + 克隆（importNode 深克隆保真内联 SVG）
+            const content = idoc.createElement('div');
+            content.className = 'page-section-content';
+            let pair = null;
+            for (const c of pageChildren) {
+                const clone = idoc.importNode(c, true);
+                // 克隆侧剥离 .page-break（分页由 section 边界承担；主文档原类不动）
+                if (clone.classList) {
+                    clone.classList.remove('page-break');
+                    clone.removeAttribute('data-page-break');
+                }
+                if (clone.classList && clone.classList.contains('grid-svg-aux-row')) {
+                    pair = idoc.createElement('div');
+                    pair.className = 'print-row-pair';
+                    content.appendChild(pair);
+                    pair.appendChild(clone);
+                } else if (pair) {
+                    pair.appendChild(clone);
+                    pair = null;
+                } else {
+                    content.appendChild(clone);
+                }
+            }
+            const firstAux = content.querySelector('.grid-svg-aux-row');
+            if (firstAux) firstAux.classList.add('page-top');   // 每页首行强制页顶线
+            section.appendChild(content);
+
+            // 页脚
+            const footer = idoc.createElement('div');
+            footer.className = 'page-section-footer';
+            footer.style.cssText = 'color:' + gridColor + ';border-top-color:' + gridColor + ';';
+            footer.innerHTML =
+                '<span class="pf-center">' + truncate(fText, 32) + '</span>' +
+                '<span class="pf-page">第 ' + (idx + 1) + ' 页 / 共 ' + totalPages + ' 页</span>';
+            section.appendChild(footer);
+
+            wrapper.appendChild(section);
+        });
+        idoc.body.appendChild(wrapper);
+        console.log('[iframe-print] DOM 组装完成，section 数=', idoc.querySelectorAll('.print-page-section').length);
+
+        // ── 渲染稳定（双 rAF）后打印 ──
+        // 多 Agent 审查：用 rAF 嵌套调用 iwin.print()，与现有 printDirect 一致，保留用户手势上下文
+        await new Promise(r => iwin.requestAnimationFrame(() => iwin.requestAnimationFrame(r)));
+        console.log('[iframe-print] 调用 iframe.contentWindow.print()');
+
+        try {
+            iwin.print();
+            console.log('[iframe-print] iwin.print() 调用成功');
+        } catch (e) {
+            console.error('[iframe-print] iwin.print 抛错:', e);
+            showToast('打印失败：' + (e && e.message ? e.message : '未知错误') + '，建议使用浏览器菜单的「网页转 PDF」', 5000);
+        }
+
+        // ── 销毁策略（多 Agent 审查后调整） ──
+        // 删除 afterprint（Android Chrome 立即触发，复刻原 bug 竞态）
+        // 删除 focus（移动端不可靠且误触发）
+        // 删除 60s 兜底（移动端预览停留常 >60s，过短会导致 iframe 被提前销毁）
+        // 仅保留 window.pagehide（用户离开页面时回收内存）
+        // 主要清理依靠下次打印开头的 document.querySelectorAll('iframe.print-frame').forEach(f => f.remove())
+        const destroy = () => {
+            if (!iframe || !iframe.parentNode) return;
+            iframe.remove();
+            window.removeEventListener('pagehide', destroy);
+            console.log('[iframe-print] iframe 已销毁（pagehide 触发）');
+        };
+        window.addEventListener('pagehide', destroy);
+    } finally {
+        removeOverlay();
     }
 }
 

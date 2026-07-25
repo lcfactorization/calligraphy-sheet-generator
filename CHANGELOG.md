@@ -5,6 +5,79 @@
 
 ---
 
+## [v2.9.0] — 2026-07-25
+
+> 移动端打印页眉页脚缺失问题的**架构级根治版本**。在 v2.8.9 基础上（v2.8.9 修错方向——假设"元素在 DOM 里但不显示"，而真相是"元素被打印时已不在 DOM 里"），引入**隐藏 iframe 静态独立打印文档架构**，从架构层面消除"cleanup 时机 vs 异步打印管线读取"的竞态。
+
+### 🐛 修复（架构级）
+
+#### 修复 1 — 移动端打印改隐藏 iframe 静态独立打印文档
+
+- **位置**：`src/utils/pdfExport.js` 新增 `printViaIframe()` 函数 + `printDirect()` 入口 UA 路由
+- **根因**（多 Agent 审查 + git 取证，详见报告 v2）：
+  - 移动端（Android/HarmonyOS）打印管线是**异步**的：`window.print()` 立即返回，排版/PDF 生成发生在系统打印框架回调阶段，基于**彼时的实时 DOM**
+  - `afterprint` 在 Android Chrome 上 `print()` 返回后**立即触发**（已知 bug），`matchMedia('print')` 存在 true→false→true 抖动（WebKit #68614 WONTFIX）
+  - 因此 cleanup 永远先于系统分页渲染执行——移动端实际打印的是 **cleanup 后的屏幕态 DOM**：字格行已移回、`.page-break` 已恢复（恰好 18 页 11 行 ✅）、含页眉页脚的 wrapper 已销毁（❌ 页眉页脚全部缺失）
+- **修复架构**：
+  - 移动端 UA → 创建独立隐藏 iframe（`position:fixed;opacity:0;pointer-events:none`，禁用 `display:none` 避免部分引擎跳过渲染）
+  - iframe 内组装静态打印文档：`<base>` 解析相对路径 + 克隆主文档全部 `<style>` 节点（含 `@page` 与 `@media print`，零漂移）+ 用 `iwin.FontFace` 重新注册字体（`document.fonts` 每文档独立）
+  - 按 `.page-break` 分组克隆字格行（`importNode` 深克隆保真内联 SVG，**只读主文档不修改**）
+  - 页眉/页脚颜色内联具体色值（不依赖 CSS 变量）
+  - 双 rAF 后调用 `iframe.contentWindow.print()`
+  - **主文档零改动、零 cleanup——竞态从架构上消除**
+- **销毁策略**（多 Agent 审查后调整）：
+  - 删除 `afterprint`/`focus`/`60s` 三重触发器（复刻原 bug 竞态拓扑）
+  - 仅保留 `window.pagehide`（用户离开页面时回收内存）
+  - 主要清理依靠下次打印开头的幂等清理 `document.querySelectorAll('iframe.print-frame').forEach(f => f.remove())`
+  - iframe 常驻 `opacity:0/pointer-events:none`，无视觉/交互成本
+- **手势上下文**：`iwin.print()` 用 `requestAnimationFrame` 嵌套调用，与现有 `printDirect` 一致，最大限度保留用户手势上下文
+- **UA 检测**：补充 iPadOS 13+ 触屏判定（`navigator.platform==='MacIntel' && navigator.maxTouchPoints>1`），避免 iPad 误判为桌面走原 bug 路径
+- **异常回退**：`printViaIframe` 抛错时清理已创建的 iframe，回退到现有 `printDirect` 就地打印逻辑
+
+#### 修复 2 — 删除 v2.8.9 负资产
+
+- `src/styles/print.css`：`.page-section-header` 与 `.page-section-footer` 的 `font-size: 0;` 改回 `font-size: 9pt;`（v2.8.9 防御性设置，但 `header.innerHTML` / `footer.innerHTML` 使用字符串拼接无空白文本节点，该防御无必要且影响可读性）
+- `src/utils/pdfExport.js`：删除 `printDirect` cleanup 的 `pagehide` 监听与解绑（系统打印预览不触发 `pagehide`，该监听无收益且在国产 ROM 冻结场景有隐患）
+
+#### 修复 3 — PWA 更新提示强化
+
+- **位置**：`src/main.js` 的 `controllerchange` toast
+- **修复**：删除 `setTimeout(() => toast.remove(), 10000)`，改为**常驻直到用户点击**；文案改为 `✨ 已升级到新版本（当前运行的是旧版），点击此处刷新`
+- **原因**：防止真机长期运行旧代码导致版本归因失真
+
+### 🆕 新增
+
+- `src/modules/fontManager.js`：新增 `customFontSources` 数组与 `getFontSources()` 导出，记录所有字体源（内置 5 个 + 用户上传），供 iframe 打印文档重新注册字体
+- `src/utils/pdfExport.js`：新增 `printViaIframe()` 函数（约 190 行）；`printDirect` 改为 `async`；入口加移动端 UA 路由
+- `src/main.js`：`?printdebug=1` 浮层补充 hook `console.warn` / `console.error`，确保 iframe 打印路径的 `[iframe-print]` 警告/异常在真机浮层可见
+
+### 📋 多 Agent 协同审查
+
+- **审查报告**：`C:\poem2pdf\字帖项目_移动端打印页眉页脚缺失_深度审查报告v2_20260725.md`
+- **修复方案**：`C:\poem2pdf\TraeCN_v2.9.0_iframe打印架构_一次性修复提示词_20260725.md`
+- **审查范围**：4 个 agent 并行分析（前端开发 / 网页打印 CSS / 移动端系统 / 代码取证）+ 4 视角审查方案（高级前端 / 移动端 / 全栈 / 架构师）
+- **审查结论**：
+  - ✅ 架构方向正确（iframe 静态打印文档是根治路径，与 print.js 等成熟库策略一致）
+  - ❌ 4 个 P0 阻塞项（已全部采纳修复）：
+    1. 销毁策略复刻原 bug 竞态 → 改为懒清理（仅 pagehide + 下次打印开头清理）
+    2. iOS Safari 用户手势上下文丢失 → `iwin.print()` 用 rAF 嵌套调用
+    3. 60s 兜底过短 → 删除定时器（懒清理策略下无必要）
+    4. iPadOS 13+ 误判为桌面 → 补充触屏判定
+  - ⚠️ 3 个 P1 改进项（已全部采纳）：异常回退清理 iframe、`printdebug` 浮层 hook warn/error、`alert` 改 `showToast`
+
+### 📋 路由策略
+
+- 移动端 UA（HarmonyOS/Android/iOS/iPadOS 13+）→ iframe 静态打印文档路径
+- 桌面 UA → 现有 `printDirect` 就地打印路径（零改动，已验证正确）
+- 异常自动回退到就地打印
+
+### 📋 验证
+
+- **桌面回归**：`npm run build` 0 错误；桌面 Chrome 打印 198 字 = 18 页，页眉页脚齐全
+- **真机验收**（待用户验证）：`?printdebug=1` 打开，生成默认字帖 → 打印 → 保存 PDF，应出现 `[iframe-print]` 系列日志，PDF = 18 页、每页 11 行、页眉页脚全部可见
+
+---
+
 ## [v2.8.9] — 2026-07-25
 
 > 移动端打印 DOM 页眉页脚不显示问题修复版本。在 v2.8.7 基础上（v2.8.7 已解决分页问题但页眉页脚仍缺失），针对多 Agent 协同分析确认的 3 个主根因（P0-1/P0-2/P0-3）进行精准修复。版本号跳过 v2.8.8（v2.8.8 是中间失败尝试，未发布）。

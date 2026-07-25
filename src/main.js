@@ -144,18 +144,20 @@ if (printBtn) {
 }
 
 // v2.8.0：PWA 更新提示，避免旧访客持续跑老代码
+// v2.9.0：toast 改为常驻直到用户点击，防止真机长期运行旧代码导致版本归因失真
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         const toast = document.createElement('div');
-        toast.textContent = '✨ 已升级到新版本，点击刷新加载';
+        toast.textContent = '✨ 已升级到新版本（当前运行的是旧版），点击此处刷新';
         toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10001;padding:12px 20px;background:#22c55e;color:#fff;border-radius:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-size:14px';
         toast.onclick = () => location.reload();
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 10000);
+        // v2.9.0：删除 setTimeout，常驻直到用户点击
     });
 }
 
 // v2.8.7：?printdebug=1 时注入页内日志浮层，真机验证打印管线行为
+// v2.9.0：补充 hook console.warn / console.error，确保 iframe 打印路径的警告/异常在真机浮层可见
 if (/[?&]printdebug=1/.test(location.search)) {
     const box = document.createElement('pre');
     box.id = 'printdebug-log';
@@ -163,11 +165,24 @@ if (/[?&]printdebug=1/.test(location.search)) {
         'background:rgba(0,0,0,.85);color:#0f0;font:10px/1.4 monospace;z-index:999999;' +
         'margin:0;padding:6px;white-space:pre-wrap;pointer-events:auto;';
     document.body.appendChild(box);
-    const orig = console.log;
+    const fmt = (a) => a.map(x => { try { return typeof x === 'object' ? JSON.stringify(x) : String(x); } catch { return '[obj]'; } }).join(' ');
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origErr = console.error;
     console.log = function(...a) {
-        box.textContent += a.map(x => { try { return typeof x === 'object' ? JSON.stringify(x) : String(x); } catch { return '[obj]'; } }).join(' ') + '\n';
+        box.textContent += fmt(a) + '\n';
         box.scrollTop = box.scrollHeight;
-        orig.apply(console, a);
+        origLog.apply(console, a);
+    };
+    console.warn = function(...a) {
+        box.textContent += '[WARN] ' + fmt(a) + '\n';
+        box.scrollTop = box.scrollHeight;
+        origWarn.apply(console, a);
+    };
+    console.error = function(...a) {
+        box.textContent += '[ERROR] ' + fmt(a) + '\n';
+        box.scrollTop = box.scrollHeight;
+        origErr.apply(console, a);
     };
     const mq = window.matchMedia('print');
     mq.addEventListener('change', e => console.log('[printdebug] matchMedia print =', e.matches));

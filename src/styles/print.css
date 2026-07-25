@@ -129,7 +129,7 @@
                   （移动端打印引擎对 display:none → display:flex !important 切换支持不完整）
        v2.8.9 修复 P0-3：显式添加 print-color-adjust: exact
                   （防止移动端打印引擎"优化"丢弃颜色和边框）
-       v2.8.9 防御：父元素 font-size:0 防止 inline-block 之间空白字符引入间隙 */
+       v2.9.0 回退：删除 font-size:0 防御（v2.8.9 负资产）——header.innerHTML 使用字符串拼接无空白文本节点 */
     .page-section-header {
         display: block !important;            /* 不用 flex，改用 block（移动端兼容性最好） */
         height: 8mm;
@@ -137,7 +137,7 @@
         padding: 0 !important;
         box-sizing: border-box;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
-        font-size: 0;                          /* 防御：消除 inline-block 之间空白字符间隙 */
+        font-size: 9pt;                        /* v2.9.0：回退 font-size:0，直接设 9pt */
         color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         background: #fff !important;
         border-bottom: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
@@ -152,7 +152,7 @@
         text-overflow: ellipsis;
         vertical-align: middle;
         line-height: 8mm;
-        font-size: 9pt;                        /* 父元素 font-size:0 后子元素需重设 */
+        font-size: 9pt;                        /* v2.9.0：与父元素一致，无需重设 */
     }
     .page-section-header .ph-left   { width: 33%; text-align: left; }
     .page-section-header .ph-center { width: 34%; text-align: center; }
@@ -175,7 +175,8 @@
     }
 
     /* ── 页脚：固定 8mm，紧跟 content 之后（277mm 内自然到底） ──
-       v2.8.9 修复 P0-2 + P0-3：同页眉 */
+       v2.8.9 修复 P0-2 + P0-3：同页眉
+       v2.9.0 回退：删除 font-size:0 防御（同页眉） */
     .page-section-footer {
         display: block !important;            /* 不用 flex，改用 block */
         height: 8mm;
@@ -183,7 +184,7 @@
         padding: 0 !important;
         box-sizing: border-box;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
-        font-size: 0;                          /* 防御：同 .page-section-header */
+        font-size: 9pt;                        /* v2.9.0：回退 font-size:0，直接设 9pt */
         color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         background: #fff !important;
         border-top: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
@@ -198,7 +199,7 @@
         text-overflow: ellipsis;
         vertical-align: middle;
         line-height: 8mm;
-        font-size: 9pt;                        /* 父元素 font-size:0 后子元素需重设 */
+        font-size: 9pt;                        /* v2.9.0：与父元素一致，无需重设 */
     }
     .page-section-footer .pf-center { width: 70%; text-align: center; }
     .page-section-footer .pf-page   { width: 30%; text-align: right; }

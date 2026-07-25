@@ -10,6 +10,8 @@ export const FONT_LIST = [
 ];
 
 let customFontCounter = 0;
+// v2.9.0：用户上传字体源注册表（[fontFaceName, dataURL]），供 iframe 打印文档重新注册字体
+const customFontSources = [];
 
 export async function loadFonts() {
     // v2.7.x 性能优化：按需加载 + 并行加载 + display:swap
@@ -64,6 +66,8 @@ export function handleFontUpload(file) {
         var fontFace = new FontFace(fontName, 'url(' + ev.target.result + ')');
         fontFace.load().then(function(loaded) {
             document.fonts.add(loaded);
+            // v2.9.0：记录到 customFontSources，供 iframe 打印文档重新注册字体
+            customFontSources.push([fontName, ev.target.result]);
             var select = document.getElementById('font-select');
             var opt = document.createElement('option');
             opt.value = fontName;
@@ -126,4 +130,12 @@ export function detectSystemFonts() {
         }
     }
     return detected;
+}
+
+/**
+ * v2.9.0：导出全部字体源（内置 + 用户上传），供 iframe 打印文档重新注册字体
+ * 返回 [[fontName, url], ...]，url 可能是相对路径（内置字体）或 data URL（用户上传字体）
+ */
+export function getFontSources() {
+    return FONT_LIST.concat(customFontSources);
 }
