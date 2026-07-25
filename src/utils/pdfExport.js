@@ -488,8 +488,15 @@ export function printDirect() {
 
     grid.parentNode.insertBefore(wrapper, grid);
 
-    // RC1 修复：cleanup 幂等 + 恢复 page-break + 事件/可见性双触发，删除 1 秒兜底
+    // RC1 修复 v2（v2.8.9）：精确感知打印状态，删除误触发的 focus/visibilitychange
+    // 根因：v2.8.7 的 focus/visibilitychange 在移动端打印预览生命周期中会误触发 cleanup
+    // 导致 wrapper 被提前销毁，打印管线读到屏幕态 DOM（无页眉页脚）
+    // 改用 matchMedia('print').change 精确感知打印状态 + afterprint + pagehide + 120s 兜底
     let cleaned = false;
+    let printMediaQuery = null;
+    let onPrintChange = null;
+    let fallbackTimer = null;
+
     const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
@@ -504,19 +511,48 @@ export function printDirect() {
             wrapper.remove();
         }
         window.removeEventListener('afterprint', cleanup);
-        document.removeEventListener('visibilitychange', onVisible);
-        window.removeEventListener('focus', cleanup);
+        window.removeEventListener('pagehide', cleanup);
+        if (printMediaQuery && onPrintChange) {
+            try {
+                if (printMediaQuery.removeEventListener) {
+                    printMediaQuery.removeEventListener('change', onPrintChange);
+                } else if (printMediaQuery.removeListener) {
+                    // Safari < 14 兼容
+                    printMediaQuery.removeListener(onPrintChange);
+                }
+            } catch (e) { /* 忽略解绑异常 */ }
+        }
         if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
         console.log('[pdfExport] cleanup 完成');
     };
-    const onVisible = () => {
-        if (document.visibilityState === 'visible') cleanup();
-    };
+
+    // afterprint：桌面 Chrome 主要触发器，移动端部分浏览器也支持
     window.addEventListener('afterprint', cleanup);
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', cleanup);
-    // 仅作内存回收的超长兜底（120 秒），绝不影响打印管线的读取窗口
-    let fallbackTimer = setTimeout(cleanup, 120000);
+
+    // matchMedia('print')：精确感知打印状态变化
+    // 打印开始时 matches=true，打印结束时 matches=false（用户关闭预览或完成打印）
+    try {
+        printMediaQuery = window.matchMedia('print');
+        onPrintChange = (ev) => {
+            console.log('[pdfExport] matchMedia(print) change:', ev.matches);
+            // matches=false 表示打印流程结束
+            if (!ev.matches) cleanup();
+        };
+        if (printMediaQuery.addEventListener) {
+            printMediaQuery.addEventListener('change', onPrintChange);
+        } else if (printMediaQuery.addListener) {
+            // Safari < 14 兼容
+            printMediaQuery.addListener(onPrintChange);
+        }
+    } catch (e) {
+        console.warn('[pdfExport] matchMedia(print) 不支持，仅依赖 afterprint + pagehide', e);
+    }
+
+    // pagehide：移动端极端兜底（用户切到后台、关闭页面等）
+    window.addEventListener('pagehide', cleanup);
+
+    // 120s 超长兜底（仅作内存回收，绝不影响打印管线读取窗口）
+    fallbackTimer = setTimeout(cleanup, 120000);
 
     // v2.8.1：移动端检测（HarmonyOS / Android / iOS / 手机浏览器）
     // 移动端 window.print() 对 @media print 支持有限，需特殊引导

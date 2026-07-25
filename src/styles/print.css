@@ -124,26 +124,39 @@
     .a4-page.pdf-print-wrapper { page-break-after: auto !important; }
     .print-only-header, .print-only-footer { display: none !important; }
 
-    /* ── 页眉：固定 8mm，正常文档流位于 section 顶部 ── */
+    /* ── 页眉：固定 8mm，正常文档流位于 section 顶部 ──
+       v2.8.9 修复 P0-2：display 从 flex 改为 block + inline-block 子元素
+                  （移动端打印引擎对 display:none → display:flex !important 切换支持不完整）
+       v2.8.9 修复 P0-3：显式添加 print-color-adjust: exact
+                  （防止移动端打印引擎"优化"丢弃颜色和边框）
+       v2.8.9 防御：父元素 font-size:0 防止 inline-block 之间空白字符引入间隙 */
     .page-section-header {
-        display: flex !important;
+        display: block !important;            /* 不用 flex，改用 block（移动端兼容性最好） */
         height: 8mm;
-        margin: 0 5.9mm;                 /* (190-178.2)/2 = 5.9mm，与字格左右对齐 */
+        margin: 0 5.9mm;                       /* (190-178.2)/2 = 5.9mm，与字格左右对齐 */
         padding: 0 !important;
-        justify-content: space-between;
-        align-items: center;
         box-sizing: border-box;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
-        font-size: 9pt;
+        font-size: 0;                          /* 防御：消除 inline-block 之间空白字符间隙 */
         color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
-        background: #fff;
+        background: #fff !important;
         border-bottom: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         overflow: hidden;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
-    .page-section-header span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .page-section-header .ph-left   { flex: 1; text-align: left; }
-    .page-section-header .ph-center { flex: 1; text-align: center; }
-    .page-section-header .ph-right  { flex: 1; text-align: right; }
+    .page-section-header span {
+        display: inline-block;                 /* 不用 flex:1，改用 inline-block */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+        line-height: 8mm;
+        font-size: 9pt;                        /* 父元素 font-size:0 后子元素需重设 */
+    }
+    .page-section-header .ph-left   { width: 33%; text-align: left; }
+    .page-section-header .ph-center { width: 34%; text-align: center; }
+    .page-section-header .ph-right  { width: 33%; text-align: right; }
 
     /* ── 内容区：固定 261mm = 277 - 8(header) - 8(footer) ──
        11 行 × 21.6mm = 237.6mm ≤ 261mm，余 23.4mm
@@ -161,24 +174,34 @@
         max-height: 261mm;
     }
 
-    /* ── 页脚：固定 8mm，紧跟 content 之后（277mm 内自然到底） ── */
+    /* ── 页脚：固定 8mm，紧跟 content 之后（277mm 内自然到底） ──
+       v2.8.9 修复 P0-2 + P0-3：同页眉 */
     .page-section-footer {
-        display: flex !important;
+        display: block !important;            /* 不用 flex，改用 block */
         height: 8mm;
         margin: 0 5.9mm;
         padding: 0 !important;
-        justify-content: space-between;
-        align-items: center;
         box-sizing: border-box;
         font-family: 'Microsoft YaHei', 'PingFang SC', 'SimSun', sans-serif;
-        font-size: 9pt;
+        font-size: 0;                          /* 防御：同 .page-section-header */
         color: var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
-        background: #fff;
+        background: #fff !important;
         border-top: 0.2mm solid var(--grid-theme-color, var(--grid-primary-color, #2E7D32));
         overflow: hidden;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
-    .page-section-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .page-section-footer .pf-center { flex: 1; text-align: center; }
+    .page-section-footer span {
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+        line-height: 8mm;
+        font-size: 9pt;                        /* 父元素 font-size:0 后子元素需重设 */
+    }
+    .page-section-footer .pf-center { width: 70%; text-align: center; }
+    .page-section-footer .pf-page   { width: 30%; text-align: right; }
 
     /* ── 行对：拼音辅助行 + 汉字行物理绑定，绝不允许拆到两页 ──
        RC5 修复：即使分页被引擎忽略，拼音行与汉字行也物理上不可拆 */

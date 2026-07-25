@@ -5,6 +5,75 @@
 
 ---
 
+## [v2.8.9] — 2026-07-25
+
+> 移动端打印 DOM 页眉页脚不显示问题修复版本。在 v2.8.7 基础上（v2.8.7 已解决分页问题但页眉页脚仍缺失），针对多 Agent 协同分析确认的 3 个主根因（P0-1/P0-2/P0-3）进行精准修复。版本号跳过 v2.8.8（v2.8.8 是中间失败尝试，未发布）。
+
+### 🐛 修复
+
+#### 修复 1 — P0-1：移动端 cleanup 事件链误触发（主根因）
+
+- **位置**：`src/utils/pdfExport.js` 的 `printDirect()` 函数（第 491-555 行）
+- **根因**：v2.8.7 新增的 `focus` / `visibilitychange` cleanup 监听器在移动端打印预览的整个生命周期中会误触发（如打印预览弹窗夺取焦点、用户切换 Tab、用户切到后台选保存位置等），导致 wrapper DOM 被提前销毁，打印管线异步读取 DOM 时读到屏幕态 DOM（无页眉页脚）。即使有 `let cleaned = false` 幂等保护，第一次误触发就足以致命
+- **修复**：
+  - 删除 `window.addEventListener('focus', cleanup)` 和 `document.addEventListener('visibilitychange', onVisible)`
+  - 新增 `window.matchMedia('print').addEventListener('change', onPrintChange)` 精确感知打印状态（matches=false 表示打印流程结束）
+  - 保留 `window.addEventListener('afterprint', cleanup)` 作为桌面 Chrome 主要触发器
+  - 新增 `window.addEventListener('pagehide', cleanup)` 作为移动端极端兜底
+  - 保留 120s 超长兜底超时（仅作内存回收）
+  - 调整变量声明顺序：先声明 `printMediaQuery` / `onPrintChange` / `fallbackTimer`，再定义 cleanup（提升可读性，符合高级程序员审查建议）
+  - 兼容 Safari < 14 的 `addListener` / `removeListener` API
+
+#### 修复 2 — P0-2：页眉页脚 display 切换失效
+
+- **位置**：`src/styles/print.css` 第 127-204 行
+- **根因**：`.page-section-header` / `.page-section-footer` 从屏幕态 `display: none` 切换到打印态 `display: flex !important`，移动端打印引擎（华为 HarmonyOS WebView、三星 Internet、旧 Android WebView）对这种运行时切换支持不完整，子元素的内联布局可能未及时重建
+- **修复**：
+  - `.page-section-header` / `.page-section-footer` 的 `display: flex !important` 改为 `display: block !important`（最保守的 display 值，移动端兼容性最好）
+  - 子元素 `<span>` 从 `flex: 1` 改为 `display: inline-block` + `width: 33%/34%/33%`（页眉）和 `width: 70%/30%`（页脚）
+  - 父元素 `font-size: 0` 防御性设置，消除 inline-block 之间可能的空白字符间隙
+  - 子元素 `line-height: 8mm` + `vertical-align: middle` 保证文字垂直居中
+  - 子元素重设 `font-size: 9pt`
+
+#### 修复 3 — P0-3：缺少 print-color-adjust 导致颜色/边框被丢弃
+
+- **位置**：`src/styles/print.css` 第 145-146 行、第 191-192 行
+- **根因**：移动端打印引擎默认会"优化"打印输出，丢弃彩色背景/边框以节省墨水。当前 CSS 只对字格 SVG 设置了 `print-color-adjust: exact`，页眉页脚的文字颜色和边框没有此设置
+- **修复**：在 `.page-section-header` 和 `.page-section-footer` 显式添加：
+  ```css
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  ```
+- **附带**：`background: #fff` 改为 `background: #fff !important`，确保背景色在打印时强制显示
+
+### 📋 多 Agent 协同审查
+
+- **审查报告**：`docs/移动端页眉页脚不显示问题_根因分析与修复方案_v2.8.9.md`
+- **审查范围**：4 个 agent 并行分析（前端工程师 / 网页工程师 / 移动端开发工程师 / 代码分析师），再 5 个 agent 审查方案（架构师 / 前端高级工程师 / 移动端高级开发工程师 / 全栈工程师 / 高级程序员）
+- **审查结论**：
+  - ✅ 方案无阻塞问题，3 个主根因（P0-1/P0-2/P0-3）置信度 ⭐⭐⭐⭐⭐
+  - ⚠️ 2 处小改进（已采纳）：调整变量声明顺序、加 `font-size: 0` 防御 inline-block 空白
+  - ℹ️ 次根因（P1-1 几何溢出、P1-2 CSS 变量 fallback）留待 P0 修复后真机验证，再决定是否处理
+
+### 📋 验证
+
+- **方法论**：Puppeteer 仅用于桌面回归，移动端验收以真机为准
+- **真机验收标准**：
+  - 198 字 = 18 页（不退化）
+  - 移动端打印后**页眉完整显示**（日期/标题/字体）
+  - 移动端打印后**页脚完整显示**（评分/页码）
+  - 移动端页眉页脚**颜色正确**（与网格颜色同步）
+  - `?printdebug=1` 日志显示 cleanup 在打印流程**结束后**才触发（matchMedia(print) change: false）
+- **测试链接**：https://lcfactorization.github.io/calligraphy-sheet-generator/?printdebug=1
+
+### 🔄 回退
+
+- 备份 tag：`backup/pre_v289_header_footer/20260725_203328`
+- 回退命令：`git reset --hard backup/pre_v289_header_footer/20260725_203328`
+- 线下备份：`C:\poem2pdf\distribution_backups\v2.8.7_pre_v289_20260725_203328\`
+
+---
+
 ## [v2.8.7] — 2026-07-25
 
 > 移动端打印分页根因修复版本。在 v2.8.6 基础上，针对移动端真机打印长期存在的「分页错乱、二次打印失效、拼音行被撕页」等根因进行集中修复，覆盖 6 个根因（RC1-RC5 + RC6 验证方法论）。代码修改由代码 agent 完成，本条目仅同步版本号与文档。
