@@ -5,6 +5,30 @@
 
 ---
 
+## [v2.5.5] — 2026-07-25
+
+### 🐛 修复
+
+#### 修复 1 — 学习报告按钮样式丢失（v2.3.0 遗留退化）
+
+- **根因**：v2.3.0 删除 demoMode.css 时，reportPanel.js 仍引用 `.demo-btn` 类（已无 CSS 定义），导致按钮呈现浏览器默认样式
+- **修复**：[reportPanel.js:361](file:///c:/poem2pdf/distribution/src/modules/reportPanel.js#L361) `btn.className = 'demo-btn'` → `'btn btn-secondary'`
+- **验证**：构建版本浏览器测试通过，按钮样式与其他次要按钮统一
+
+#### 修复 2 — 默认输入文本超过 maxlength 限制
+
+- **根因**：[index.html:74](file:///c:/poem2pdf/distribution/index.html#L74) 默认文本超过 `maxlength="200"` 限制，控制台出现截断警告
+- **修复**：缩短默认文本至 200 字以内，移除末尾约 30 字重复内容
+- **验证**：文本长度计数器初始显示正确，无截断警告
+
+### ✅ 深度审查验证
+
+- 构建版本全面功能测试 10/10 通过（控制台无 SyntaxError，所有功能正常）
+- 开发模式的 fontManager.js SyntaxError 在构建后不存在（Vite 编译时处理）
+- 仅 4 条字体加载失败警告（本地无字体文件，GitHub Pages CI 会下载字体）
+
+---
+
 ## [v2.5.4] — 2026-07-25
 
 ### 🔧 修复与优化

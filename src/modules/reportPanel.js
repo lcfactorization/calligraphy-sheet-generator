@@ -358,7 +358,7 @@ function injectBaseStyles() {
 /** 创建"学习报告"按钮：优先注入 .app-header-actions，缺失时降级为浮动按钮 */
 function createReportButton(onClick) {
     const btn = document.createElement('button');
-    btn.className = 'demo-btn';
+    btn.className = 'btn btn-secondary';
     btn.id = 'reportOpenBtn';
     btn.title = '查看学习报告';
     btn.innerHTML = '📊 学习报告';
