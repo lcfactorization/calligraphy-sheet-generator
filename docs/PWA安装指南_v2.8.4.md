@@ -1,8 +1,8 @@
 # 字帖生成器 — PWA 安装指南 v2.8.4
 
 > **应用名称**：字帖生成器（短名：字帖）
-> **在线地址**：https://stereopensource.github.io/poem2pdf-distribution/
-> **GitHub 仓库**：https://github.com/stereopensource/poem2pdf-distribution
+> **在线地址**：https://lcfactorization.github.io/calligraphy-sheet-generator/
+> **GitHub 仓库**：https://github.com/lcfactorization/calligraphy-sheet-generator
 > **PWA 显示模式**：standalone（无浏览器地址栏）
 > **主题色**：#9E2A2B（朱砂红 / 印泥红）　**背景色**：#ffffff
 > **PWA manifest**：`name='字帖生成器', short_name='字帖', display='standalone', theme_color='#9E2A2B'`
@@ -21,15 +21,15 @@
 #### 1.1.1 标准尺寸（240×240）
 
 <p align="center">
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://stereopensource.github.io/poem2pdf-distribution/&color=000000&bgcolor=ffffff&qzone=2" alt="字帖生成器 PWA 安装二维码（240×240）" width="240" height="240"/>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://lcfactorization.github.io/calligraphy-sheet-generator/&color=000000&bgcolor=ffffff&qzone=2" alt="字帖生成器 PWA 安装二维码（240×240）" width="240" height="240"/>
 </p>
 
-<p align="center"><em>▲ 240×240 标准尺寸二维码（URL：stereopensource.github.io/poem2pdf-distribution/）</em></p>
+<p align="center"><em>▲ 240×240 标准尺寸二维码（URL：lcfactorization.github.io/calligraphy-sheet-generator/）</em></p>
 
 #### 1.1.2 高清尺寸（480×480）
 
 <p align="center">
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=https://stereopensource.github.io/poem2pdf-distribution/&color=000000&bgcolor=ffffff&qzone=2" alt="字帖生成器 PWA 安装二维码（480×480 高清）" width="480" height="480"/>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=https://lcfactorization.github.io/calligraphy-sheet-generator/&color=000000&bgcolor=ffffff&qzone=2" alt="字帖生成器 PWA 安装二维码（480×480 高清）" width="480" height="480"/>
 </p>
 
 <p align="center"><em>▲ 480×480 高清尺寸二维码（适合打印或大屏展示）</em></p>
@@ -45,10 +45,10 @@
 
 ```
 # 240×240 标准尺寸
-https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://stereopensource.github.io/poem2pdf-distribution/&color=000000&bgcolor=ffffff&qzone=2
+https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://lcfactorization.github.io/calligraphy-sheet-generator/&color=000000&bgcolor=ffffff&qzone=2
 
 # 480×480 高清尺寸
-https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=https://stereopensource.github.io/poem2pdf-distribution/&color=000000&bgcolor=ffffff&qzone=2
+https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=https://lcfactorization.github.io/calligraphy-sheet-generator/&color=000000&bgcolor=ffffff&qzone=2
 ```
 
 ### 1.3 手动输入访问地址
@@ -56,7 +56,7 @@ https://api.qrserver.com/v1/create-qr-code/?size=480x480&data=https://stereopens
 如无法扫码，请在浏览器地址栏直接输入：
 
 ```
-https://stereopensource.github.io/poem2pdf-distribution/
+https://lcfactorization.github.io/calligraphy-sheet-generator/
 ```
 
 > [!NOTE]
@@ -91,7 +91,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 #### 步骤 1：扫码或访问 URL
 
 - 用 MatePad 自带「相机」扫描上方二维码，识别后点击「在浏览器中打开」
-- 或直接打开**华为浏览器**，在地址栏输入 `https://stereopensource.github.io/poem2pdf-distribution/`
+- 或直接打开**华为浏览器**，在地址栏输入 `https://lcfactorization.github.io/calligraphy-sheet-generator/`
 
 #### 步骤 2：打开浏览器菜单
 
@@ -153,7 +153,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 #### 步骤 1：扫码或访问 URL
 
 - 用系统相机扫描二维码 → 点击「用 Chrome 打开」（或默认浏览器）
-- 或打开 Chrome，地址栏粘贴 `https://stereopensource.github.io/poem2pdf-distribution/`
+- 或打开 Chrome，地址栏粘贴 `https://lcfactorization.github.io/calligraphy-sheet-generator/`
 
 #### 步骤 2：打开浏览器菜单
 
@@ -196,7 +196,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 #### 步骤 1：扫码或访问 URL
 
 - 用系统相机扫描二维码 → 点击「在 Safari 中打开」
-- 或打开 **Safari**（蓝色指南针图标），地址栏粘贴 `https://stereopensource.github.io/poem2pdf-distribution/`
+- 或打开 **Safari**（蓝色指南针图标），地址栏粘贴 `https://lcfactorization.github.io/calligraphy-sheet-generator/`
 
 > [!WARNING]
 > **不要用 Chrome / Firefox / 微信内置浏览器**——iOS 上只有 Safari 能将 PWA 添加到主屏幕。微信扫码后请点击右上角 ⋯ → 「在 Safari 中打开」。
@@ -242,7 +242,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 
 #### 步骤 1：访问 URL
 
-- 打开 Chrome（Windows 或 MacOS），地址栏输入 `https://stereopensource.github.io/poem2pdf-distribution/`
+- 打开 Chrome（Windows 或 MacOS），地址栏输入 `https://lcfactorization.github.io/calligraphy-sheet-generator/`
 - 等待页面完全加载（看右上角图标变化）
 
 #### 步骤 2：找到安装入口
@@ -287,7 +287,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 
 #### 步骤 1：访问 URL
 
-- 打开 Safari（macOS Sonoma 14+），地址栏输入 `https://stereopensource.github.io/poem2pdf-distribution/`
+- 打开 Safari（macOS Sonoma 14+），地址栏输入 `https://lcfactorization.github.io/calligraphy-sheet-generator/`
 
 #### 步骤 2：找到安装入口
 
@@ -361,7 +361,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 > [!WARNING]
 > **Service Worker 必须在 HTTPS 环境下注册**
 >
-> - GitHub Pages 默认提供 HTTPS（`https://stereopensource.github.io/...`），满足此要求
+> - GitHub Pages 默认提供 HTTPS（`https://lcfactorization.github.io/...`），满足此要求
 > - 若使用本地 `http://localhost:3000` 测试，浏览器会破例允许 Service Worker 注册（localhost 是特例）
 > - 如自建服务器部署，必须配置 HTTPS 证书（推荐 Let's Encrypt 免费证书）
 > - HTTP 环境（非 localhost）下 PWA 完全不可用
@@ -502,7 +502,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 直接在任何浏览器中打开在线地址即可使用全部前端功能（除离线访问外，PWA 与浏览器版本功能完全一致）：
 
 ```
-https://stereopensource.github.io/poem2pdf-distribution/
+https://lcfactorization.github.io/calligraphy-sheet-generator/
 ```
 
 ### 方案 B：本地静态文件演示
@@ -514,7 +514,7 @@ https://stereopensource.github.io/poem2pdf-distribution/
 ### 方案 C：本地开发服务器
 
 ```bash
-git clone https://github.com/stereopensource/poem2pdf-distribution.git
+git clone https://github.com/lcfactorization/calligraphy-sheet-generator.git
 cd poem2pdf-distribution
 npm install
 npm run dev      # 启动开发服务器 http://localhost:3000
