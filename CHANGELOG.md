@@ -5,6 +5,76 @@
 
 ---
 
+## [v2.9.4] — 2026-07-26
+
+> 移动端控件重叠问题的**纯 CSS 重排修复版本**。多 Agent 协同分析（项目分析师 + 系统分析师与架构师 + 前端开发工程师 + 全栈调研）确认 P0 硬伤：`.fab-print` 与 `.history-fab` 像素级完全重叠（同 `bottom:24px;right:24px`），移动端 `@media (max-width:680px)` 仅缩小尺寸未重排位置。v2.9.4 采用方案 A（纯 CSS 重排），零 JS 改动、零依赖增加、零 click 冲突，跨平台兼容性满分。
+
+### 🐛 修复
+
+#### 修复 1 — P0 硬伤：`.fab-print` 与 `.history-fab` 像素级重叠
+
+- **位置**：`src/styles/history.css` 第 5-7 行
+- **根因**：`.fab-print`（fab.css:25 `bottom:24px;right:24px`）与 `.history-fab`（history.css:6 `bottom:24px;right:24px`）定位完全相同，桌面端和移动端都像素级重叠
+- **修复**：`.history-fab` 桌面端从 `right:24px` 改为 `left:24px`，移到左下角（桌面端 `.sidebar-drawer-toggle` 不显示，左下角空闲）
+
+#### 修复 2 — 移动端控件重排（@media max-width:680px）
+
+- **位置**：`src/styles/fab.css` 第 70-82 行
+- **根因**：原 `@media (max-width:680px)` 仅缩小 FAB 尺寸（52px→40px/36px），未重排位置，右下角重叠依旧
+- **修复**：移动端布局重排
+  - `.fab-settings` → `top:16px; right:16px`（右上角，微调）
+  - `.fab-theme` → `top:16px; left:16px`（移到左上角，与抽屉开关错开）
+  - `.fab-puppeteer` → `bottom:80px; right:16px`（移到右下角打印上方）
+  - `.fab-print` → `bottom:16px; right:16px`（右下角，缩小到 40px）
+- **移动端布局示意**：
+  ```
+  ┌──────────────────────┐
+  │ [theme]     [settings]│
+  │                       │
+  │       (字帖区域)      │
+  │                       │
+  │ [toggle] [history]    │
+  │            [puppeteer] │
+  │            [print]     │
+  └──────────────────────┘
+  ```
+
+#### 修复 3 — 移动端 768px 断点避让 `.sidebar-drawer-toggle`
+
+- **位置**：`src/styles/history.css` 第 18-21 行（新增 `@media (max-width:768px)`）
+- **根因**：`.sidebar-drawer-toggle` 在 `@media (max-width:768px)` 显示在 `left:16px;bottom:16px`（48×48px），而 fab.css 的移动端断点是 680px，681-768px 范围内 `.history-fab` 若在 `left:24px` 会与抽屉开关重叠
+- **修复**：新增 `@media (max-width:768px){ .history-fab{bottom:16px;left:80px} }`，确保 768px 以下 `.history-fab` 始终避让抽屉开关
+
+### 📋 多 Agent 协同审查
+
+- **审查报告**：`docs/移动端控件重叠问题_多Agent分析简报_v2.9.3.md`
+- **审查范围**：4 方案比对（纯 CSS 重排 / Pointer Events 拖拽 / interact.js 库 / 混合方案）
+- **推荐方案**：方案 A（纯 CSS 重排），理由：最低风险、确保稳定、对项目总体影响最小
+- **关键风险规避**：
+  - iOS WebKit 渲染层穿透缺陷（Bug #153852，截至 2026-07 未修复）→ 纯 CSS 无此风险
+  - HarmonyOS ArkWeb Pointer Events 非原生浏览器行为 → 纯 CSS 无此风险
+  - 拖拽与现有 6 个 click 监听器冲突 → 纯 CSS 无此风险
+
+### 📋 版本号全量同步
+
+- **index.html**：`v2.9.3` → `v2.9.4` + `build 2026-07-26 v2.9.4`
+- **package.json**：`2.9.3` → `2.9.4`
+- **CHANGELOG.md**：新增 v2.9.4 条目
+- **src/styles/fab.css**：注释更新为 v2.9.4 说明
+- **src/styles/history.css**：注释更新为 v2.9.4 说明
+
+### 📋 影响范围
+
+- **修改文件**：`src/styles/fab.css`、`src/styles/history.css`（仅 CSS，无 JS）
+- **不影响**：任何 click 事件、任何 JS 逻辑、任何打印/PDF 功能、任何设置中心功能
+- **测试范围**：6 个按钮在 3 个断点（>768px、680-768px、<680px）下的视觉布局
+
+### 🔄 回退
+
+- 回退 tag：`v2.9.3`（`git reset --hard v2.9.3`）
+
+---
+
 ## [v2.9.3] — 2026-07-26
 
 > v2.9.2 的视觉调优版本。用户反馈"11行字帖和拼音总体下移位置偏多"，v2.9.2 的 20mm 顶部边距让字格从 y=20mm 开始，视觉上字帖"沉底"。v2.9.3 采用**双参数协同调优**：顶部边距 20mm→12mm + headerTemplate padding-top 10mm→3mm，字格上移 8mm 至 y=12mm，页眉文字上移 7mm 至 y=3mm，间距 5.8mm 仍充足避免重叠。

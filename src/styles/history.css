@@ -1,9 +1,10 @@
 /* ── 历史记录侧边栏（A-1） ── */
 
 /* 打开按钮（折叠时显示） */
+/* v2.9.4：从 right:24px 改为 left:24px，避免与 .fab-print(bottom:24px;right:24px) 像素级重叠 */
 .history-fab{
     position:fixed;z-index:9998;
-    bottom:24px;right:24px;
+    bottom:24px;left:24px;
     width:52px;height:52px;border-radius:50%;
     border:2px solid var(--toggle-border);
     background:linear-gradient(135deg,#6366f1,#8b5cf6);
@@ -12,6 +13,11 @@
     box-shadow:0 4px 16px rgba(99,102,241,0.35);
     transition:all .3s var(--ease-out-soft);
     outline:none;font-size:22px;
+}
+
+/* v2.9.4：移动端避让 .sidebar-drawer-toggle（left:16px;bottom:16px;48×48px，768px 断点显示） */
+@media (max-width:768px){
+    .history-fab{bottom:16px;left:80px}
 }
 .history-fab:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(99,102,241,0.5)}
 .history-fab:active{transform:scale(0.93)}
@@ -109,6 +115,7 @@
 
 /* 移动端全屏覆盖 */
 @media (max-width:680px){
+    .history-fab{width:40px;height:40px;font-size:18px}
     .history-sidebar{width:100vw;max-width:100vw}
     .history-header{padding:12px 14px;font-size:14px}
     .history-toggle{width:26px;height:26px}

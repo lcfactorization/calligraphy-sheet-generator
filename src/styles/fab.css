@@ -67,14 +67,18 @@
 .puppeteer-toast.success{background:rgba(16,185,129,0.95)}
 .puppeteer-toast.info{background:rgba(99,102,241,0.95)}
 
-/* ── 移动端：FAB 组缩小到 40px ── */
-/* v2.7.0：settings(20px) → theme(84px) → puppeteer(148px) 垂直排列，right 统一 24px */
+/* ── 移动端：FAB 组重排避免重叠（v2.9.4） ── */
+/* v2.9.4 修复：原 .fab-print(bottom:24px;right:24px) 与 .history-fab(bottom:24px;right:24px) 像素级完全重叠
+   移动端布局（< 680px）：
+     左上角(theme) | 右上角(settings) | 右下角(print) | 右下角上方(puppeteer)
+     左下角(sidebar-toggle,由 theme.css 控制) | 左下角偏右(history-fab,由 history.css 控制) */
 @media (max-width:680px){
-    .fab-theme{top:84px;right:24px}
-    .fab-print{width:40px;height:40px;bottom:24px;right:24px}
-    .fab-print svg{width:20px;height:20px}
-    .fab-puppeteer{width:36px;height:36px;top:148px;right:24px}
+    .fab-settings{top:16px;right:16px}
+    .fab-theme{top:16px;left:16px;right:auto}
+    .fab-puppeteer{width:36px;height:36px;top:auto;bottom:80px;right:16px}
     .fab-puppeteer svg{width:16px;height:16px}
+    .fab-print{width:40px;height:40px;bottom:16px;right:16px}
+    .fab-print svg{width:20px;height:20px}
 }
 
 /* ── 打印时隐藏 FAB ── */
