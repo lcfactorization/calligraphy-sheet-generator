@@ -8,13 +8,45 @@
 
 /* 高亮目标控件的 spotlight 类（加到目标元素上）
    技巧：超大 box-shadow 形成全屏遮罩，目标元素本身保持可见
-   !important 用于覆盖 FAB 原有 box-shadow 与 z-index */
+   !important 用于覆盖 FAB 原有 box-shadow 与 z-index
+   ⚠️ v2.9.6 修复：不要写 position: relative/fixed !important
+   —— 会破坏 FAB 的 position:fixed 定位语义（fixed 的 top/right 是视口坐标，
+   relative 的 top/right 是反向相对偏移，导致 FAB 跌回文档流末尾再叠加反向偏移，
+   视觉上落在对角位置）。FAB 本身已是 position:fixed（属"已定位元素"），
+   z-index 天然生效，无需额外 position 声明。 */
 .ob-spotlight {
-    position: relative !important;
     z-index: 10011 !important;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7) !important;
-    border-radius: 10px !important;
     transition: box-shadow 0.3s var(--ease-out-soft) !important;
+}
+
+/* v2.9.6：圆形 FAB 保留 50% 圆角，避免被通用规则压成圆角矩形
+   FAB 类（settings/theme/print/puppeteer/history）均为 border-radius:50% */
+.fab-settings.ob-spotlight,
+.fab-theme.ob-spotlight,
+.fab-print.ob-spotlight,
+.fab-puppeteer.ob-spotlight,
+.history-fab.ob-spotlight {
+    border-radius: 50% !important;
+}
+
+/* v2.9.6：非 FAB 的 static 目标（如 .sidebar-drawer-toggle）需要 position:relative
+   才能让 z-index 生效（static 元素 z-index 无效）
+   仅对非 FAB 目标加 relative，FAB 类显式排除，避免破坏其 fixed 定位 */
+.ob-spotlight:not(.fab-settings):not(.fab-theme):not(.fab-print):not(.fab-puppeteer):not(.history-fab) {
+    position: relative !important;
+    border-radius: 10px !important;
+}
+
+/* v2.9.6 防御：引导期间若用户尝试拖拽 FAB 触发 .dragging 类，
+   .dragging 的 box-shadow 会覆盖 spotlight 的 9999px 阴影导致遮罩消失
+   用三重类选择器（特异性 0,3,0）确保 spotlight 阴影优先级高于 .dragging（0,1,0） */
+.fab-settings.ob-spotlight.dragging,
+.fab-theme.ob-spotlight.dragging,
+.fab-print.ob-spotlight.dragging,
+.fab-puppeteer.ob-spotlight.dragging,
+.history-fab.ob-spotlight.dragging {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* 气泡卡片（fixed 定位，避免被 spotlight 遮罩裁剪）

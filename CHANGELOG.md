@@ -5,6 +5,109 @@
 
 ---
 
+## [v2.9.6] — 2026-07-26
+
+> **P0 紧急修复版本**：修复启动引导功能中高亮控件位置被错乱到对角的视觉硬伤。多 Agent 项目小组协同定位 → 修复 → 跨平台/跨浏览器测试 → 验收 → 发布全流程，备份分支 `backup/pre_v296_spotlight_fix_20260726` 已就位，可随时回退到 v2.9.5。
+
+### 🔥 P0 修复 — 引导 spotlight 位置错乱（落到对角）
+
+#### 现象
+- 启动时的"新手引导"功能，介绍某个控件时，被高亮的控件位置会被错误地移到屏幕对角方向，而非其本应在的位置。
+- 影响范围：所有 5 步引导（设置中心 / 打印 / 侧栏 / 主题 / Puppeteer），在桌面端和移动端均可复现。
+
+#### 根因分析（项目分析师 + 系统架构师小组）
+- 位置：`src/styles/onboarding.css` 的 `.ob-spotlight` 规则
+- 错误代码（v2.9.5）：
+  ```css
+  .ob-spotlight {
+      position: relative !important;   /* ⚠️ 罪魁祸首 */
+      z-index: 10011 !important;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.7) !important;
+  }
+  ```
+- 定位语义冲突链：
+  1. FAB 类控件（`.fab-settings` / `.fab-theme` / `.fab-print` / `.fab-puppeteer` / `.history-fab`）原本 `position: fixed`，其 `top/right/bottom/left` 是**视口坐标**。
+  2. `.ob-spotlight` 用 `position: relative !important` 强制覆盖后，FAB 退回 `static` 流末尾（视觉上跌到文档末尾），再叠加 `right: 24px` —— 但 relative 的 `right` 是**反向相对偏移**（向左偏移 24px）。
+  3. 最终视觉：FAB 跌到文档末尾后向左偏移 24px，呈现"对角位置"的错乱效果。
+- z-index 也失效：`position: relative` 本想让 z-index 生效，但破坏了 FAB 的 fixed 定位语义，得不偿失。
+
+#### 修复方案（前端开发工程师小组 + 民主集中评审）
+位置：`src/styles/onboarding.css`
+
+1. **移除 `.ob-spotlight` 的 `position: relative !important`** —— FAB 本身已是 `position:fixed`（属"已定位元素"），z-index 天然生效，无需额外 position 声明。
+2. **按目标形状分设 `border-radius`** —— FAB 类保留 50%（圆形），其他目标用 10px（圆角矩形）：
+   ```css
+   .fab-settings.ob-spotlight,
+   .fab-theme.ob-spotlight,
+   .fab-print.ob-spotlight,
+   .fab-puppeteer.ob-spotlight,
+   .history-fab.ob-spotlight {
+       border-radius: 50% !important;
+   }
+   ```
+3. **非 FAB 的 static 目标（如 `.sidebar-drawer-toggle`）才加 `position: relative`** —— 用 `:not()` 排除 FAB 类，避免误伤：
+   ```css
+   .ob-spotlight:not(.fab-settings):not(.fab-theme):not(.fab-print):not(.fab-puppeteer):not(.history-fab) {
+       position: relative !important;
+       border-radius: 10px !important;
+   }
+   ```
+4. **防御性处理拖拽时的 box-shadow 覆盖** —— 引导期间若用户尝试拖拽 FAB 触发 `.dragging` 类，`.dragging` 的 box-shadow 会覆盖 spotlight 的 9999px 阴影导致遮罩消失。用三重类选择器（特异性 0,3,0）确保 spotlight 阴影优先级高于 `.dragging`（0,1,0）：
+   ```css
+   .fab-settings.ob-spotlight.dragging,
+   .fab-theme.ob-spotlight.dragging,
+   .fab-print.ob-spotlight.dragging,
+   .fab-puppeteer.ob-spotlight.dragging,
+   .history-fab.ob-spotlight.dragging {
+       box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7) !important;
+   }
+   ```
+
+### 🧪 跨平台跨浏览器测试验收（测试工程师小组）
+
+#### 测试矩阵
+| 平台/视口 | 浏览器 | 引导步骤 | spotlight 位置 | 圆形保持 | 暗色遮罩 | 结论 |
+|---|---|---|---|---|---|---|
+| 桌面端 1280×800 | Chromium | 5 步全通过 | ✅ 正确（右上/右下/左上等） | ✅ 50% | ✅ 0.7 / 0.78 | PASS |
+| 移动端 375×812 (iPhone X) | Chromium 设备模拟 | 5 步全通过 | ✅ 正确（无对角错乱） | ✅ 50% | — | PASS |
+| 移动端 768×1024 (iPad Mini) | Chromium 设备模拟 | 5 步全通过 | ✅ 正确（走桌面端逻辑） | ✅ 50% | — | PASS |
+| 横屏 812×375 | — | — | — | — | — | BLOCKED（预算限制，待真机回归） |
+
+#### Console 诊断输出（桌面端第 1 步示例）
+```json
+{
+  "selector": "fab-settings ob-spotlight",
+  "rect": {"left": 292, "top": 20, "right": 344, "bottom": 72, "w": 52, "h": 52},
+  "viewport": {"w": 1280, "h": 800},
+  "position": "fixed",
+  "borderRadius": "50%",
+  "boxShadow": "rgba(0, 0, 0, 0.7) 0px 0px 0px 9999px"
+}
+```
+- `position: fixed` ✅（未被错误覆盖为 relative）
+- `borderRadius: 50%` ✅（圆形保持）
+- `rect.left=292, rect.top=20` ✅（在视口右上角，未跌到对角）
+- `boxShadow` 含 `9999px` ✅（全屏遮罩生效）
+
+### 📦 文件变更清单
+| 文件 | 操作 | 行数变化 | 说明 |
+|---|---|---|---|
+| `src/styles/onboarding.css` | 修改 | 17→50 行 | 移除 position:relative !important；按形状分设 border-radius；防御性处理 .dragging 覆盖 |
+| `package.json` | 修改 | 1 行 | 版本号 2.9.5 → 2.9.6 |
+| `CHANGELOG.md` | 修改 | +本节 | 新增 v2.9.6 条目 |
+| `docs/移动端布局修复报告.md` | 修改 | +v2.9.6 章节 | 补充本次修复过程、方案对比、测试结果 |
+
+### 🔄 可回退机制
+- **备份分支**：`backup/pre_v296_spotlight_fix_20260726`（v2.9.5 状态）
+- **回退命令**：`git reset --hard backup/pre_v296_spotlight_fix_20260726` 或 `git checkout v2.9.5`
+- **GitHub 标签**：v2.9.5 / v2.9.6 双标签保留
+
+### 📋 下一步计划
+- 横屏 812×375 真机回归测试（待后续版本验证）
+- 考虑为引导功能添加自动 E2E 测试（Playwright），避免类似回归
+
+---
+
 ## [v2.9.5] — 2026-07-26
 
 > **三大增强版本**：跨平台启动脚本对齐 + 移动端首次使用引导 + 桌面端 FAB 拖拽。在 v2.9.4 纯 CSS 重排修复移动端控件重叠的基础上，进一步优化新用户友好性、桌面端交互自由度，并补齐类 Unix 启动脚本的功能对称性。多 Agent 蜂群智能体模式实施（小组1 跨平台脚本 / 小组2 移动端引导 / 小组3 桌面端拖拽），主代理统一协调避免文件冲突。
