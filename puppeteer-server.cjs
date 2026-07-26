@@ -160,17 +160,23 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             // v2.4.12：清除浏览器打印残留的 CSS 页眉页脚元素，避免与 Puppeteer headerTemplate 重叠
             // 注意：不清理 .pdf-print-wrapper（那是本路径刚创建的 .a4-page wrapper）
             document.querySelectorAll('.print-only-header, .print-only-footer, .page-section-header, .page-section-footer, .print-page-section').forEach(el => el.remove());
-            // v2.9.2 修复：Puppeteer 路径专用 @page margin 覆盖
-            // 背景：v2.8.7 将 print.css 的 @page margin 改为 10mm（window.print() 路径用，.print-page-section 190×277mm 依赖此），
-            //   但 page.pdf({preferCSSPageSize:true}) 会让 CSS @page 优先，覆盖 page.pdf() 的 margin.top，
-            //   导致 Puppeteer 实际顶部边距只有 10mm，headerTemplate 文字（padding-top:10mm → y=10mm）与第一行字格重叠。
-            // v2.9.1 用 29mm 修复重叠但 printableArea 仅 252mm（余量 14.4mm 太紧），198字 18页变 19页尾页空白。
-            // v2.9.2 调为 20mm：printableArea=261mm（=window.print() 的 .page-section-content 高度，余量 23.4mm），
-            //   间距 10mm（页眉文字 y=10mm，字格 y=20mm）足够避免重叠，且保持 18 页。
+            // v2.9.3 修复：Puppeteer 路径专用 @page margin 覆盖（精准调优版）
+            // 演进历史：
+            //   v2.8.7 把 print.css 的 @page margin 改为 10mm（服务 window.print() 路径的 .print-page-section 190×277mm），
+            //     但未为 Puppeteer 路径保留覆盖，导致 headerTemplate 文字与第一行字格在 y=10mm 处重叠。
+            //   v2.9.1 用 29mm 修复重叠，字格 y=29mm 下移过多，用户反馈"下移位置偏多"。
+            //   v2.9.2 调为 20mm，字格 y=20mm 仍然偏下，用户反馈"下移位置偏多"未消除。
+            // v2.9.3 调优方案：顶部边距 12mm + headerTemplate padding-top 3mm（双参数协同）
+            //   - 字格 y=12mm（比 v2.9.2 上移 8mm，视觉上字帖不再"沉底"）
+            //   - 页眉文字 y=3mm（比 v2.9.2 上移 7mm，仍距纸张上边缘 3mm，安全）
+            //   - 页眉文字底部到字格顶部间距 ≈ 5.8mm（9pt 字高约 3.2mm，间距充足避免重叠）
+            //   - printableArea=269mm（297-12-16），11行 237.6mm 余 31.4mm，198字稳定 18 页
+            // 测试覆盖（_test_v293_optimize.cjs）：8/10/12/15/20/29mm 六档边距 × 198字 均 18 页，
+            //   12mm+pad3 是视觉最优档（字格最靠上 + 间距充足 + 页数稳定）。
             //   此 <style> 只存在于 Puppeteer 加载的页面，window.print() 路径不经过 puppeteer-server.cjs，零影响。
             const puppeteerPageStyle = document.createElement('style');
             puppeteerPageStyle.id = 'puppeteer-page-margin-override';
-            puppeteerPageStyle.textContent = '@media print{@page{size:A4 portrait;margin:20mm 15.9mm 16mm 15.9mm !important;}}';
+            puppeteerPageStyle.textContent = '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}';
             document.head.appendChild(puppeteerPageStyle);
             const fontSelect = document.getElementById('font-select');
             const fontDisplayName = fontSelect ? fontSelect.options[fontSelect.selectedIndex].text : '';
@@ -204,7 +210,8 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                 }
                 hRight = fontName ? fontName + '练习' : '';
             }
-            // v2.9.2 修复：读取字帖网格颜色，让页眉页脚颜色跟随网格颜色预设（绿/红/蓝/黑）
+            // v2.9.2 修复（v2.9.3 保留）：读取字帖网格颜色，让页眉页脚颜色跟随网格颜色预设（绿/红/蓝/黑）
+            // 注意：若用户反馈"颜色不跟随"，99% 是 puppeteer-server.cjs 未重启（仍运行旧版无此逻辑的代码）
             const gridColor = (document.documentElement.style.getPropertyValue('--grid-theme-color') || '').trim()
                 || (document.documentElement.style.getPropertyValue('--grid-primary-color') || '').trim()
                 || '#2E7D32';
@@ -235,9 +242,11 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
         const fT = escapeHtml(hfInfo?.fText || '');
 
         const hColor = hfInfo?.gridColor || '#2E7D32';
+        // v2.9.3：padding-top 从 10mm 调为 3mm（与顶部边距 12mm 协同，字格上移 8mm）
+        //   页眉文字 y=3mm，字格 y=12mm，间距 5.8mm 足够避免重叠
         const headerTemplateHtml = `
             <style>body{margin:0!important;padding:0!important;}</style>
-            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:10mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
+            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:3mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
                 <span>${hL}</span>
                 <span style="flex:1;text-align:center;">${hC}</span>
                 <span>${hR}</span>
@@ -251,7 +260,8 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
 
         const pdfBuffer = await page.pdf({
             format: 'a4', printBackground: true,
-            margin: { top: '20mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
+            // v2.9.3：margin.top 20mm → 12mm（与 @page margin 注入协同，字格上移 8mm）
+            margin: { top: '12mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
             displayHeaderFooter: true,
             headerTemplate: headerTemplateHtml,
             footerTemplate: footerTemplateHtml,
