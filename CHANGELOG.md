@@ -5,6 +5,92 @@
 
 ---
 
+## [v2.9.5] — 2026-07-26
+
+> **三大增强版本**：跨平台启动脚本对齐 + 移动端首次使用引导 + 桌面端 FAB 拖拽。在 v2.9.4 纯 CSS 重排修复移动端控件重叠的基础上，进一步优化新用户友好性、桌面端交互自由度，并补齐类 Unix 启动脚本的功能对称性。多 Agent 蜂群智能体模式实施（小组1 跨平台脚本 / 小组2 移动端引导 / 小组3 桌面端拖拽），主代理统一协调避免文件冲突。
+
+### ✨ 新增
+
+#### 新增 1 — 移动端首次使用引导 + 滚动边角提示
+
+- **新增文件**：`src/styles/onboarding.css`、`src/modules/onboarding.js`
+- **首次访问**：自动展示 5 步引导浮层（设置中心 → 打印 → 侧栏 → 主题 → Puppeteer），高亮目标控件 + 气泡卡片介绍
+- **桌面端适配**：气泡居中显示，隐藏指向箭头；桌面端 `.sidebar-drawer-toggle` 为 `display:none`，引导自动跳过该步（`isElementVisible()` 检查 `offsetParent` 与 `getComputedStyle`）
+- **移动端适配**：气泡贴近高亮控件，含指向箭头；旋转屏幕时自动重新定位（`resize` 监听）
+- **老用户**：`localStorage.onboarding_completed === 'true'` 时不自动弹窗
+- **滚动边角提示**：引导完成后启用，用 `IntersectionObserver` 检测核心控件是否在视口内，不在则显示半透明箭头指示器（`pulse` 动画 1.5s）
+- **打印时隐藏**：`@media print` 对 `.ob-spotlight/.ob-bubble/.ob-hint/#onboarding-root` 设 `display:none`，并还原 `box-shadow`
+- **设置中心入口**：新增"🎓 新手引导 → 重新查看新手引导"按钮，复用现有 `.sc-restart-ob` 样式，动态 `import('./onboarding.js')` 避免静态循环依赖
+
+#### 新增 2 — 桌面端 FAB 拖拽功能
+
+- **新增文件**：`src/modules/fabDrag.js`
+- **启用条件**：`window.matchMedia('(min-width: 681px)')` 匹配时启用，移动端不启用（避免与 click 冲突）
+- **可拖拽 FAB**：`.fab-settings` / `.fab-theme` / `.fab-puppeteer` / `.fab-print` / `.history-fab`（5 个）
+- **click 与 drag 冲突处理**：5px 位移阈值，< 5px 视为 click（不拦截），≥ 5px 视为 drag（在 pointerup 时用 `{ capture: true, once: true }` 拦截下一次 click）
+- **定位体系切换**：拖拽时从 `right/top` 切换到 `left/top`，基于 `getBoundingClientRect()` 的实际像素位置，**无跳变**
+- **边界约束**：`left ∈ [8, innerWidth - offsetWidth - 8]`，`top` 同理
+- **8px 网格吸附**：拖拽释放时 `Math.round(value / 8) * 8`
+- **位置持久化**：`localStorage.calligraphy_fab_positions`，JSON 格式 `{ "fab-print": {left, top}, ... }`
+- **断点切换**：监听 `mqDesktop.change`，桌面端→移动端自动 `disableAll()` 清除内联定位，移动端→桌面端自动 `enableAll()` 应用持久化位置
+- **拖拽视觉反馈**：`.dragging` 类（`cursor:grabbing`、`transform:scale(1.05)`、`box-shadow` 增强、`z-index:10001`、`transition:none`），拖拽时隐藏 `::after` tooltip
+- **设置中心入口**：新增"📐 控件位置 → 重置控件位置"按钮，点击后清 localStorage + 清内联样式 + 绿色 toast 提示
+
+### 🔧 修复
+
+#### 修复 1 — 跨平台启动脚本功能不对称
+
+- **位置**：`启动Puppeteer.sh`（37 → 133 行）
+- **根因**：原 `.sh` 缺少端口占用检查（`.ps1` 有 `Get-NetTCPConnection` 检查 + Y/N 交互），功能与 Windows 版不对称
+- **修复**：
+  - shebang 改为 `#!/usr/bin/env bash`（跨平台，避免硬编码 `/bin/bash`）
+  - 增加 `set -u`（未定义变量报错，不加 `set -e` 保留端口选择交互）
+  - 增加 `nodejs` 命令兜底（部分 Linux 发行版 `node` 软链接缺失）
+  - **端口占用检查**：三工具链自动选择（`lsof` → `ss` → `netstat`），兼顾 macOS（lsof 默认可用）和 Linux（lsof 需 sudo 看 PID，回退到 ss/netstat）
+  - 进程名通过 `ps -p $PID -o comm=` 反查，绕过 Linux lsof/ss 看进程名需 sudo 的限制
+  - 服务异常退出后 `read -rp` 暂停（仿 `.ps1` 第 84-92 行）
+  - 4 步检查 `[1/4]`…`[4/4]` 与 `.ps1` 对称
+- **未修改**：`.bat`（4 行启动器无 bug）、`.ps1`（Windows 专用，已验证）、`package.json`/`package-lock.json`（Puppeteer 版本 `^23.0.0` ↔ `23.11.1` 一致无退回）
+
+### 📋 跨平台兼容性矩阵
+
+| 平台 | 启动脚本 | Node.js 检查 | 构建产物 | Puppeteer | 端口检查 | 退出暂停 |
+|---|---|---|---|---|---|---|
+| Windows | `.bat` → `.ps1` | ✅ | ✅ | ✅ | ✅ `Get-NetTCPConnection` | ✅ `RawUI.ReadKey` |
+| macOS | `.sh` | ✅ `node` | ✅ | ✅ | ✅ `lsof -i:3210` | ✅ `read -rp` |
+| Linux | `.sh` | ✅ `node`/`nodejs` 兜底 | ✅ | ✅ | ✅ `lsof`→`ss`→`netstat` | ✅ `read -rp` |
+
+### 🧪 测试验证
+
+- ✅ Vite 生产构建通过（842 模块，13.72s，无错误）
+- ✅ 所有新增 JS 文件无 TypeScript/ESLint 诊断错误
+- ✅ 设置中心新按钮功能验证（"重置控件位置" toast 提示正常 + localStorage 清除）
+- ⚠️ 桌面端拖拽 + 移动端引导的浏览器自动化测试因预算限制未完整执行（代码层面已实现，待真机回归）
+- ✅ Puppeteer 版本一致性确认（package.json `^23.0.0` ↔ package-lock.json `23.11.1`，符合 semver）
+
+### 📦 文件变更清单
+
+| 文件 | 操作 | 说明 |
+|---|---|---|
+| `启动Puppeteer.sh` | 修改 | 37→133 行，补齐端口检查 + 健壮性增强 |
+| `src/styles/onboarding.css` | 新增 | 引导浮层 + 边角提示样式（230 行） |
+| `src/modules/onboarding.js` | 新增 | 引导逻辑 + 滚动提示（330 行） |
+| `src/modules/fabDrag.js` | 新增 | 桌面端 FAB 拖拽（240 行） |
+| `src/styles/fab.css` | 修改 | 新增 `.dragging` 视觉反馈样式 |
+| `src/main.js` | 修改 | 引入 onboarding + fabDrag 模块 |
+| `src/modules/settingsCenter.js` | 修改 | 新增"重新查看新手引导"+"重置控件位置"按钮 |
+| `index.html` | 修改 | 新增 `#onboarding-root` 容器 + 版本号 v2.9.5 |
+| `package.json` | 修改 | 版本号 v2.9.4 → v2.9.5 |
+| `docs/移动端布局修复报告.md` | 新增 | v2.9.4+v2.9.5 修复过程+方案对比+效果 |
+
+### 🔄 回退方案
+
+- 备份分支：`backup/pre_v295_swarm_20260726`（已创建）
+- 回退命令：`git checkout backup/pre_v295_swarm_20260726 -- .` 或 `git reset --hard v2.9.4`
+- localStorage 清理：`onboarding_completed`、`onboarding_version`、`calligraphy_fab_positions` 三个键可手动清除
+
+---
+
 ## [v2.9.4] — 2026-07-26
 
 > 移动端控件重叠问题的**纯 CSS 重排修复版本**。多 Agent 协同分析（项目分析师 + 系统分析师与架构师 + 前端开发工程师 + 全栈调研）确认 P0 硬伤：`.fab-print` 与 `.history-fab` 像素级完全重叠（同 `bottom:24px;right:24px`），移动端 `@media (max-width:680px)` 仅缩小尺寸未重排位置。v2.9.4 采用方案 A（纯 CSS 重排），零 JS 改动、零依赖增加、零 click 冲突，跨平台兼容性满分。

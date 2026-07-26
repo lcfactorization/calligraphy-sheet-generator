@@ -81,6 +81,34 @@
     .fab-print svg{width:20px;height:20px}
 }
 
+/* ── v2.9.5：桌面端 FAB 拖拽视觉反馈 ──
+   仅桌面端 (> 680px) 启用 cursor: grab；移动端保持默认指针避免误导
+   .dragging 类由 fabDrag.js 在拖拽时动态添加，pointerup 后 rAF 移除 */
+@media (min-width: 681px){
+    .fab-theme,.fab-print,.fab-puppeteer,.fab-settings,.history-fab{
+        cursor:grab;
+    }
+}
+
+/* 拖拽进行中：覆盖 hover/active 的 transform，提升 z-index，禁用 transition */
+.fab-theme.dragging,
+.fab-print.dragging,
+.fab-puppeteer.dragging,
+.fab-settings.dragging,
+.history-fab.dragging{
+    cursor:grabbing !important;
+    transform:scale(1.05) !important;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3) !important;
+    z-index:10001 !important;
+    transition:none !important;
+}
+
+/* 拖拽时隐藏 ::after tooltip，避免跟随 FAB 移动产生视觉跳动 */
+.fab-print.dragging::after,
+.fab-puppeteer.dragging::after{
+    opacity:0 !important;
+}
+
 /* ── 打印时隐藏 FAB ── */
 @media print{
     .fab-print,.fab-puppeteer,.puppeteer-toast{display:none!important}

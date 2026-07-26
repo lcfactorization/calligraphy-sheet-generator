@@ -224,6 +224,18 @@ function createPanel() {
                         </label>
                     </div>
                 </div>
+                <div class="sc-section">
+                    <div class="sc-section-title">🎓 新手引导</div>
+                    <button class="btn btn-ghost sc-restart-ob" id="scRestartOb" type="button" title="重新查看首次使用引导">
+                        重新查看新手引导
+                    </button>
+                </div>
+                <div class="sc-section">
+                    <div class="sc-section-title">📐 控件位置</div>
+                    <button class="btn btn-ghost" id="scResetFab" type="button" title="重置浮动按钮位置">
+                        重置控件位置
+                    </button>
+                </div>
                 <div class="sc-footer">
                     <button class="btn btn-ghost" id="scReset">恢复默认</button>
                     <button class="btn btn-primary" id="scDone">完成</button>
@@ -332,6 +344,42 @@ function bindPanelEvents(overlay) {
         createPanel();
         document.getElementById('settingsPanel')._open();
     });
+
+    // v2.9.5：重新查看新手引导
+    // 用动态 import 避免静态循环依赖（onboarding.js 已被 main.js 静态 import）
+    const restartObBtn = overlay.querySelector('#scRestartOb');
+    if (restartObBtn) {
+        restartObBtn.addEventListener('click', () => {
+            close(); // 先关闭设置面板
+            import('./onboarding.js').then(m => {
+                if (m && typeof m.restartOnboarding === 'function') {
+                    m.restartOnboarding();
+                }
+            }).catch(e => console.warn('[settingsCenter] 加载 onboarding 模块失败:', e));
+        });
+    }
+
+    // v2.9.5：重置浮动按钮位置（清 localStorage + 清内联样式）
+    const resetFabBtn = overlay.querySelector('#scResetFab');
+    if (resetFabBtn) {
+        resetFabBtn.addEventListener('click', () => {
+            import('./fabDrag.js').then(m => {
+                if (m && typeof m.resetFabPositions === 'function') {
+                    m.resetFabPositions();
+                    // 简短提示
+                    const tip = document.createElement('div');
+                    tip.textContent = '✓ 控件位置已重置';
+                    tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10002;padding:10px 18px;background:#22c55e;color:#fff;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+                    document.body.appendChild(tip);
+                    setTimeout(() => {
+                        tip.style.opacity = '0';
+                        tip.style.transition = 'opacity .3s';
+                        setTimeout(() => { if (tip.parentNode) tip.remove(); }, 300);
+                    }, 1500);
+                }
+            }).catch(e => console.warn('[settingsCenter] 加载 fabDrag 模块失败:', e));
+        });
+    }
 }
 
 /** 打开设置面板 */

@@ -12,6 +12,10 @@ import { initDifficulty } from './modules/difficulty.js';
 import { registerFileImporter } from './modules/fileImporter.js';
 import { registerRecommender } from './modules/recommender.js';
 import { registerReportPanel } from './modules/reportPanel.js';
+// v2.9.5：移动端首次使用引导 + 滚动边角提示
+import { initOnboarding, initScrollHints } from './modules/onboarding.js';
+// v2.9.5：桌面端 FAB 拖拽
+import { initFabDrag } from './modules/fabDrag.js';
 
 // 初始化
 applyTheme();
@@ -22,6 +26,11 @@ registerFileImporter();
 registerRecommender();
 registerReportPanel();
 initSidebar();
+// v2.9.5：引导浮层（首次访问）+ 滚动边角提示（老用户）+ 桌面端 FAB 拖拽
+// 放在 initSidebar 之后，确保 .sidebar-drawer-toggle 已生成可被引导定位
+initOnboarding();
+initScrollHints();
+initFabDrag();
 
 // 读取当前渲染选项（合并侧栏状态 + 字体选择 + 契约默认值）
 // v2.4.4：新增 gridType 传递，描红透明度默认 0.1

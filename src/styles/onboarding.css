@@ -1,0 +1,266 @@
+/* ── 移动端首次使用引导 + 滚动边角提示（v2.9.5） ──
+   - 引导浮层：高亮目标控件 + 气泡卡片
+   - 边角箭头：滚动时提示用户控件位置
+   - localStorage keys: onboarding_completed / onboarding_version
+   - 兼容现有 .puppeteer-toast 机制（fab.css 已定义） */
+
+/* ════════ 引导浮层：高亮目标控件 + 气泡卡片 ════════ */
+
+/* 高亮目标控件的 spotlight 类（加到目标元素上）
+   技巧：超大 box-shadow 形成全屏遮罩，目标元素本身保持可见
+   !important 用于覆盖 FAB 原有 box-shadow 与 z-index */
+.ob-spotlight {
+    position: relative !important;
+    z-index: 10011 !important;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7) !important;
+    border-radius: 10px !important;
+    transition: box-shadow 0.3s var(--ease-out-soft) !important;
+}
+
+/* 气泡卡片（fixed 定位，避免被 spotlight 遮罩裁剪）
+   移动端 top/left 由 JS 动态设置；桌面端由 media query 强制居中 */
+.ob-bubble {
+    position: fixed;
+    z-index: 10012;
+    max-width: 280px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--toggle-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+    padding: 14px 16px;
+    font-family: inherit;
+    color: var(--text-color);
+    animation: ob-fade-in 0.3s var(--ease-out-soft);
+}
+
+.ob-bubble-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--title-color);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+.ob-bubble-desc {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+
+.ob-bubble-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ob-bubble-step {
+    font-size: 11px;
+    color: var(--desc-color);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.ob-bubble-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.ob-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+    border: 1px solid transparent;
+    font-family: inherit;
+    transition: all 0.2s var(--ease-out-soft);
+    white-space: nowrap;
+}
+
+.ob-btn-skip {
+    background: transparent;
+    color: var(--desc-color);
+    border-color: var(--border);
+}
+.ob-btn-skip:hover {
+    color: var(--text-color);
+    border-color: var(--toggle-border);
+}
+
+.ob-btn-next,
+.ob-btn-done {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+}
+.ob-btn-next:hover,
+.ob-btn-done:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* 气泡箭头（指向高亮目标，仅移动端显示） */
+.ob-bubble-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--toggle-bg);
+    border: 1px solid var(--border);
+    transform: rotate(45deg);
+}
+
+/* 气泡位置变体（移动端，箭头指向目标方向） */
+.ob-bubble.pos-top .ob-bubble-arrow {
+    bottom: -7px;
+    left: 28px;
+    border-top: none;
+    border-left: none;
+}
+.ob-bubble.pos-bottom .ob-bubble-arrow {
+    top: -7px;
+    left: 28px;
+    border-bottom: none;
+    border-right: none;
+}
+.ob-bubble.pos-left .ob-bubble-arrow {
+    right: -7px;
+    top: 18px;
+    border-left: none;
+    border-bottom: none;
+}
+.ob-bubble.pos-right .ob-bubble-arrow {
+    left: -7px;
+    top: 18px;
+    border-right: none;
+    border-top: none;
+}
+
+/* ════════ 暗色主题适配 ════════ */
+[data-theme='dark'] .ob-bubble {
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+}
+[data-theme='dark'] .ob-spotlight {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78) !important;
+}
+
+/* ════════ 桌面端（>= 681px）：气泡居中显示，不贴近控件 ════════ */
+@media (min-width: 681px) {
+    .ob-bubble {
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        max-width: 360px;
+    }
+    /* 桌面端居中显示，隐藏指向箭头 */
+    .ob-bubble .ob-bubble-arrow {
+        display: none;
+    }
+}
+
+/* ════════ 移动端（< 680px）：气泡贴近高亮控件 ════════ */
+@media (max-width: 680px) {
+    .ob-bubble {
+        /* top/left 由 JS 动态设置 inline style，覆盖默认居中 */
+        transform: none;
+        max-width: calc(100vw - 32px);
+    }
+    /* 移动端气泡字体略小 */
+    .ob-bubble-title { font-size: 13px; }
+    .ob-bubble-desc { font-size: 12px; }
+}
+
+/* ════════ 边角箭头提示器（滚动时提示控件位置） ════════ */
+.ob-hint {
+    position: fixed;
+    z-index: 10009;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(99, 102, 241, 0.85);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    border: none;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+    animation: ob-hint-pulse 1.5s ease-in-out infinite;
+    transition: opacity 0.3s var(--ease-out-soft), transform 0.2s var(--ease-out-soft);
+}
+.ob-hint.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.ob-hint:hover {
+    transform: scale(1.15);
+}
+.ob-hint svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* 边角位置变体（top:76px 避开 FAB 占用的 16+52+8 区域） */
+.ob-hint.pos-top-left { top: 76px; left: 16px; }
+.ob-hint.pos-top-right { top: 76px; right: 16px; }
+.ob-hint.pos-bottom-left { bottom: 76px; left: 16px; }
+.ob-hint.pos-bottom-right { bottom: 76px; right: 16px; }
+
+[data-theme='dark'] .ob-hint {
+    background: rgba(99, 102, 241, 0.92);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ════════ 动画 ════════ */
+/* 用 opacity 做淡入，避免与定位 transform 冲突 */
+@keyframes ob-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes ob-hint-pulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4), 0 0 0 0 rgba(99, 102, 241, 0.5);
+    }
+    50% {
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4), 0 0 0 8px rgba(99, 102, 241, 0);
+    }
+}
+
+/* 用户偏好减少动画时禁用脉冲 */
+@media (prefers-reduced-motion: reduce) {
+    .ob-hint { animation: none; }
+    .ob-bubble { animation: none; }
+}
+
+/* ════════ 打印时隐藏引导 UI ════════ */
+@media print {
+    .ob-spotlight,
+    .ob-bubble,
+    .ob-hint,
+    #onboarding-root {
+        display: none !important;
+    }
+    /* 还原目标元素 box-shadow，避免打印残留 */
+    .ob-spotlight {
+        box-shadow: none !important;
+        z-index: auto !important;
+    }
+}
