@@ -226,7 +226,14 @@ function createPanel() {
                 </div>
                 <div class="sc-section">
                     <div class="sc-section-title">🎓 新手引导</div>
-                    <button class="btn btn-ghost sc-restart-ob" id="scRestartOb" type="button" title="重新查看首次使用引导">
+                    <div class="sc-toggle-row">
+                        <span>启动时自动显示</span>
+                        <label class="sc-switch">
+                            <input type="checkbox" id="scAutoOnboarding" ${localStorage.getItem('onboarding_never_show') !== 'true' ? 'checked' : ''}>
+                            <span class="sc-slider"></span>
+                        </label>
+                    </div>
+                    <button class="btn btn-ghost sc-restart-ob" id="scRestartOb" type="button" title="重新查看首次使用引导" style="margin-top:8px;width:100%;">
                         重新查看新手引导
                     </button>
                 </div>
@@ -344,6 +351,28 @@ function bindPanelEvents(overlay) {
         createPanel();
         document.getElementById('settingsPanel')._open();
     });
+
+    // v2.9.7：启动时自动显示新手引导开关（与 localStorage.onboarding_never_show 双向绑定）
+    const autoObToggle = overlay.querySelector('#scAutoOnboarding');
+    if (autoObToggle) {
+        autoObToggle.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            import('./onboarding.js').then(m => {
+                if (m && typeof m.setNeverShow === 'function') {
+                    m.setNeverShow(!enabled); // 开关开 = never_show=false
+                }
+                const tip = document.createElement('div');
+                tip.textContent = enabled ? '✓ 已启用启动时自动显示引导' : '✓ 已关闭启动时自动显示引导';
+                tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10002;padding:10px 18px;background:#22c55e;color:#fff;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+                document.body.appendChild(tip);
+                setTimeout(() => {
+                    tip.style.opacity = '0';
+                    tip.style.transition = 'opacity .3s';
+                    setTimeout(() => { if (tip.parentNode) tip.remove(); }, 300);
+                }, 1500);
+            }).catch(err => console.warn('[settingsCenter] 加载 onboarding 模块失败:', err));
+        });
+    }
 
     // v2.9.5：重新查看新手引导
     // 用动态 import 避免静态循环依赖（onboarding.js 已被 main.js 静态 import）

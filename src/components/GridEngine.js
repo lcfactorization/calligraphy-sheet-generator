@@ -307,7 +307,9 @@ function drawTianWithPinyinZuci(svg, data, colors) {
  */
 function drawChar(svg, char, opts = {}) {
     if (!char) return;
-    const { color = '#000', opacity = 1, fontFamily = 'TW-Kai', y = 50, fontSize = 72 } = opts;
+    // v2.9.7：默认 currentColor，让范字在 dark 模式自动反色（继承 .grid-svg-cell 的 color）
+    // 打印时由 print.css 强制 .grid-svg-cell { color: #000 } 保证黑字白纸
+    const { color = 'currentColor', opacity = 1, fontFamily = 'TW-Kai', y = 50, fontSize = 72 } = opts;
     const text = svgEl('text', {
         x: 50,
         y: y,
@@ -461,16 +463,16 @@ export function createGridCellSVG(options = {}) {
         const charY = gridType === 'pinyin-tian' ? 65 : 50;
         const charSize = gridType === 'pinyin-tian' ? 50 : 72;
         if (mode === 'reference') {
-            // 范字：黑色
-            drawChar(svg, char, { color: '#000', opacity: 1, fontFamily, y: charY, fontSize: charSize });
+            // 范字：currentColor（dark 模式自动反色，打印由 print.css 强制黑色）
+            drawChar(svg, char, { color: 'currentColor', opacity: 1, fontFamily, y: charY, fontSize: charSize });
         } else if (mode === 'trace') {
-            // 描红：黑色透明度可调
-            drawChar(svg, char, { color: '#000', opacity: traceOpacity, fontFamily, y: charY, fontSize: charSize });
+            // 描红：currentColor + 透明度可调（dark 模式自动反色）
+            drawChar(svg, char, { color: 'currentColor', opacity: traceOpacity, fontFamily, y: charY, fontSize: charSize });
         } else if (mode === 'stroke-order') {
             // 笔顺：彩色笔画
             const ok = strokeOrder ? drawStrokeOrder(svg, strokeOrder) : false;
             if (!ok) {
-                drawChar(svg, char, { color: '#000', opacity: 1, fontFamily, y: charY, fontSize: charSize });
+                drawChar(svg, char, { color: 'currentColor', opacity: 1, fontFamily, y: charY, fontSize: charSize });
             }
         }
         // blank 模式：仅网格

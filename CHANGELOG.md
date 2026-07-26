@@ -5,6 +5,78 @@
 
 ---
 
+## [v2.9.7] — 2026-07-26
+
+> **引导功能增强 + Dark 模式范字反色修复版本**。新增"不再自动弹出"选项与设置中心开关；引导步骤从 5 步扩展到 9 步，覆盖字体选择、自定义字体、智能推荐、导入生词文件；每步标注是否触发字帖自动刷新（🔄/✋）；修复 Dark 模式下范字仍为黑色不可见的问题，改为 inverted color 自动反色，打印时强制黑色。
+
+### ✨ 新功能 — 引导弹出逻辑与选项
+
+#### 默认每次访问自动弹出 + "不再自动弹出"选项
+- **旧逻辑（v2.9.6）**：完成引导后写入 `localStorage.onboarding_completed='true'`，老用户不再自动弹出
+- **新逻辑（v2.9.7）**：默认每次访问都自动弹出，除非用户主动勾选"不再自动弹出"
+- 引导浮层底部新增"不再自动弹出"复选框，勾选后写入 `localStorage.onboarding_never_show='true'`
+- 清空 localStorage 后恢复自动弹出（边界场景验证通过）
+- 设置中心"🎓 新手引导"区域新增"启动时自动显示"开关，与 localStorage 双向绑定
+
+#### 引导步骤从 5 步扩展到 9 步
+- 新增第 6 步：`#font-select` 字体选择（标注 ✋ 需手动点"生成"）
+- 新增第 7 步：`.font-upload-btn` 自定义字体上传（标注 ✋）
+- 新增第 8 步：`#recommendBtn` 智能推荐（标注 ✋，描述含三维度机理说明）
+- 新增第 9 步：`#fileImportBtn` 导入生词文件（标注 ✋）
+- 原有 5 步描述中补充 🔄/✋ 标注：
+  - 🔄 自动刷新：设置中心、侧栏预设场景
+  - ✋ 需手动生成：字体选择、自定义字体、智能推荐、导入生词文件
+  - 无标注：打印、主题切换、Puppeteer（不改变字帖内容）
+
+#### 智能推荐机理说明
+- 数据来源：`vocabulary.js`（分级字库）+ `templates.js`（预设模板），离线规则，非 AI/LLM
+- 三个维度：按难度（初级/中级/高级）、按主题（13 类）、按场景（唐诗宋词/三字经等）
+- 交互规则：单字点击追加到输入框尾部（不覆盖），模板点击覆盖原内容
+- 对设置的影响：只修改输入框内容，不改变任何设置（网格/颜色/字体等都不动）
+- 字帖刷新：不自动刷新，需手动点"生成"或"🔄"按钮
+
+### 🔧 修复 — Dark 模式范字 inverted color
+
+#### 问题
+- Dark 模式下，SVG `<text>` 元素的 `fill="#000"` 硬编码黑色，在深色背景上几乎不可见
+- 影响范围：所有范字（reference 模式）、描红（trace 模式）、笔顺回退（stroke-order fallback）
+
+#### 根因
+- `src/components/GridEngine.js` 第 465/468/473 行：`drawChar(svg, char, { color: '#000', ... })` 三处硬编码黑色
+- SVG `<text>` 的 `fill` 是 inline 属性，CSS 无法覆盖
+
+#### 修复方案（三文件协同）
+1. **GridEngine.js**：`drawChar` 默认 `color = 'currentColor'`，三处调用改为 `color: 'currentColor'`
+2. **grid-svg.css**：`.grid-svg-cell { color: var(--text-color, #000); }`，dark 模式下 `--text-color: #e2e8f0` 自动反色
+3. **print.css**：`@media print { .grid-svg-cell { color: #000 !important; } }` 打印时强制黑色（黑字白纸）
+
+#### 跨平台兼容性
+- `currentColor` 是 SVG 1.1 标准关键字，所有现代浏览器（Chrome/Edge/Firefox/Safari）支持
+- 所有操作系统（Windows/macOS/Linux/Android/iOS/HarmonyOS）支持
+- Puppeteer 生成的 PDF 中 `currentColor` 正确渲染
+
+#### 测试验证
+- Light 模式：cellColor=rgb(30,41,59) 深色，textFill=currentColor ✅
+- Dark 模式：cellColor=rgb(226,232,240) 浅色，textFill=currentColor ✅
+- Dark 模式下范字在深色背景上清晰可见 ✅
+- 9 步引导全部通过，spotlight 位置正确 ✅
+
+### 📦 变更文件清单
+
+| 文件 | 操作 | 说明 |
+|---|---|---|
+| `src/modules/onboarding.js` | 修改 | 新增 `onboarding_never_show` 逻辑、引导浮层复选框、9 步引导数据、智能推荐步骤、🔄/✋ 标注 |
+| `src/styles/onboarding.css` | 修改 | 新增 `.ob-bubble-nevershow` 复选框样式 |
+| `src/modules/settingsCenter.js` | 修改 | 新手引导区域新增"启动时自动显示"开关，与 localStorage 双向绑定 |
+| `src/components/GridEngine.js` | 修改 | `drawChar` 默认 `color='currentColor'`，三处调用改用 `currentColor` |
+| `src/styles/grid-svg.css` | 修改 | `.grid-svg-cell { color: var(--text-color, #000); }` + dark 模式覆盖 |
+| `src/styles/print.css` | 修改 | `@media print` 强制 `.grid-svg-cell { color: #000 !important; }` |
+| `package.json` | 修改 | 版本号 2.9.6 → 2.9.7 |
+| `index.html` | 修改 | UI 显示版本号 2.9.6 → 2.9.7 |
+| `CHANGELOG.md` | 修改 | 新增 v2.9.7 章节 |
+
+---
+
 ## [v2.9.6] — 2026-07-26
 
 > **P0 紧急修复版本**：修复启动引导功能中高亮控件位置被错乱到对角的视觉硬伤。多 Agent 项目小组协同定位 → 修复 → 跨平台/跨浏览器测试 → 验收 → 发布全流程，备份分支 `backup/pre_v296_spotlight_fix_20260726` 已就位，可随时回退到 v2.9.5。

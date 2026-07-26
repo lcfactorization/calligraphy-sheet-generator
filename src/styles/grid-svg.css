@@ -28,6 +28,13 @@
     overflow: visible;
     position: relative;                     /* v2.4.14：z-index:1 在 row-border 上方 */
     z-index: 1;
+    /* v2.9.7：范字颜色跟随主题，dark 模式自动反色（currentColor 继承此 color）
+       打印时由 print.css 强制 #000 保证黑字白纸 */
+    color: var(--text-color, #000);
+}
+/* v2.9.7：dark 模式下范字 inverted color 显示（--text-color 在 dark 主题下为 #e2e8f0 浅色） */
+[data-theme='dark'] .grid-svg-cell {
+    color: var(--text-color);
 }
 
 /* ── 字格行容器：11 格横向排列 ── */

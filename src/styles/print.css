@@ -237,4 +237,10 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
+
+    /* v2.9.7：打印时范字强制黑色（黑字白纸），覆盖 dark 模式的 inverted color
+       currentColor 会继承此 color，SVG <text> 的 fill 自动变黑 */
+    .grid-svg-cell {
+        color: #000 !important;
+    }
 }

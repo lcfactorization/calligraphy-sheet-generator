@@ -7,44 +7,76 @@ import '../styles/onboarding.css';
 
 const OB_COMPLETED_KEY = 'onboarding_completed';
 const OB_VERSION_KEY = 'onboarding_version';
-const OB_VERSION = 'v2.9.5';
+// v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
+// 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
+const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
+const OB_VERSION = 'v2.9.7';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
+// v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）
 const ONBOARDING_STEPS = [
     {
         selector: '#settingsBtn',
-        title: '⚙️ 设置中心',
-        desc: '右上角是设置中心，可调整字体、网格类型、颜色、显示开关等。',
+        title: '⚙️ 设置中心 🔄',
+        desc: '右上角是设置中心，可调整网格类型、颜色、显示开关等。改完关闭面板即自动刷新字帖，无需手动点"生成"。',
         position: 'bottom',
         hintCorner: 'top-right'
     },
     {
         selector: '#printBtn',
         title: '🖨 打印 / 导出 PDF',
-        desc: '右下角是主操作按钮，调用浏览器打印生成矢量 PDF。',
+        desc: '右下角是主操作按钮，调用浏览器打印生成矢量 PDF。不会刷新字帖，直接打印当前预览。',
         position: 'top',
         hintCorner: 'bottom-right'
     },
     {
         selector: '.sidebar-drawer-toggle',
-        title: '☰ 侧栏开关',
-        desc: '左下角是侧栏开关，展开后可见更多设置（描红、预设等）。',
+        title: '☰ 侧栏开关 🔄',
+        desc: '左下角是侧栏开关，展开后可见描红透明度、预设场景等。预设场景切换会自动刷新字帖。',
         position: 'right',
         hintCorner: 'bottom-left'
     },
     {
         selector: '#themeToggle',
         title: '☀ 主题切换',
-        desc: '左上角是主题切换，日间 / 夜间模式一键切换。',
+        desc: '左上角是主题切换，日间 / 夜间模式一键切换。不影响字帖内容，范字颜色会随主题自动反色。',
         position: 'bottom',
         hintCorner: 'top-left'
     },
     {
         selector: '#puppeteerBtn',
         title: '⬇ Puppeteer 矢量 PDF',
-        desc: '右下角上方是高级导出，需先启动本地 Puppeteer 服务。',
+        desc: '右下角上方是高级导出，需先启动本地 Puppeteer 服务。不会刷新字帖，直接导出当前预览。',
         position: 'left',
         hintCorner: 'bottom-right'
+    },
+    {
+        selector: '#font-select',
+        title: '🔤 字体选择 ✋',
+        desc: '输入区上方是字体下拉框，可在霞鹜文楷、思源宋体等字体间切换。切换后需手动点"生成"或"🔄"按钮才生效。',
+        position: 'bottom',
+        hintCorner: 'top-right'
+    },
+    {
+        selector: '.font-upload-btn',
+        title: '⬆ 自定义字体 ✋',
+        desc: '字体下拉框右侧的上传按钮，支持 ttf/otf/woff/woff2 格式。加载后需手动点"生成"才生效。',
+        position: 'bottom',
+        hintCorner: 'top-right'
+    },
+    {
+        selector: '#recommendBtn',
+        title: '✨ 智能推荐 ✋',
+        desc: '输入框左侧是智能推荐，含按难度/主题/场景三个维度（离线规则，非 AI）。单字点击追加到输入框尾部，模板点击覆盖原内容。改完输入框不会自动刷新字帖，需手动点"生成"或"🔄"按钮。不影响任何设置（网格/颜色/字体等都不动）。',
+        position: 'top',
+        hintCorner: 'bottom-left'
+    },
+    {
+        selector: '#fileImportBtn',
+        title: '📁 导入生词文件 ✋',
+        desc: '输入框下方是文件导入按钮，支持 txt/md/csv/xlsx/docx 格式，自动提取汉字填入输入框。填入后不会自动刷新字帖，需手动点"生成"或"🔄"按钮。',
+        position: 'top',
+        hintCorner: 'bottom-left'
     }
 ];
 
@@ -91,6 +123,41 @@ function writeCompleted() {
     } catch (e) {
         console.warn('[onboarding] 写入 localStorage 失败:', e);
     }
+}
+
+// v2.9.7：是否应该自动弹出引导（默认弹出，除非用户勾选"不再弹出"）
+function shouldShowOnboarding() {
+    try {
+        return localStorage.getItem(OB_NEVER_SHOW_KEY) !== 'true';
+    } catch (e) {
+        return true;
+    }
+}
+
+export function isNeverShow() {
+    try {
+        return localStorage.getItem(OB_NEVER_SHOW_KEY) === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
+export function setNeverShow(never) {
+    try {
+        if (never) {
+            localStorage.setItem(OB_NEVER_SHOW_KEY, 'true');
+        } else {
+            localStorage.removeItem(OB_NEVER_SHOW_KEY);
+        }
+    } catch (e) {
+        console.warn('[onboarding] 写入 localStorage 失败:', e);
+    }
+}
+
+// 从当前气泡复选框读取"不再弹出"选择
+function getNeverShowFromBubble() {
+    const cb = bubbleEl && bubbleEl.querySelector('.ob-nevershow-cb');
+    return !!(cb && cb.checked);
 }
 
 // 复用项目现有 .puppeteer-toast 机制（fab.css 已定义样式）
@@ -259,6 +326,10 @@ export function showOnboardingStep(stepIndex) {
                 </button>
             </div>
         </div>
+        <label class="ob-bubble-nevershow" title="勾选后下次访问不再自动弹出引导">
+            <input type="checkbox" class="ob-nevershow-cb" />
+            <span>不再自动弹出</span>
+        </label>
     `;
     document.body.appendChild(bubbleEl);
 
@@ -290,25 +361,31 @@ export function showOnboardingStep(stepIndex) {
 }
 
 export function skipOnboarding() {
+    const never = getNeverShowFromBubble();
     clearHighlight();
     clearBubble();
+    if (never) setNeverShow(true);
     writeCompleted();
-    showToast('已跳过新手引导，可在设置中心重新查看', 'info', 3000);
+    showToast(never ? '已跳过新手引导，下次不再自动弹出' : '已跳过新手引导，可在设置中心重新查看', 'info', 3000);
     // 跳过也算完成，启用滚动提示
     initScrollHints();
 }
 
 export function completeOnboarding() {
+    const never = getNeverShowFromBubble();
     clearHighlight();
     clearBubble();
+    if (never) setNeverShow(true);
     writeCompleted();
-    showToast('新手引导已完成，开始使用吧！', 'success', 2000);
+    showToast(never ? '新手引导已完成，下次不再自动弹出' : '新手引导已完成，开始使用吧！', 'success', 2000);
     initScrollHints();
 }
 
 export function initOnboarding() {
-    if (isCompleted()) {
-        // 老用户：不展示引导
+    // v2.9.7：默认每次访问都自动弹出，除非用户主动勾选"不再弹出"
+    if (!shouldShowOnboarding()) {
+        // 用户选择不再弹出：若曾完成过引导，启用滚动提示
+        if (isCompleted()) initScrollHints();
         return;
     }
     // 延迟启动，等待 FAB / 侧栏 / 字体加载完成
@@ -321,6 +398,8 @@ export function restartOnboarding() {
     try {
         localStorage.removeItem(OB_COMPLETED_KEY);
         localStorage.removeItem(OB_VERSION_KEY);
+        // v2.9.7：重新查看时清除"不再弹出"标记，否则下次访问仍不弹
+        localStorage.removeItem(OB_NEVER_SHOW_KEY);
     } catch (e) { /* 静默 */ }
     // 销毁滚动提示，避免与引导浮层冲突
     destroyScrollHints();
