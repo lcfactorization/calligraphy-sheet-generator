@@ -1,0 +1,20 @@
+# 跨平台行尾符策略（v2.9.5）
+# - .sh 始终 LF（bash 兼容，避免 $'\r' 错误）
+# - .bat/.ps1 始终 CRLF（Windows 兼容）
+# - 其它文本文件由 core.autocrlf 自动处理
+
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制文件不转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
