@@ -1,110 +1,143 @@
-# Calligraphy Sheet Generator — Offline Chinese Character Practice Tool
+# Calligraphy Sheet Generator — Vite + PWA + SVG Vector + Learning Loop + Dual-track PDF
 
 > **A Type, A Trace** — Generate printable calligraphy practice sheets with Pinyin, word associations, and stroke decomposition. Supports vector PDF output.
+> TRAE AI Creativity Contest entry | Evolved from "calligraphy tool" to "Chinese character learning platform"
+> Live demo: https://lcfactorization.github.io/calligraphy-sheet-generator/
 
 **English** | [中文](./README.md)
 
 ---
 
-## 🌟 Overview
+## Overview
 
-**Calligraphy Sheet Generator** is a pure front-end single-page application (HTML5 + CSS3 + Vanilla JS). **Double-click the HTML file to run in your browser** — no server, no installation, no internet required. Enter Chinese characters and automatically generate traceable practice sheets with Pinyin annotations, word associations, and stroke decomposition. Supports vector PDF export via browser native print.
+**Calligraphy Sheet Generator** is a Vite-engineered PWA single-page application. Enter Chinese characters and automatically generate traceable practice sheets with Pinyin annotations, word associations, and stroke decomposition. Supports vector PDF export via three tracks: browser native print, jsPDF/svg2pdf, and Puppeteer.
 
-This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.cn/t/topic/71664) (Learning & Productivity track), developed entirely with **TRAE IDE** AI-assisted coding.
+This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.cn/t/topic/71664) (Learning & Productivity track), developed entirely with **Trae CN IDE** AI-assisted multi-agent coding.
 
-## ✨ Key Features
+## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| 🖌️ **Smart Practice Sheets** | Generate traceable grid sheets with Pinyin (tone marks included) |
-| 📖 **Word Associations** | Built-in 4000+ word dictionary for each character |
-| ✍️ **Stroke Decomposition** | SVG stroke breakdown powered by Hanzi Writer |
-| 📄 **Vector PDF Export** | Dual approach: browser print-to-PDF + Puppeteer vector PDF |
-| 🖼️ **9 Calligraphy Fonts** | Support for various Chinese calligraphy fonts (user-provided) |
-| 🌓 **Aurora Glass UI** | Light/Dark dual theme, auto-hide panels during print |
+| Feature | Description | Since |
+|---------|-------------|-------|
+| Smart Practice Sheets | Generate SVG vector grid sheets with Pinyin (tone marks included) | v1.0 |
+| Word Associations | Built-in dictionary + cnchar fallback | v1.0 |
+| Stroke Decomposition | SVG stroke breakdown powered by Hanzi Writer | v1.0 |
+| Vector PDF Export | Three tracks: browser print + jsPDF/svg2pdf + Puppeteer | v1.0/v2.4 |
+| 5 Open-Source Fonts | 4 Chinese fonts (LXGW WenKai/Light, Source Han Serif, TW-Kai) + 1 Pinyin font | v2.0 |
+| 5 Grid Types | Tian / Mizi / Jiugong / Hui / Pinyin-Tian | v2.4/v2.5.3 |
+| 4 Color Presets | Traditional Green / Cinnabar Red / Indigo Blue / Ink Black | v2.5.3 |
+| Dark Mode | CSS variables, auto inverted color for SVG chars in dark mode | v1.0/v2.9.7 |
+| PWA Offline | Installable, Service Worker cache, fully offline | v2.0 |
+| Vite Engineering | ES Module + Tailwind CSS v4 + single-file build | v2.0 |
+| Learning Loop | History / Settings Center / Difficulty / Templates / Vocabulary / Report | v2.1 |
+| File Import | txt/md/csv/xlsx/docx | v2.2 |
+| Smart Recommender | Offline rule-based, by difficulty/topic/scenario | v2.2 |
+| Mobile Onboarding | 9-step first-use guide + scroll hints | v2.9.5/v2.9.7 |
+| Desktop FAB Drag | Pointer Events + 8px grid snap + localStorage | v2.9.5 |
+| Mobile Print Fix | Hidden iframe static document architecture | v2.9.0 |
+| MatePad Adapted | HarmonyOS print PDF multi-round fixes | v2.8 |
 
-## 🚀 Quick Start
+## Quick Start
 
-### Method 1: Direct Use (Recommended)
+### Method 1: Online (Recommended)
 
-1. Download [`字帖生成器.html`](./字帖生成器.html) to your local machine
-2. Double-click to open in Chrome/Edge
-3. Enter Chinese characters, click "Generate"
-4. Click Print button → "Save as PDF" → Save
+Visit https://lcfactorization.github.io/calligraphy-sheet-generator/
+- PWA installable to desktop/mobile home screen
+- Works offline after first load
+- 9-step onboarding on first visit (v2.9.7)
 
-### Method 2: One-Click Vector PDF (Windows)
+### Method 2: Local Development
 
-1. Install [Node.js](https://nodejs.org/)
+```bash
+npm install
+npm run dev          # http://localhost:3000
+```
+
+### Method 3: Build & Preview
+
+```bash
+npm run build        # build to dist/
+npm run preview      # preview at http://localhost:4173
+```
+
+### Method 4: Puppeteer Vector PDF (Desktop)
+
+1. Install [Node.js](https://nodejs.org/) v18+
 2. Run `npm install` in the project directory
-3. Double-click `启动Puppeteer.bat` — browser opens automatically
-4. Click the purple button for one-click vector PDF (selectable, copyable text)
+3. Double-click `启动Puppeteer.bat` (Windows) or `./启动Puppeteer.sh` (macOS/Linux)
+4. Browser opens automatically, click the purple Puppeteer button for one-click vector PDF
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 calligraphy-sheet-generator/
-├── 字帖生成器.html           # Main app (standalone HTML, JS + pinyin font embedded)
-├── 启动Puppeteer.bat         # Windows one-click startup script
-├── 启动Puppeteer.ps1         # PowerShell startup script
-├── 启动Puppeteer.sh          # Linux/macOS startup script
-├── puppeteer-pdf.js          # Puppeteer vector PDF generator
-├── package.json              # Node.js dependencies
-├── CHANGELOG.md              # Version history
-├── README_contest.md         # Original TRAE contest documentation (Chinese)
-├── 字帖_2026-07-06.pdf       # Sample output PDF (10 MB)
-├── .gitignore
-├── README.md                 # Chinese README
-├── README_EN.md              # This file
-└── fonts/
-    └── texgyreadventor-regular.otf  # Pinyin font (GUST Font License, freely distributable)
+├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
+├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
+├── package.json             # Dependencies (v2.9.7, ES Module)
+├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
+├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
+├── matepad-simulate.cjs     # MatePad print simulation test script
+├── 启动Puppeteer.bat/.ps1/.sh # Cross-platform launch scripts (3-step check)
+├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
+├── README.md / README_EN.md # Chinese/English main docs
+├── README_contest.md        # Original contest doc + iteration appendix
+├── CHANGELOG.md             # Version history (v1.0.1 → v2.9.7)
+├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
+├── .github/workflows/       # GitHub Pages auto-deploy (trigger: retake branch)
+├── scripts/
+│   └── download-fonts.sh    # CI font download script
+├── public/
+│   ├── icon-*.svg           # PWA icons (192/512/maskable)
+│   └── fonts/               # Fonts (local dev, CI auto-downloads)
+├── fonts/
+│   └── texgyreadventor-regular.otf  # Pinyin font (GUST, local fallback)
+└── src/
+    ├── main.js              # Entry: CSS imports + module imports + event binding
+    ├── contracts/           # Interface contracts (GridCellProps/GridType/RenderMode)
+    ├── components/          # GridEngine.js (SVG engine) + Sidebar.js
+    ├── utils/               # pdfExport.js (dual-track PDF)
+    ├── data/                # customZuCi / templates / vocabulary
+    ├── modules/             # 15 JS modules (fontManager/pinyin/zuci/strokes/settings/...)
+    └── styles/              # 18 CSS modules
 ```
 
-> **Font Policy**: This repo only includes TeX Gyre Adventor (GUST Font License, free to distribute).
-> Other calligraphy fonts may have copyright restrictions. See [License](#-license) for details.
+> **Font Policy**: The repo only includes TeX Gyre Adventor (GUST Font License) in `fonts/`. Other fonts are downloaded at CI build time via `scripts/download-fonts.sh`. All 4 Chinese fonts are open-source (SIL OFL 1.1 / ARPH). Commercial fonts were removed for license compliance.
 
-## 🛠️ Built with TRAE IDE
+## Built with Trae CN IDE
 
-This project was developed through human-AI co-creation in **TRAE IDE**:
+This project was developed through human-AI co-creation in **Trae CN IDE** with multi-agent parallel collaboration:
 
 | Key Task | Description |
 |----------|-------------|
-| Standalone HTML packaging | Embedded all JS libraries into single HTML file |
-| Template string fixes | Resolved escaping issues in multi-pass Python-Powershell pipeline |
-| PDF vector output | Puppeteer script with font-load timing fix |
-| JSON parsing defense | 3-layer protection against HTTP keep-alive request merging |
+| v2.4.0 SVG refactor | Multi-agent: Master + A(SVG engine) + B(PDF) + C(UI) + D(build/docs) |
+| v2.8.x MatePad fixes | Multi-round mobile print PDF debugging |
+| v2.9.0 iframe architecture | Root-fix mobile print header/footer |
+| v2.9.5 swarm | 3 groups: cross-platform scripts / mobile onboarding / desktop FAB drag |
+| v2.9.7 onboarding enhancement | 9-step guide + dark mode inverted color |
 
-TRAE AI played a decisive role in: encoding compatibility (GBK/UTF-8 BOM), PowerShell `.bat` encoding fixes, cross-platform script generation, and the `window.print()` → Puppeteer dual-track PDF strategy.
+Trae AI played a decisive role in: SVG vectorization, multi-agent coordination, cross-platform encoding, mobile print architecture, and the dual-track PDF strategy.
 
-## 📄 Sample Output
-
-Download [`字帖_2026-07-06.pdf`](./字帖_2026-07-06.pdf) (9.8 MB) to see a generated example calligraphy sheet.
-
-## 🧪 Tech Stack
+## Tech Stack
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Core | HTML5 + CSS3 + Vanilla JS | Zero-dependency single page |
+| Build | Vite 5 + vite-plugin-pwa + vite-plugin-singlefile | ES Module |
+| CSS | Tailwind CSS v4 + 18 custom CSS modules | cssMinify disabled to protect print rules |
 | Pinyin | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) (MIT) | Automatic tone marks |
-| Dictionary | [cnchar](https://github.com/theajack/cnchar) (MIT) | 4000+ word lookup |
+| Dictionary | [cnchar](https://github.com/theajack/cnchar) (MIT) | Word lookup |
 | Strokes | [Hanzi Writer](https://github.com/chanind/hanzi-writer) (MIT) | SVG decomposition |
-| PDF | `window.print()` + Puppeteer | Dual-track |
-| Themes | CSS variables + `data-theme` | Light/Dark |
-| AI IDE | **TRAE IDE** | Full development lifecycle |
+| PDF | `window.print()` + jsPDF/svg2pdf + Puppeteer | Triple-track |
+| Fonts | FontFace API + base64 pinyin font | 5 open-source fonts |
+| Themes | CSS variables + `data-theme` | Light/Dark with auto inverted color |
+| AI IDE | **Trae CN IDE** | Full development lifecycle, multi-agent |
 
-## 📜 License
+## License
 
 - **Source code**: MIT License — free to use, modify, and distribute
 - **Built-in font**: `texgyreadventor-regular.otf` — GUST Font License, freely distributable
-- **Commercial fonts**: Not included. Must be provided by the user.
+- **CI-downloaded fonts**: 4 Chinese fonts under SIL OFL 1.1 / ARPH
 - **Privacy**: Fully offline. No data uploaded anywhere.
 
-### Recommended Open-Source Font Alternatives
-
-- [Lxgw WenKai](https://github.com/lxgw/LxgwWenKai) (SIL Open Font License)
-- [Source Han Serif](https://github.com/adobe-fonts/source-han-serif) (SIL Open Font License)
-- [Source Han Sans](https://github.com/adobe-fonts/source-han-sans) (SIL Open Font License)
-
-## 🤝 Contributing
+## Contributing
 
 Issues and Pull Requests are welcome!
 

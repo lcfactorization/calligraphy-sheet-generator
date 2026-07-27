@@ -19,3 +19,8 @@ debug-*.pdf
 _pdf-check*.cjs
 verify-v2.8.5.cjs
 v2.8.5-verify-*.pdf
+# v2.9.7 文档同步：策略性文件（本地保留作为迭代记录，禁止上传 GitHub）
+# 含审查报告/修复方案/发布说明/测试清单/根因分析/多Agent简报/patch/策略总结等
+docs/
+_commit_v287.txt
+视频自我介绍脚本_陈自强_Trae大赛.md
