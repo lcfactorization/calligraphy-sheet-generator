@@ -37,6 +37,12 @@
 - package.json新增fflate依赖（Web Worker解压）
 - vite.config.js globPatterns新增bin类型 + hanzi-data-cache runtimeCaching
 
+### 部署修复（GitHub Pages 子路径适配）
+- 修复hanziDataStore.js使用绝对路径`/hanzi-data/`导致GitHub Pages子路径下hanzi-data.bin 404（改用`import.meta.env.BASE_URL`+`new URL`构建绝对URL）
+- 修复PWA Service Worker precache过大（140MB）导致hanzi-data.bin请求被中止ERR_ABORTED（添加globIgnores排除大文件，precache降至3.3MB）
+- 修复stroke-demo-guide.html返回主页链接绝对路径（改为相对路径`./`）
+- .gitignore添加public/fonts/规则（避免本地下载的字体文件被意外提交）
+
 ---
 
 ## [文档同步] — 2026-07-27
