@@ -183,6 +183,60 @@
   overflow: hidden;
 }
 
+/* ============================================================
+ * v2.9.9：加载态弹窗样式
+ * 数据未就绪时显示加载动画，数据就绪后由 _promoteLoadingWindow 替换为正常内容；
+ * 数据加载失败时由 _showLoadingError 显示错误信息。
+ * 样式与现有弹窗风格一致，复用既有 CSS 变量（--bg/--text-color/--accent 等）。
+ * ============================================================ */
+/* 加载态 / 错误态：body 改为居中 flex 布局（覆盖默认纵向布局） */
+.sd-window.loading .sd-window-body,
+.sd-window.sd-loading-error .sd-window-body {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* v2.9.9：CSS 旋转加载动画（圆形边框 + 旋转） */
+.sd-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--toggle-bg, rgba(255,255,255,0.85));
+  border-top-color: var(--accent, #6366f1);
+  border-radius: 50%;
+  animation: sd-spinner-rotate 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes sd-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* v2.9.9：加载态灰色文字提示 */
+.sd-loading-text {
+  font-size: 13px;
+  color: var(--desc-color, var(--text-color));
+  line-height: 1.5;
+}
+
+/* v2.9.9：错误态红色文字提示 */
+.sd-loading-error-text {
+  font-size: 13px;
+  color: #d32f2f;
+  line-height: 1.6;
+  padding: 0 12px;
+  word-break: break-word;
+}
+
+/* v2.9.9：尊重"减少动态效果"系统偏好 — 加载动画降速但不完全停止（保留视觉反馈） */
+@media (prefers-reduced-motion: reduce) {
+  .sd-loading-spinner {
+    animation-duration: 2.5s;
+  }
+}
+
 /* ------------------------------------------------------------
  * HanziWriter 演示舞台 .sd-stage
  * v2.9.8：双图层结构
@@ -524,6 +578,8 @@
     font-size: 13px;
     font-weight: 600;
     gap: 5px;
+    /* v2.9.9：作为就绪徽章（.sd-toolbar-badge）的定位基准 */
+    position: relative;
 }
 .stroke-demo-toolbar-btn svg {
     width: 14px;
@@ -554,6 +610,67 @@
     .stroke-demo-toolbar-btn svg {
         width: 12px;
         height: 12px;
+    }
+}
+
+/* ============================================================
+ * v2.9.9：工具栏按钮数据就绪徽章
+ * 在"笔顺演示"按钮右上角显示一个小圆点，反馈笔画数据加载状态：
+ *   - .loading：数据未就绪，橙色脉冲动画（提示用户笔画功能正在准备）
+ *   - .ready：  数据就绪，绿色闪烁后消失（短暂成功提示）
+ * 通过 hanziDataReady().then(...) 在 JS 中切换状态
+ * 所有类名以 sd- 前缀开头（与现有弹窗命名一致）
+ * ============================================================ */
+.sd-toolbar-badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: transparent;
+    /* v2.9.9：用 --bg 描边圆点，使其在橙色按钮（btn-primary）和灰色按钮（btn-secondary）上都清晰可见 */
+    box-shadow: 0 0 0 2px var(--bg, #f6f7fb);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.2s var(--ease-out-soft);
+}
+
+/* v2.9.9：加载态 — 橙色脉冲动画 */
+.sd-toolbar-badge.loading {
+    background: var(--accent3, #f59e0b);
+    opacity: 1;
+    animation: sd-badge-pulse 1.2s var(--ease-out-soft) infinite;
+}
+
+/* v2.9.9：就绪态 — 绿色闪烁后消失 */
+.sd-toolbar-badge.ready {
+    background: var(--green, #339933);
+    opacity: 1;
+    animation: sd-badge-flash 1.5s var(--ease-out-soft) forwards;
+}
+
+@keyframes sd-badge-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50%      { transform: scale(1.5); opacity: 1; }
+}
+
+@keyframes sd-badge-flash {
+    0%   { transform: scale(1);   opacity: 1; }
+    30%  { transform: scale(1.6); opacity: 1; }
+    100% { transform: scale(1);   opacity: 0; }
+}
+
+/* v2.9.9：尊重"减少动态效果"系统偏好 — 脉冲改为静态点，闪烁直接消失 */
+@media (prefers-reduced-motion: reduce) {
+    .sd-toolbar-badge.loading {
+        animation: none;
+        opacity: 0.85;
+    }
+    .sd-toolbar-badge.ready {
+        animation: none;
+        opacity: 0;
     }
 }
 

@@ -73,7 +73,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v2.9.8, ES Module)
+├── package.json             # Dependencies (v2.9.9, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -81,7 +81,7 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0 → v2.9.8)
+├── CHANGELOG.md             # Version history (v1.0 → v2.9.9)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
 ├── .github/workflows/       # GitHub Pages auto-deploy (trigger: retake branch)
 ├── scripts/

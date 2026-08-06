@@ -25,7 +25,9 @@ const DEFAULT_SETTINGS = {
     gridType: 'mizi',        // 网格类型: 'tian' | 'mizi' | 'hui' | 'pinyin-tian' | 'jiugong'
     traceOpacity: 0.1,       // 描红透明度 (0.05-0.3)
     // v2.5.3：网格颜色预设（'green' | 'red' | 'blue' | 'ink'），见 interfaces.js GRID_COLOR_PRESETS
-    gridColorPreset: 'green'
+    gridColorPreset: 'green',
+    // v2.9.9 模块B：AI 组词补齐开关（默认关；API Key 独立存于 localStorage deepseek_api_key）
+    aiZuciEnabled: false
 };
 
 /** 读取设置 */
@@ -240,6 +242,28 @@ function createPanel() {
                     </button>
                 </div>
                 <div class="sc-section">
+                    <div class="sc-section-title">🤖 AI 组词补齐（可选）</div>
+                    <div class="sc-toggle-row">
+                        <span>启用 AI 补齐</span>
+                        <label class="sc-switch">
+                            <input type="checkbox" id="scAiZuci" ${settings.aiZuciEnabled ? 'checked' : ''}>
+                            <span class="sc-slider"></span>
+                        </label>
+                    </div>
+                    <div id="scAiConfig" style="display:${settings.aiZuciEnabled ? 'block' : 'none'};margin-top:10px;">
+                        <div class="sc-field">
+                            <label>DeepSeek API Key</label>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <input type="password" id="scAiKey" placeholder="sk-..." value="${(localStorage.getItem('deepseek_api_key') || '').replace(/"/g, '&quot;')}" style="flex:1;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
+                                <button class="btn btn-ghost" id="scAiKeySave" type="button" style="padding:6px 12px;font-size:12px;">保存</button>
+                            </div>
+                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 存储在本地 localStorage，不会上传</div>
+                        </div>
+                        <button class="btn btn-primary" id="scAiRun" type="button" style="width:100%;margin-top:8px;">▶ 补齐组词</button>
+                        <div id="scAiStatus" class="sc-hint" style="font-size:12px;margin-top:6px;"></div>
+                    </div>
+                </div>
+                <div class="sc-section">
                     <div class="sc-section-title">📐 控件位置</div>
                     <button class="btn btn-ghost" id="scResetFab" type="button" title="重置浮动按钮位置">
                         重置控件位置
@@ -409,6 +433,86 @@ function bindPanelEvents(overlay) {
                     }, 1500);
                 }
             }).catch(e => console.warn('[settingsCenter] 加载 fabDrag 模块失败:', e));
+        });
+    }
+
+    // v2.9.9 模块B：AI 组词补齐 — 启用开关 / API Key 保存 / 触发补齐（支持中断）
+    const aiZuciToggle = overlay.querySelector('#scAiZuci');
+    if (aiZuciToggle) {
+        aiZuciToggle.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            updateSetting('aiZuciEnabled', enabled);
+            const cfg = overlay.querySelector('#scAiConfig');
+            if (cfg) cfg.style.display = enabled ? 'block' : 'none';
+        });
+    }
+
+    const aiKeySaveBtn = overlay.querySelector('#scAiKeySave');
+    if (aiKeySaveBtn) {
+        aiKeySaveBtn.addEventListener('click', () => {
+            const input = overlay.querySelector('#scAiKey');
+            const status = overlay.querySelector('#scAiStatus');
+            const key = (input?.value || '').trim();
+            if (!key) {
+                localStorage.removeItem('deepseek_api_key');
+                if (status) { status.textContent = '✓ 已清除 API Key'; status.style.color = '#16a34a'; }
+            } else {
+                localStorage.setItem('deepseek_api_key', key);
+                if (status) { status.textContent = '✓ API Key 已保存到本地'; status.style.color = '#16a34a'; }
+            }
+        });
+    }
+
+    const aiRunBtn = overlay.querySelector('#scAiRun');
+    let aiAbortCtrl = null; // v2.9.9：支持再次点击中断
+    if (aiRunBtn) {
+        aiRunBtn.addEventListener('click', async () => {
+            const status = overlay.querySelector('#scAiStatus');
+            const setStatus = (text, color) => { if (status) { status.textContent = text; status.style.color = color; } };
+
+            // 正在运行时再次点击 → 中断
+            if (aiAbortCtrl) {
+                aiAbortCtrl.abort();
+                return;
+            }
+
+            const apiKey = (localStorage.getItem('deepseek_api_key') || '').trim();
+            if (!apiKey) {
+                setStatus('⚠ 请先填写并保存 DeepSeek API Key', '#ef4444');
+                return;
+            }
+            const text = (document.getElementById('inputText')?.value || '');
+            // 提取去重汉字
+            const chars = [...new Set((text.match(/[\u4e00-\u9fa5]/g) || []))];
+            if (chars.length === 0) {
+                setStatus('⚠ 字帖中没有汉字，请先输入文字并生成', '#ef4444');
+                return;
+            }
+
+            aiAbortCtrl = new AbortController();
+            aiRunBtn.textContent = '⏹ 中断';
+            setStatus(`正在补齐 ${chars.length} 个字的组词…`, '#6366f1');
+
+            try {
+                const { fillMissingZuci } = await import('./aiZuci.js');
+                const result = await fillMissingZuci(chars, { apiKey, signal: aiAbortCtrl.signal });
+                setStatus(
+                    `✓ 完成：共 ${result.total} 字 · 默认 ${result.default} · AI 补齐 ${result.ai} · 缺失 ${result.missing}（${result.elapsed}ms）`,
+                    '#16a34a'
+                );
+                // 触发重渲染，使 AI 缓存生效（消除 "组词" 占位）
+                document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+            } catch (err) {
+                if (err && err.name === 'AbortError') {
+                    setStatus('已中断', '#6b7280');
+                } else {
+                    console.error('[AI组词] 失败:', err);
+                    setStatus(`✗ 失败：${err.message || err}`, '#ef4444');
+                }
+            } finally {
+                aiAbortCtrl = null;
+                aiRunBtn.textContent = '▶ 补齐组词';
+            }
         });
     }
 }

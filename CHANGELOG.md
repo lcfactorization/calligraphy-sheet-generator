@@ -5,6 +5,29 @@
 
 ---
 
+## [2.9.9] - 2026-08-06
+
+### 新增功能
+- **笔画弹窗加载态**：首次访问时笔画数据未就绪，点击字格立即显示加载动画弹窗，数据就绪后自动替换为正常内容
+  - 加载态弹窗显示旋转动画 + "正在加载笔画数据..." 文字
+  - 支持关闭/最小化/最大化（用户可取消等待）
+  - 数据加载失败显示错误提示
+- **工具栏就绪徽章**：笔顺演示按钮显示数据加载状态指示器（橙色脉冲=加载中，绿色闪烁=就绪）
+- **AI 组词补齐**：设置中心新增 AI 组词补齐功能（默认关闭）
+  - 对默认词库（cnchar-words + customZuCi）缺失二字组词的汉字，调用 DeepSeek 大模型补齐
+  - 纯浏览器直连 DeepSeek API（CORS 已开放），无需后端
+  - 单 JSON Map 缓存（localStorage key: ai_zuci_cache_v1）
+  - AbortController 中断支持，再次点击按钮即可取消
+  - 批次≤10字，max_tokens 2048，JSON mode
+  - API Key 独立存储于 localStorage（deepseek_api_key），不上传
+  - 轻量内联状态提示（非 Modal）
+
+### 优化
+- getZuCi 函数增加 AI 缓存回退：cnchar 二字词不足时优先使用 AI 补齐结果，消除"组词"占位符
+- isDefaultZuciOK 判定函数：避免循环依赖，直接使用 cnchar + customZuCi 内联判定
+
+---
+
 ## [2.9.8] - 2026-08-06
 
 ### 新增功能

@@ -23,7 +23,8 @@
 // ============================================================================
 
 import HanziWriter from 'hanzi-writer';
-import { getCharDataAsync, ready as hanziDataReady } from './hanziDataStore.js';
+// v2.9.9：新增 isReady 同步检查，用于在 openStrokeDemo 中决定是否显示加载态弹窗
+import { getCharDataAsync, ready as hanziDataReady, isReady } from './hanziDataStore.js';
 import { getSettings, updateSetting } from './settingsCenter.js';
 import '../styles/strokeDemoModal.css';
 
@@ -82,19 +83,25 @@ export function openStrokeDemo(char) {
         _toast(`最多同时演示 ${MAX_WINDOWS} 个汉字，请先关闭部分弹窗`);
         return;
     }
-    // 等待离线数据就绪，再用 getCharDataAsync 查询（含网络备选）
-    hanziDataReady()
-        .then(() => getCharDataAsync(ch))
-        .then(data => {
-            if (!data) {
-                _toast(`无"${ch}"的笔画数据（本地+网络均无）`);
-                return;
-            }
-            _createWindow(ch, data);
-        })
-        .catch(err => {
-            _toast(`数据加载失败：${err.message || err}`);
-        });
+    // v2.9.9：根据数据就绪状态选择路径
+    if (isReady()) {
+        // 数据已就绪：保持原行为，直接查询并创建弹窗
+        getCharDataAsync(ch)
+            .then(data => {
+                if (!data) {
+                    _toast(`无"${ch}"的笔画数据（本地+网络均无）`);
+                    return;
+                }
+                _createWindow(ch, data);
+            })
+            .catch(err => {
+                _toast(`数据加载失败：${err.message || err}`);
+            });
+    } else {
+        // v2.9.9：数据未就绪 — 立即创建加载态弹窗，数据就绪后再替换为正常内容
+        // 避免"点击后迟迟无反馈"的体验问题（hanzi-data.bin 11.75MB 首次访问需下载）
+        _createLoadingWindow(ch);
+    }
 }
 
 /** 关闭所有演示弹窗 */
@@ -172,6 +179,76 @@ function _createWindow(char, data) {
     // 触发出现动画
     requestAnimationFrame(() => win.classList.add('sd-open'));
 
+    // v2.9.9：抽取窗口控件绑定与主体设置（与 _createLoadingWindow 共用）
+    _bindWindowControls(win);
+    _setupWindowBody(win, char, data, initialSpeed);
+
+    // v2.9.8：不自动播放，仅显示 0.25 不透明度的汉字轮廓（底层始终显示）
+}
+
+/**
+ * v2.9.9：抽取窗口控件绑定（关闭/最小化/最大化按钮 + 标题栏拖拽）。
+ * 在 _createWindow 与 _createLoadingWindow 中共用，保证加载态与正常态窗口控件行为一致。
+ * @param {HTMLElement} win .sd-window 元素
+ */
+function _bindWindowControls(win) {
+    // ── 窗口控制按钮 ──
+    // v2.9.8：重写最小化/最大化逻辑
+    //   - 最小化（▱）：隐藏主体，仅保留标题栏；记录最小化前的状态（位置+尺寸）
+    //   - 最大化（▢）：从最小化恢复时，精确还原到最小化前的位置和尺寸
+    //                  非最小化状态下，切换最大化（放大/还原）
+    //   - 关闭（✕）：关闭弹窗
+    win.querySelector('.sd-btn-close').addEventListener('click', () => _closeWindow(win, true));
+
+    win.querySelector('.sd-btn-min').addEventListener('click', () => {
+        if (win.classList.contains('minimized')) return; // 已最小化，不重复操作
+        // v2.9.8：记录最小化前的状态（用于最大化按钮精确恢复）
+        win.dataset.preMinState = win.classList.contains('maximized') ? 'maximized' : 'normal';
+        // 记录内联位置样式（拖拽后的位置）
+        win.dataset.preMinLeft = win.style.left || '';
+        win.dataset.preMinTop = win.style.top || '';
+        win.dataset.preMinPosition = win.style.position || '';
+        win.dataset.preMinRight = win.style.right || '';
+        win.dataset.preMinBottom = win.style.bottom || '';
+        win.dataset.preMinMargin = win.style.margin || '';
+        // 切换到最小化（清除最大化状态）
+        win.classList.remove('maximized');
+        win.classList.add('minimized');
+    });
+
+    win.querySelector('.sd-btn-max').addEventListener('click', () => {
+        if (win.classList.contains('minimized')) {
+            // v2.9.8：从最小化恢复 — 精确还原到最小化前的位置和尺寸
+            win.classList.remove('minimized');
+            if (win.dataset.preMinState === 'maximized') {
+                win.classList.add('maximized');
+            }
+            // 恢复内联位置样式（如果有）
+            win.style.left = win.dataset.preMinLeft || '';
+            win.style.top = win.dataset.preMinTop || '';
+            win.style.position = win.dataset.preMinPosition || '';
+            win.style.right = win.dataset.preMinRight || '';
+            win.style.bottom = win.dataset.preMinBottom || '';
+            win.style.margin = win.dataset.preMinMargin || '';
+        } else {
+            // v2.9.8：非最小化状态 — 切换最大化（放大/还原）
+            win.classList.toggle('maximized');
+        }
+    });
+
+    // ── 拖拽（标题栏） ──
+    _enableDrag(win, win.querySelector('.sd-window-header'));
+}
+
+/**
+ * v2.9.9：抽取弹窗主体设置（HanziWriter 双图层 + 播放按钮 + 速度滑块）。
+ * 在 _createWindow 与 _promoteLoadingWindow 中共用，加载态弹窗升级时复用此逻辑。
+ * @param {HTMLElement} win .sd-window 元素（body 内容已就绪）
+ * @param {string} char 单个汉字
+ * @param {object} data 笔画数据
+ * @param {number} initialSpeed 初始播放速度（1-5）
+ */
+function _setupWindowBody(win, char, data, initialSpeed) {
     // ── 双图层 HanziWriter 实例 ──
     // 底层：静态显示完整汉字（opacity 0.25，CSS 控制），不参与动画
     // 顶层：初始为空（showCharacter:false），点击播放时 animateCharacter
@@ -318,55 +395,139 @@ function _createWindow(char, data) {
         // v2.9.8：持久化到 localStorage，后续新弹窗默认采用此速度
         _persistSpeed(currentSpeed);
     });
+}
 
-    // ── 窗口控制按钮 ──
-    // v2.9.8：重写最小化/最大化逻辑
-    //   - 最小化（▱）：隐藏主体，仅保留标题栏；记录最小化前的状态（位置+尺寸）
-    //   - 最大化（▢）：从最小化恢复时，精确还原到最小化前的位置和尺寸
-    //                  非最小化状态下，切换最大化（放大/还原）
-    //   - 关闭（✕）：关闭弹窗
-    win.querySelector('.sd-btn-close').addEventListener('click', () => _closeWindow(win, true));
+/**
+ * v2.9.9：创建带加载动画的弹窗。
+ * 数据未就绪时立即显示，数据就绪后调用 _promoteLoadingWindow 替换为正常内容；
+ * 数据加载失败时调用 _showLoadingError 显示错误信息。
+ * 标题栏与正常弹窗一致（字符 + "· 笔画笔顺"），关闭/最小化/最大化按钮可用。
+ * @param {string} char 单个汉字
+ */
+function _createLoadingWindow(char) {
+    const overlay = _ensureOverlay();
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden', 'false');
 
-    win.querySelector('.sd-btn-min').addEventListener('click', () => {
-        if (win.classList.contains('minimized')) return; // 已最小化，不重复操作
-        // v2.9.8：记录最小化前的状态（用于最大化按钮精确恢复）
-        win.dataset.preMinState = win.classList.contains('maximized') ? 'maximized' : 'normal';
-        // 记录内联位置样式（拖拽后的位置）
-        win.dataset.preMinLeft = win.style.left || '';
-        win.dataset.preMinTop = win.style.top || '';
-        win.dataset.preMinPosition = win.style.position || '';
-        win.dataset.preMinRight = win.style.right || '';
-        win.dataset.preMinBottom = win.style.bottom || '';
-        win.dataset.preMinMargin = win.style.margin || '';
-        // 切换到最小化（清除最大化状态）
-        win.classList.remove('maximized');
-        win.classList.add('minimized');
-    });
+    // v2.9.9：加载态弹窗也使用持久化的初始速度，便于升级后与正常弹窗一致
+    const initialSpeed = _getPersistedSpeed();
 
-    win.querySelector('.sd-btn-max').addEventListener('click', () => {
-        if (win.classList.contains('minimized')) {
-            // v2.9.8：从最小化恢复 — 精确还原到最小化前的位置和尺寸
-            win.classList.remove('minimized');
-            if (win.dataset.preMinState === 'maximized') {
-                win.classList.add('maximized');
+    const win = document.createElement('div');
+    win.className = 'sd-window loading';
+    win.dataset.char = char;
+    win.innerHTML = `
+        <div class="sd-window-header" role="toolbar" aria-label="弹窗控制">
+            <span class="sd-window-title" title="${char} 的笔画笔顺演示">${char} · 笔画笔顺</span>
+            <div class="sd-window-controls">
+                <button type="button" class="sd-btn-min" title="最小化" aria-label="最小化">▱</button>
+                <button type="button" class="sd-btn-max" title="最大化" aria-label="最大化">▢</button>
+                <button type="button" class="sd-btn-close" title="关闭" aria-label="关闭">✕</button>
+            </div>
+        </div>
+        <div class="sd-window-body">
+            <div class="sd-loading-spinner" aria-hidden="true"></div>
+            <div class="sd-loading-text">正在加载笔画数据...</div>
+        </div>
+    `;
+    overlay.appendChild(win);
+
+    // 触发出现动画
+    requestAnimationFrame(() => win.classList.add('sd-open'));
+
+    // v2.9.9：复用窗口控件绑定（关闭/最小化/最大化 + 拖拽）
+    _bindWindowControls(win);
+
+    // v2.9.9：占位注册到 _windows，避免数据未就绪期间相同字重复打开新弹窗
+    // bgWriter/fgWriter 暂为 null，_promoteLoadingWindow 升级时会覆盖此条目
+    _windows.set(char, { win, bgWriter: null, fgWriter: null, speed: initialSpeed });
+
+    // v2.9.9：跟踪取消状态，用户关闭弹窗后不再替换内容
+    // - cancelled：用户点击关闭按钮（_bindWindowControls 已绑定 _closeWindow，此处仅设标志）
+    // - 'closing' 类：ESC 关闭或外部调用 _closeWindow 时通过类名检测
+    // - !win.isConnected：win 已从 DOM 移除（关闭动画结束后）
+    let cancelled = false;
+    win.querySelector('.sd-btn-close').addEventListener('click', () => { cancelled = true; });
+    const isCancelled = () => cancelled || !win.isConnected || win.classList.contains('closing');
+
+    // 等待离线数据就绪，再用 getCharDataAsync 查询（含网络备选）
+    hanziDataReady()
+        .then(() => getCharDataAsync(char))
+        .then(data => {
+            if (isCancelled()) return;
+            if (!data) {
+                // v2.9.9：数据就绪但查无此字 — 在弹窗中显示错误信息
+                _showLoadingError(win, `无"${char}"的笔画数据（本地+网络均无）`);
+                _windows.delete(char);
+                return;
             }
-            // 恢复内联位置样式（如果有）
-            win.style.left = win.dataset.preMinLeft || '';
-            win.style.top = win.dataset.preMinTop || '';
-            win.style.position = win.dataset.preMinPosition || '';
-            win.style.right = win.dataset.preMinRight || '';
-            win.style.bottom = win.dataset.preMinBottom || '';
-            win.style.margin = win.dataset.preMinMargin || '';
-        } else {
-            // v2.9.8：非最小化状态 — 切换最大化（放大/还原）
-            win.classList.toggle('maximized');
-        }
-    });
+            // v2.9.9：升级加载态弹窗为正常弹窗（复用 win 元素，避免位置/动画跳动）
+            _promoteLoadingWindow(win, char, data, initialSpeed);
+        })
+        .catch(err => {
+            if (isCancelled()) return;
+            // v2.9.9：数据加载失败 — 在弹窗中显示错误信息（按任务要求文案）
+            _showLoadingError(win, '笔画数据加载失败，请刷新页面重试');
+            _windows.delete(char);
+        });
+}
 
-    // ── 拖拽（标题栏） ──
-    _enableDrag(win, win.querySelector('.sd-window-header'));
+/**
+ * v2.9.9：将加载态弹窗升级为正常弹窗。
+ * 复用 win 元素与已绑定的窗口控件（_bindWindowControls），仅替换 body 内容并初始化 HanziWriter。
+ * 避免关闭加载态弹窗 + 重新创建正常弹窗造成的视觉跳动。
+ * @param {HTMLElement} win .sd-window 元素（当前为 loading 态）
+ * @param {string} char 单个汉字
+ * @param {object} data 笔画数据
+ * @param {number} initialSpeed 初始播放速度
+ */
+function _promoteLoadingWindow(win, char, data, initialSpeed) {
+    // 移除加载态/错误态类
+    win.classList.remove('loading', 'sd-loading-error');
+    // 替换 body 内容为正常弹窗结构（header 不变，控件绑定仍然有效）
+    const body = win.querySelector('.sd-window-body');
+    if (!body) return;
+    body.innerHTML = `
+        <div class="sd-stage">
+            <div class="sd-stage-bg"></div>
+            <div class="sd-stage-fg"></div>
+        </div>
+        <div class="sd-controls">
+            <button type="button" class="sd-play-btn" title="播放笔顺动画" aria-label="播放笔顺动画">
+                <svg class="sd-play-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" fill="currentColor"/>
+                </svg>
+                <svg class="sd-pause-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:none;">
+                    <path d="M6 5h4v14H6zm8 0h4v14h-4z" fill="currentColor"/>
+                </svg>
+                <span class="sd-play-text">播放</span>
+            </button>
+            <div class="sd-speed-row">
+                <span>速度</span>
+                <input type="range" class="sd-speed-slider" min="1" max="5" step="1" value="${initialSpeed}">
+                <span class="sd-speed-val">${initialSpeed}x</span>
+            </div>
+        </div>
+        <div class="sd-info"></div>
+    `;
+    // 初始化主体（HanziWriter 双图层 + 播放按钮 + 速度滑块）
+    // _setupWindowBody 内部会 _windows.set(char, ...) 覆盖加载态占位条目
+    _setupWindowBody(win, char, data, initialSpeed);
+}
 
-    // v2.9.8：不自动播放，仅显示 0.25 不透明度的汉字轮廓（底层始终显示）
+/**
+ * v2.9.9：在加载态弹窗中显示错误信息。
+ * 替换 body 内容为错误提示，标题栏保持不变（用户仍可关闭）。
+ * @param {HTMLElement} win .sd-window 元素
+ * @param {string} msg 错误信息
+ */
+function _showLoadingError(win, msg) {
+    // 移除 loading 类（停止 spinner），添加错误态类（供 CSS 适配）
+    win.classList.remove('loading');
+    win.classList.add('sd-loading-error');
+    const body = win.querySelector('.sd-window-body');
+    if (body) {
+        body.innerHTML = `<div class="sd-loading-error-text">${msg}</div>`;
+    }
 }
 
 /** 关闭单个弹窗 */
@@ -527,6 +688,11 @@ export function initStrokeDemoClick() {
  * 按钮位于 .quick-toolbar 中（字体下拉菜单下方，与"刷新""打印"按钮平齐）。
  * 图标-only，开启时 btn-primary 高亮，关闭时 btn-secondary 暗淡。
  * 功能说明通过 title 属性在鼠标悬停/长按时显示（tooltip）。
+ *
+ * v2.9.9 新增：在按钮右上角添加数据就绪徽章（小圆点）。
+ *   - 数据未就绪时显示橙色脉冲动画，提示用户笔画数据仍在加载
+ *   - 数据就绪后短暂闪烁绿色，随后徽章消失
+ *   - 通过 hanziDataReady().then(...) 监听就绪状态
  */
 export function initStrokeDemoToolbar() {
     const btn = document.getElementById('strokeDemoToolbarBtn');
@@ -566,4 +732,39 @@ export function initStrokeDemoToolbar() {
             syncState(s.showStrokeDemo !== false);
         }
     });
+
+    // v2.9.9：添加数据就绪徽章（小圆点指示器）
+    // 按钮需 position:relative 作为徽章定位基准（CSS 中设置）
+    const badge = document.createElement('span');
+    badge.className = 'sd-toolbar-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    btn.appendChild(badge);
+
+    // v2.9.9：切换为加载态（橙色脉冲动画）
+    const setBadgeLoading = () => {
+        badge.classList.remove('ready');
+        badge.classList.add('loading');
+    };
+    // v2.9.9：切换为就绪态（绿色闪烁后消失，1.5s 后清理类）
+    const setBadgeReady = () => {
+        badge.classList.remove('loading');
+        badge.classList.add('ready');
+        setTimeout(() => {
+            badge.classList.remove('ready');
+        }, 1500);
+    };
+
+    if (isReady()) {
+        // v2.9.9：数据已就绪（如 Service Worker 缓存命中）— 短暂显示绿色徽章后消失
+        setBadgeReady();
+    } else {
+        // v2.9.9：数据未就绪 — 显示加载脉冲，就绪后切换为绿色闪烁
+        setBadgeLoading();
+        hanziDataReady().then(() => {
+            setBadgeReady();
+        }).catch(() => {
+            // v2.9.9：加载失败 — 保持 loading 脉冲，提示数据不可用
+            // 不切换为 ready，让用户感知到笔画功能可能受限
+        });
+    }
 }
