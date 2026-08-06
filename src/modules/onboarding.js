@@ -10,19 +10,25 @@
 //   - 新增侧栏内部控件引导步骤（网格类型、描红透明度、颜色预设、预设场景）
 //   - 新增历史记录侧栏引导步骤
 //   - 新增"笔顺演示介绍页"跳转步骤
+// v2.9.9 更新：
+//   - 新增 AI 组词补齐引导步骤（autoOpen: 'settings'，主动打开设置面板）
+//   - 强调 AI 回答的概率属性：一次补齐未必能覆盖全部缺失字，多重复点击几次可逐步补齐
 
 import '../styles/onboarding.css';
+// v2.9.9：静态导入 openSettings（settingsCenter 仅动态 import onboarding，无静态循环依赖）
+import { openSettings } from './settingsCenter.js';
 
 const OB_COMPLETED_KEY = 'onboarding_completed';
 const OB_VERSION_KEY = 'onboarding_version';
 // v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
 // 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
 const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
-const OB_VERSION = 'v2.9.8';
+const OB_VERSION = 'v2.9.9';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
 // v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）
 // v2.9.8：新增 autoOpen（'sidebar' / 'history' / null）和 tooltipText 字段
+// v2.9.9：新增 autoOpen: 'settings'（主动打开设置面板，介绍 AI 组词补齐）
 const ONBOARDING_STEPS = [
     {
         selector: '#settingsBtn',
@@ -169,6 +175,16 @@ const ONBOARDING_STEPS = [
         position: 'left',
         hintCorner: 'top-right',
         autoOpen: 'history'
+    },
+    // ── v2.9.9 新增：AI 组词补齐（autoOpen: 'settings'，主动打开设置面板） ──
+    {
+        selector: '#scAiZuci',
+        title: '🤖 AI 组词补齐（可选）',
+        desc: '设置中心内的"AI 组词补齐"区域。字帖中每个汉字会配 2 个二字组词，默认由 cnchar 词库 + 自定义词库提供；对个别默认词库没有合适二字组词的汉字（会显示"组词"占位），可启用此功能调用 DeepSeek 大模型补齐。启用后填入 API Key，点"▶ 补齐组词"即可，结果缓存在本地 localStorage 下次直接使用。⚠️ 注意：因 AI 回答具有概率属性，少数情形下一次补齐未必能覆盖全部缺失的字；这时多重复点击几次"补齐组词"按钮，大概率能逐步补齐全部词组。API Key 仅存本地，不上传。',
+        tooltipText: 'AI 组词补齐（可选，需 DeepSeek API Key）',
+        position: 'left',
+        hintCorner: 'top-right',
+        autoOpen: 'settings'
     }
 ];
 
@@ -281,6 +297,7 @@ function closeOtherOverlays() {
 
 // v2.9.8：根据 step.autoOpen 主动打开隐藏的浮层（移动端抽屉 / 历史记录侧栏）
 // 解决问题：移动端触屏介绍左侧栏内部控件时，抽屉默认隐藏，需主动打开才能高亮被介绍的控件
+// v2.9.9：新增 autoOpen: 'settings'，主动打开设置面板以介绍 AI 组词补齐
 function openAutoOverlay(autoOpen) {
     if (autoOpen === 'sidebar') {
         const sb = document.getElementById('appSidebar');
@@ -300,6 +317,14 @@ function openAutoOverlay(autoOpen) {
     } else if (autoOpen === 'history') {
         const hs = document.getElementById('historySidebar');
         if (hs) hs.classList.add('open');
+    } else if (autoOpen === 'settings') {
+        // v2.9.9：打开设置面板（若已存在直接 _open，避免 openSettings 重建面板导致 target 引用失效）
+        const panel = document.getElementById('settingsPanel');
+        if (panel && typeof panel._open === 'function') {
+            panel._open();
+        } else if (typeof openSettings === 'function') {
+            openSettings();
+        }
     }
 }
 
@@ -319,6 +344,10 @@ function closeAutoOverlay(autoOpen) {
     } else if (autoOpen === 'history') {
         const hs = document.getElementById('historySidebar');
         if (hs) hs.classList.remove('open');
+    } else if (autoOpen === 'settings') {
+        // v2.9.9：关闭设置面板（通过面板自带的 _close 方法）
+        const panel = document.getElementById('settingsPanel');
+        if (panel && typeof panel._close === 'function') panel._close();
     }
 }
 

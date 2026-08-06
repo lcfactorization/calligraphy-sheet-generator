@@ -21,6 +21,10 @@
   - 批次≤10字，max_tokens 2048，JSON mode
   - API Key 独立存储于 localStorage（deepseek_api_key），不上传
   - 轻量内联状态提示（非 Modal）
+- **导航引导增强**：从16步扩展到17步引导流程
+  - 新增"AI 组词补齐"引导步骤（autoOpen: 'settings'，主动打开设置面板高亮 AI 区域）
+  - 步骤说明强调 AI 回答的概率属性：少数情形下一次补齐未必覆盖全部缺失字，多重复点击几次可逐步补齐
+  - onboarding.js 新增 autoOpen: 'settings' 支持（静态导入 openSettings，复用已存在面板的 _open 避免重建导致 target 引用失效）
 
 ### 优化
 - getZuCi 函数增加 AI 缓存回退：cnchar 二字词不足时优先使用 AI 补齐结果，消除"组词"占位符
