@@ -22,10 +22,13 @@
 
 import { gunzipSync } from 'fflate';
 
-// 数据源 URL（Vite public 目录，构建后位于站点根 /hanzi-data/）
+// 数据源 URL（Vite public 目录，构建后位于站点 /hanzi-data/）
 // 优先用 .bin（11.75MB，最小）；失败时降级 .js（15.7MB，Base64+Gzip，需 fflate 解码 Base64）
-const DATA_BIN_URL = '/hanzi-data/hanzi-data.bin';
-const DATA_JS_URL = '/hanzi-data/hanzi-data-embedded.js';
+// v2.9.8：使用 import.meta.env.BASE_URL 适配 GitHub Pages 子路径部署（base: './'）
+// 并通过 new URL 转为绝对 URL，确保 Web Worker 中也能正确 fetch（Worker 的 base 可能是 blob URL）
+const _BASE = import.meta.env.BASE_URL;
+const DATA_BIN_URL = new URL(`${_BASE}hanzi-data/hanzi-data.bin`, location.href).href;
+const DATA_JS_URL = new URL(`${_BASE}hanzi-data/hanzi-data-embedded.js`, location.href).href;
 
 // 网络备选数据源（hanzi-writer 官方 CDN，仅在内置+自定义数据均无此字时使用）
 // 与 hanzi-writer 默认 charDataLoader 一致，确保冷僻字也能在线获取

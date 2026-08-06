@@ -24,3 +24,5 @@ v2.8.5-verify-*.pdf
 docs/
 _commit_v287.txt
 视频自我介绍脚本_陈自强_Trae大赛.md
+# v2.9.8：排除本地下载的开源字体（CI 会自动下载，不提交到仓库避免体积膨胀）
+public/fonts/
