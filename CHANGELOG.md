@@ -13,12 +13,15 @@
   - 支持关闭/最小化/最大化（用户可取消等待）
   - 数据加载失败显示错误提示
 - **工具栏就绪徽章**：笔顺演示按钮显示数据加载状态指示器（橙色脉冲=加载中，绿色闪烁=就绪）
-- **AI 组词补齐**：设置中心新增 AI 组词补齐功能（默认关闭）
+- **AI 组词补齐 + 拼音纠错**：设置中心新增 AI 组词补齐功能（默认关闭）
   - 对默认词库（cnchar-words + customZuCi）缺失二字组词的汉字，调用 DeepSeek 大模型补齐
+  - 同时执行注音核对（多音字修正）+ 精准组词（杜绝地名/人名专有名词，词性多样化）+ 全局拼音校验
+  - 纠正后的拼音自动替换字帖中的原拼音（辅助行拼音 + 词组拼音均生效）
+  - 补齐完成后显示拼音纠错报告（次数 + 明细：原拼音→纠正拼音+原因）
   - 纯浏览器直连 DeepSeek API（CORS 已开放），无需后端
-  - 单 JSON Map 缓存（localStorage key: ai_zuci_cache_v1）
+  - 单 JSON Map 缓存（localStorage key: ai_zuci_cache_v1），含 zuci/pinyin/pinyinFixed/wordsDetail 字段
   - AbortController 中断支持，再次点击按钮即可取消
-  - 批次≤10字，max_tokens 2048，JSON mode
+  - 批次≤10字，max_tokens 4096，JSON mode
   - API Key 独立存储于 localStorage（deepseek_api_key），不上传
   - 轻量内联状态提示（非 Modal）
 - **导航引导增强**：从16步扩展到17步引导流程

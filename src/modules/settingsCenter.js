@@ -496,11 +496,19 @@ function bindPanelEvents(overlay) {
             try {
                 const { fillMissingZuci } = await import('./aiZuci.js');
                 const result = await fillMissingZuci(chars, { apiKey, signal: aiAbortCtrl.signal });
-                setStatus(
-                    `✓ 完成：共 ${result.total} 字 · 默认 ${result.default} · AI 补齐 ${result.ai} · 缺失 ${result.missing}（${result.elapsed}ms）`,
-                    '#16a34a'
-                );
-                // 触发重渲染，使 AI 缓存生效（消除 "组词" 占位）
+                // v2.9.9：构建含拼音纠错报告的状态消息
+                let msg = `✓ 完成：共 ${result.total} 字 · 默认 ${result.default} · AI 补齐 ${result.ai} · 缺失 ${result.missing}（${result.elapsed}ms）`;
+                if (result.pinyinFixed > 0) {
+                    msg += `\n📌 拼音纠错 ${result.pinyinFixed} 次：`;
+                    result.fixes.forEach(f => {
+                        msg += `\n  ${f.char}：${f.from} → ${f.to}（${f.reason}）`;
+                    });
+                } else if (result.pinyinChecked > 0) {
+                    msg += `\n📌 拼音核对 ${result.pinyinChecked} 字，均无误`;
+                }
+                if (status) status.style.whiteSpace = 'pre-line';
+                setStatus(msg, '#16a34a');
+                // 触发重渲染，使 AI 缓存生效（消除 "组词" 占位 + 纠正拼音）
                 document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
             } catch (err) {
                 if (err && err.name === 'AbortError') {

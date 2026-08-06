@@ -15,6 +15,7 @@
 import { GRID_COLORS, GRID_COLOR_PRESETS, SHEET_LAYOUT, A4_SHEET_LAYOUT } from '../contracts/interfaces.js';
 import { pinyin } from '../modules/pinyin.js';
 import { getZuCi } from '../modules/zuci.js';
+import { getAiPinyin } from '../modules/aiZuci.js';  // v2.9.9：AI 拼音纠错缓存回退
 import { loadStrokes, clearStrokeQueue } from '../modules/strokes.js';
 // v2.5.3：颜色由 settingsCenter 管理（用户可在侧栏快切）
 import { getSettings } from '../modules/settingsCenter.js';
@@ -256,8 +257,11 @@ function drawTianWithPinyinZuci(svg, data, colors) {
     const chars = Array.from(word).slice(0, 2);
 
     // 为每个字生成拼音（调用 pinyin-pro）
+    // v2.9.9：优先使用 AI 纠正后的拼音（多音字修正）
     const pinyins = chars.map(c => {
         if (!c) return '';
+        const aiPy = getAiPinyin(c);
+        if (aiPy) return aiPy;
         try {
             return pinyin(c, { toneType: 'symbol', segment: true, nonZh: 'consecutive' }) || '';
         } catch {
@@ -635,6 +639,9 @@ export function renderSheet(input = '', options = {}) {
         } catch (e) {
             py = '';
         }
+        // v2.9.9：优先使用 AI 纠正后的拼音（多音字修正）
+        const aiPy = getAiPinyin(char);
+        if (aiPy) py = aiPy;
 
         // ── 计算组词（两字词语） ──
         let zuci = [];
