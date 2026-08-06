@@ -39,3 +39,7 @@ body::before{
 .app-header p{color:var(--desc-color);font-size:11px;margin:0;white-space:nowrap}
 .app-header p .build-info{opacity:.7;margin-left:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .app-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+/* v2.9.8：笔顺演示介绍页入口链接 */
+.header-guide-link{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--seal-red);background:rgba(158,42,43,0.08);border:1px solid rgba(158,42,43,0.25);border-radius:6px;text-decoration:none;white-space:nowrap;transition:all .2s var(--ease-out-soft)}
+.header-guide-link:hover{background:rgba(158,42,43,0.15);border-color:var(--seal-red);transform:translateY(-1px);box-shadow:0 2px 8px rgba(158,42,43,0.2)}
+@media (max-width:680px){.header-guide-link{padding:5px 10px;font-size:11px}}

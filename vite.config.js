@@ -27,16 +27,30 @@ export default defineConfig({
                 ]
             },
             workbox: {
-                globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,ttf,otf}'],
+                globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,ttf,otf,bin}'],
                 maximumFileSizeToCacheInBytes: 41943040,
-                runtimeCaching: [{
-                    urlPattern: /\.(?:woff2?|ttf|otf)$/,
-                    handler: 'CacheFirst',
-                    options: {
-                        cacheName: 'fonts-cache',
-                        expiration: { maxEntries: 20, maxAgeSeconds: 60*60*24*365 }
+                runtimeCaching: [
+                    {
+                        urlPattern: /\/hanzi-data\/.+\.(?:bin|js)$/,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'hanzi-data-cache',
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365 * 10
+                            },
+                            cacheableResponse: { statuses: [0, 200] }
+                        }
+                    },
+                    {
+                        urlPattern: /\.(?:woff2?|ttf|otf)$/,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'fonts-cache',
+                            expiration: { maxEntries: 20, maxAgeSeconds: 60*60*24*365 }
+                        }
                     }
-                }]
+                ]
             }
         })
     ],

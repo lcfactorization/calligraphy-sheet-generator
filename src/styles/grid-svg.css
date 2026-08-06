@@ -31,6 +31,19 @@
     /* v2.9.7：范字颜色跟随主题，dark 模式自动反色（currentColor 继承此 color）
        打印时由 print.css 强制 #000 保证黑字白纸 */
     color: var(--text-color, #000);
+    /* v2.9.8：移动端点击修复
+       - touch-action: manipulation 禁用双击缩放，保留滚动，消除 300ms 延迟
+         解决"手机端双击汉字无法弹出笔画笔顺演示弹窗"问题（双击被浏览器解释为缩放手势）
+       - -webkit-tap-highlight-color 移除移动端点击灰色高亮
+       - cursor: pointer 视觉提示可点击 */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+/* v2.9.8：字格点击视觉反馈（避免 300ms 延迟期间用户感知"没反应"） */
+.grid-svg-cell[data-char]:active {
+    background: rgba(158, 42, 43, 0.08);  /* 朱砂红 8% 透明度 */
 }
 /* v2.9.7：dark 模式下范字 inverted color 显示（--text-color 在 dark 主题下为 #e2e8f0 浅色） */
 [data-theme='dark'] .grid-svg-cell {

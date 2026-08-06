@@ -2,6 +2,14 @@
 // localStorage keys: onboarding_completed / onboarding_version
 // 兼容现有 .puppeteer-toast 机制（fab.css 已定义 .info/.success/.error 变体）
 // 防御性编程：每步前检查 document.querySelector(selector) 是否存在且可见（offsetParent !== null），不存在则跳过
+//
+// v2.9.8 更新：
+//   - 修正位置描述错误（theme/puppeteer 实际在右上角，非左上角/右下角上方）
+//   - 添加 autoOpen 字段：介绍侧栏内部控件时主动打开抽屉（移动端），介绍历史记录时主动打开右侧栏
+//   - 添加 tooltipText 字段：在气泡中显示控件鼠标悬停时的简短说明（即 title 属性内容）
+//   - 新增侧栏内部控件引导步骤（网格类型、描红透明度、颜色预设、预设场景）
+//   - 新增历史记录侧栏引导步骤
+//   - 新增"笔顺演示介绍页"跳转步骤
 
 import '../styles/onboarding.css';
 
@@ -10,73 +18,157 @@ const OB_VERSION_KEY = 'onboarding_version';
 // v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
 // 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
 const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
-const OB_VERSION = 'v2.9.7';
+const OB_VERSION = 'v2.9.8';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
 // v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）
+// v2.9.8：新增 autoOpen（'sidebar' / 'history' / null）和 tooltipText 字段
 const ONBOARDING_STEPS = [
     {
         selector: '#settingsBtn',
         title: '⚙️ 设置中心 🔄',
         desc: '右上角是设置中心，可调整网格类型、颜色、显示开关等。改完关闭面板即自动刷新字帖，无需手动点"生成"。',
+        tooltipText: '设置中心',
         position: 'bottom',
-        hintCorner: 'top-right'
+        hintCorner: 'top-right',
+        autoOpen: null
+    },
+    {
+        selector: '#themeToggle',
+        title: '☀ 主题切换',
+        desc: '右上角设置按钮下方是主题切换，日间 / 夜间模式一键切换。不影响字帖内容，范字颜色会随主题自动反色。',
+        tooltipText: '点击切换日间/夜间模式',
+        position: 'bottom',
+        hintCorner: 'top-right',
+        autoOpen: null
+    },
+    {
+        selector: '#puppeteerBtn',
+        title: '⬇ Puppeteer 矢量 PDF',
+        desc: '右上角主题按钮下方是高级导出，需先启动本地 Puppeteer 服务。不会刷新字帖，直接导出当前预览。',
+        tooltipText: 'Puppeteer 矢量PDF（需先启动本地服务）',
+        position: 'left',
+        hintCorner: 'top-right',
+        autoOpen: null
     },
     {
         selector: '#printBtn',
         title: '🖨 打印 / 导出 PDF',
         desc: '右下角是主操作按钮，调用浏览器打印生成矢量 PDF。不会刷新字帖，直接打印当前预览。',
+        tooltipText: '打印 / 导出PDF（矢量PDF）',
         position: 'top',
-        hintCorner: 'bottom-right'
+        hintCorner: 'bottom-right',
+        autoOpen: null
+    },
+    {
+        selector: '#historyFab',
+        title: '📋 历史记录',
+        desc: '左下角是历史记录入口，点击打开右侧边栏，可查看最近输入过的汉字、字体、字帖设置，一键恢复。',
+        tooltipText: '历史记录',
+        position: 'right',
+        hintCorner: 'bottom-left',
+        autoOpen: null
     },
     {
         selector: '.sidebar-drawer-toggle',
         title: '☰ 侧栏开关 🔄',
-        desc: '左下角是侧栏开关，展开后可见描红透明度、预设场景等。预设场景切换会自动刷新字帖。',
+        desc: '移动端左下角是侧栏开关（桌面端不显示此按钮，左侧栏始终可见），展开后可见网格类型、描红透明度、颜色预设、预设场景等。预设场景切换会自动刷新字帖。',
+        tooltipText: '打开侧栏',
         position: 'right',
-        hintCorner: 'bottom-left'
-    },
-    {
-        selector: '#themeToggle',
-        title: '☀ 主题切换',
-        desc: '左上角是主题切换，日间 / 夜间模式一键切换。不影响字帖内容，范字颜色会随主题自动反色。',
-        position: 'bottom',
-        hintCorner: 'top-left'
-    },
-    {
-        selector: '#puppeteerBtn',
-        title: '⬇ Puppeteer 矢量 PDF',
-        desc: '右下角上方是高级导出，需先启动本地 Puppeteer 服务。不会刷新字帖，直接导出当前预览。',
-        position: 'left',
-        hintCorner: 'bottom-right'
+        hintCorner: 'bottom-left',
+        autoOpen: null
     },
     {
         selector: '#font-select',
         title: '🔤 字体选择 ✋',
         desc: '输入区上方是字体下拉框，可在霞鹜文楷、思源宋体等字体间切换。切换后需手动点"生成"或"🔄"按钮才生效。',
+        tooltipText: '字体',
         position: 'bottom',
-        hintCorner: 'top-right'
+        hintCorner: 'top-right',
+        autoOpen: null
     },
     {
         selector: '.font-upload-btn',
         title: '⬆ 自定义字体 ✋',
         desc: '字体下拉框右侧的上传按钮，支持 ttf/otf/woff/woff2 格式。加载后需手动点"生成"才生效。',
+        tooltipText: '添加自己的字体文件（支持 ttf/otf/woff/woff2 格式，加载后可在字体下拉框中选择）',
         position: 'bottom',
-        hintCorner: 'top-right'
+        hintCorner: 'top-right',
+        autoOpen: null
+    },
+    {
+        selector: '#strokeDemoToolbarBtn',
+        title: '✍️ 笔顺演示',
+        desc: '工具栏"笔顺演示"按钮（默认开启，显示橙色高亮，点击切换为关闭灰色）。开启后点击任意汉字方格弹出动态演示窗口：汉字黑色、偏旁红色，未播放时 0.25 透明轮廓始终显示，点击"▶ 播放"逐笔演示，速度可调。内置 9574 字离线数据，无需联网；冷僻字联网时自动从网络备选加载并缓存。最多同时 4 个弹窗，相同字点击切换到已有弹窗。',
+        tooltipText: '点击单字动态演示笔画笔顺（当前：开启，点击切换为关闭）',
+        position: 'bottom',
+        hintCorner: 'top-right',
+        autoOpen: null
     },
     {
         selector: '#recommendBtn',
         title: '✨ 智能推荐 ✋',
-        desc: '输入框左侧是智能推荐，含按难度/主题/场景三个维度（离线规则，非 AI）。单字点击追加到输入框尾部，模板点击覆盖原内容。改完输入框不会自动刷新字帖，需手动点"生成"或"🔄"按钮。不影响任何设置（网格/颜色/字体等都不动）。',
+        desc: '输入框下方按钮行最左侧是智能推荐，含按难度/主题/场景三个维度（离线规则，非 AI）。单字点击追加到输入框尾部，模板点击覆盖原内容。改完输入框不会自动刷新字帖，需手动点"生成"或"🔄"按钮。不影响任何设置（网格/颜色/字体等都不动）。',
+        tooltipText: 'AI 智能推荐汉字与模板',
         position: 'top',
-        hintCorner: 'bottom-left'
+        hintCorner: 'bottom-left',
+        autoOpen: null
     },
     {
         selector: '#fileImportBtn',
         title: '📁 导入生词文件 ✋',
-        desc: '输入框下方是文件导入按钮，支持 txt/md/csv/xlsx/docx 格式，自动提取汉字填入输入框。填入后不会自动刷新字帖，需手动点"生成"或"🔄"按钮。',
+        desc: '输入框下方按钮行中间是文件导入按钮，支持 txt/md/csv/xlsx/docx 格式，自动提取汉字填入输入框。填入后不会自动刷新字帖，需手动点"生成"或"🔄"按钮。',
+        tooltipText: '导入 txt/md/csv/xlsx/docx 文件到输入框',
         position: 'top',
-        hintCorner: 'bottom-left'
+        hintCorner: 'bottom-left',
+        autoOpen: null
+    },
+    // ── 侧栏内部控件（autoOpen: 'sidebar'，移动端会主动打开抽屉） ──
+    {
+        selector: '.grid-type-group',
+        title: '📐 网格类型 🔄',
+        desc: '左侧栏的"网格类型"切换组，支持田字格 / 米字格 / 九宫格 / 回字格 / 拼音田五种字格。点击立即刷新字帖。',
+        tooltipText: '点击切换字格类型',
+        position: 'right',
+        hintCorner: 'top-left',
+        autoOpen: 'sidebar'
+    },
+    {
+        selector: '.opacity-slider-wrap',
+        title: '🖌️ 描红透明度 🔄',
+        desc: '左侧栏的"描红透明度"滑块，调整字帖中范字的透明度（0.05 ~ 0.30）。拖动立即刷新字帖。',
+        tooltipText: '描红透明度',
+        position: 'right',
+        hintCorner: 'top-left',
+        autoOpen: 'sidebar'
+    },
+    {
+        selector: '.color-preset-group',
+        title: '🎨 线框颜色 🔄',
+        desc: '左侧栏的"线框颜色"快切，支持传统绿 / 朱砂红 / 靛青蓝 / 墨黑四种配色。点击立即刷新字帖（页眉页脚颜色同步）。',
+        tooltipText: '点击切换线框颜色',
+        position: 'right',
+        hintCorner: 'top-left',
+        autoOpen: 'sidebar'
+    },
+    {
+        selector: '.preset-list',
+        title: '📚 预设场景 🔄',
+        desc: '左侧栏底部是"预设场景"列表，按年级 / 主题 / 场景分类。点击模板自动填入输入框并生成字帖。',
+        tooltipText: '点击应用预设场景',
+        position: 'right',
+        hintCorner: 'top-left',
+        autoOpen: 'sidebar'
+    },
+    // ── 历史记录侧栏（autoOpen: 'history'，会主动打开右侧栏） ──
+    {
+        selector: '#historySidebar',
+        title: '📋 历史记录详情',
+        desc: '右侧边栏显示最近输入过的汉字记录，包含输入内容、字体、时间。点击任意记录可一键恢复，底部"清空全部"可清除全部历史。历史记录保存在 localStorage 中，离线可用。',
+        tooltipText: '历史记录侧边栏',
+        position: 'left',
+        hintCorner: 'top-right',
+        autoOpen: 'history'
     }
 ];
 
@@ -187,6 +279,52 @@ function closeOtherOverlays() {
     if (sb) sb.classList.remove('open');
 }
 
+// v2.9.8：根据 step.autoOpen 主动打开隐藏的浮层（移动端抽屉 / 历史记录侧栏）
+// 解决问题：移动端触屏介绍左侧栏内部控件时，抽屉默认隐藏，需主动打开才能高亮被介绍的控件
+function openAutoOverlay(autoOpen) {
+    if (autoOpen === 'sidebar') {
+        const sb = document.getElementById('appSidebar');
+        if (sb) {
+            sb.classList.add('open');
+            // 显示遮罩（与 Sidebar.js openDrawer 一致）
+            const backdrop = document.querySelector('.sidebar-backdrop');
+            if (backdrop) backdrop.classList.add('show');
+            // 同步抽屉切换按钮文本（若存在）
+            const toggle = document.querySelector('.sidebar-drawer-toggle');
+            if (toggle) {
+                toggle.textContent = '✕';
+                toggle.setAttribute('aria-label', '关闭侧栏');
+                toggle.title = '关闭侧栏';
+            }
+        }
+    } else if (autoOpen === 'history') {
+        const hs = document.getElementById('historySidebar');
+        if (hs) hs.classList.add('open');
+    }
+}
+
+// v2.9.8：关闭由 autoOpen 打开的浮层（切换步骤或结束时调用）
+function closeAutoOverlay(autoOpen) {
+    if (autoOpen === 'sidebar') {
+        const sb = document.getElementById('appSidebar');
+        if (sb) sb.classList.remove('open');
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        if (backdrop) backdrop.classList.remove('show');
+        const toggle = document.querySelector('.sidebar-drawer-toggle');
+        if (toggle) {
+            toggle.textContent = '☰';
+            toggle.setAttribute('aria-label', '打开侧栏');
+            toggle.title = '打开侧栏';
+        }
+    } else if (autoOpen === 'history') {
+        const hs = document.getElementById('historySidebar');
+        if (hs) hs.classList.remove('open');
+    }
+}
+
+// 记录当前步骤的 autoOpen 状态，便于切换/结束时清理
+let _currentAutoOpen = null;
+
 // 检查元素是否可见（offsetParent !== null 排除 display:none 与 position:fixed 的祖先隐藏）
 // 注意：fixed 元素的 offsetParent 为 null（当祖先无 transform 时），但 fixed FAB 实际可见
 // 因此对已知 fixed 的 FAB 用 getBoundingClientRect 判断，对其它用 offsetParent
@@ -269,6 +407,11 @@ function positionBubble(target, position) {
 }
 
 export function showOnboardingStep(stepIndex) {
+    // v2.9.8：先关闭上一步通过 autoOpen 打开的浮层
+    if (_currentAutoOpen) {
+        closeAutoOverlay(_currentAutoOpen);
+        _currentAutoOpen = null;
+    }
     // 清理上一步
     clearHighlight();
     clearBubble();
@@ -281,12 +424,17 @@ export function showOnboardingStep(stepIndex) {
 
     // 防御性编程：跳过目标不存在或不可见的步骤
     // （桌面端 .sidebar-drawer-toggle 是 display:none，会被 isElementVisible 排除）
+    // v2.9.8：对于 autoOpen='sidebar'/'history' 的步骤，先打开浮层再检测可见性
     let step = ONBOARDING_STEPS[stepIndex];
     let actualIndex = stepIndex;
     while (step) {
+        // 对于需要 autoOpen 的步骤，先临时打开浮层以检测目标可见性
+        if (step.autoOpen) openAutoOverlay(step.autoOpen);
         const target = document.querySelector(step.selector);
         if (target && isElementVisible(target)) break;
         console.warn('[onboarding] 步骤 ' + actualIndex + ' 目标 ' + step.selector + ' 不存在或不可见，跳过');
+        // 跳过前关闭刚打开的浮层
+        if (step.autoOpen) closeAutoOverlay(step.autoOpen);
         actualIndex++;
         step = ONBOARDING_STEPS[actualIndex];
     }
@@ -298,12 +446,18 @@ export function showOnboardingStep(stepIndex) {
 
     const target = document.querySelector(step.selector);
     if (!target) {
+        if (step.autoOpen) closeAutoOverlay(step.autoOpen);
         completeOnboarding();
         return;
     }
 
-    // 关闭其他浮层
+    // v2.9.8：关闭其他浮层（避免与引导冲突），但保留当前步骤需要的 autoOpen 浮层
+    // 先关闭所有，再重新打开当前的
     closeOtherOverlays();
+    if (step.autoOpen) {
+        openAutoOverlay(step.autoOpen);
+        _currentAutoOpen = step.autoOpen;
+    }
 
     // 高亮目标
     target.classList.add('ob-spotlight');
@@ -313,13 +467,27 @@ export function showOnboardingStep(stepIndex) {
     const isLast = actualIndex === ONBOARDING_STEPS.length - 1;
     bubbleEl = document.createElement('div');
     bubbleEl.className = 'ob-bubble pos-' + step.position;
+
+    // v2.9.8：构建 tooltip 显示区块（鼠标悬停状态的文字说明）
+    const tooltipHtml = step.tooltipText
+        ? `<div class="ob-bubble-tooltip"><span class="ob-tooltip-label">悬停说明：</span><span class="ob-tooltip-text">${step.tooltipText}</span></div>`
+        : '';
+
+    // v2.9.8：判断是否为"笔顺演示"步骤，添加"查看详细介绍页"按钮
+    const isStrokeDemoStep = step.selector === '#strokeDemoToolbarBtn';
+    const guideBtnHtml = isStrokeDemoStep
+        ? `<button class="ob-btn ob-btn-guide" type="button" title="打开笔顺演示功能详细介绍页面">📖 查看详细介绍</button>`
+        : '';
+
     bubbleEl.innerHTML = `
         <div class="ob-bubble-title">${step.title}</div>
         <div class="ob-bubble-desc">${step.desc}</div>
+        ${tooltipHtml}
         <div class="ob-bubble-arrow"></div>
         <div class="ob-bubble-actions">
             <span class="ob-bubble-step">${actualIndex + 1} / ${ONBOARDING_STEPS.length}</span>
             <div class="ob-bubble-buttons">
+                ${guideBtnHtml}
                 <button class="ob-btn ob-btn-skip" type="button">跳过引导</button>
                 <button class="ob-btn ${isLast ? 'ob-btn-done' : 'ob-btn-next'}" type="button">
                     ${isLast ? '开始使用' : '下一步'}
@@ -332,6 +500,17 @@ export function showOnboardingStep(stepIndex) {
         </label>
     `;
     document.body.appendChild(bubbleEl);
+
+    // v2.9.8：绑定"查看详细介绍"按钮（跳转到独立介绍页）
+    if (isStrokeDemoStep) {
+        const guideBtn = bubbleEl.querySelector('.ob-btn-guide');
+        if (guideBtn) {
+            guideBtn.addEventListener('click', () => {
+                // 在新标签页打开介绍页，保留当前字帖状态
+                window.open('/stroke-demo-guide.html', '_blank');
+            });
+        }
+    }
 
     // 移动端：贴近目标定位；桌面端：CSS 强制居中
     if (isMobile()) {
@@ -355,13 +534,21 @@ export function showOnboardingStep(stepIndex) {
     });
 
     // 滚动目标到视口（确保可见，FAB 是 fixed 不受影响，但 .sidebar-drawer-toggle 等可能需要）
-    try {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    } catch (e) { /* 静默失败 */ }
+    // v2.9.8：对 autoOpen 打开的浮层，延迟滚动以确保浮层动画完成
+    setTimeout(() => {
+        try {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        } catch (e) { /* 静默失败 */ }
+    }, step.autoOpen ? 300 : 0);
 }
 
 export function skipOnboarding() {
     const never = getNeverShowFromBubble();
+    // v2.9.8：关闭由 autoOpen 打开的浮层
+    if (_currentAutoOpen) {
+        closeAutoOverlay(_currentAutoOpen);
+        _currentAutoOpen = null;
+    }
     clearHighlight();
     clearBubble();
     if (never) setNeverShow(true);
@@ -373,6 +560,11 @@ export function skipOnboarding() {
 
 export function completeOnboarding() {
     const never = getNeverShowFromBubble();
+    // v2.9.8：关闭由 autoOpen 打开的浮层
+    if (_currentAutoOpen) {
+        closeAutoOverlay(_currentAutoOpen);
+        _currentAutoOpen = null;
+    }
     clearHighlight();
     clearBubble();
     if (never) setNeverShow(true);

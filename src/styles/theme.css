@@ -1,4 +1,6 @@
 :root {
+    /* v2.9.8：声明 color-scheme 让移动端 UA 控件（select dropdown/滚动条/focus环）跟随 data-theme */
+    color-scheme: light;
     /* === 保留原有变量（v2.0 蓝紫系，向后兼容） === */
     --bg: #f6f7fb;
     --container-bg: rgba(255,255,255,0.72);
@@ -29,6 +31,8 @@
     --a4-shadow: 0 4px 24px rgba(158, 42, 43, 0.10), 0 1px 4px rgba(0,0,0,0.06); /* A4 纸张阴影 */
 }
 [data-theme='dark'] {
+    /* v2.9.8：声明 color-scheme 让移动端 UA 控件跟随 dark 主题 */
+    color-scheme: dark;
     /* === 保留原有暗色 === */
     --bg: #0b1121;
     --container-bg: rgba(20,23,41,0.65);

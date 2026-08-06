@@ -7,7 +7,12 @@ const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" 
 const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
 
 export function applyTheme() {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    const root = document.documentElement;
+    root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    // v2.9.8：通过内联样式设置 color-scheme，确保移动端 UA 控件（select/滚动条/focus环）跟随主题
+    // 原因：CSS color-scheme 属性在某些移动端浏览器上可能不生效或被 <meta> 标签覆盖
+    //       内联样式优先级最高，且与 data-theme 同步设置，杜绝不同步
+    root.style.colorScheme = isDark ? 'dark' : 'light';
     const btn = document.getElementById('themeToggle');
     btn.innerHTML = isDark ? sunIcon : moonIcon;
     btn.title = isDark ? '点击切换日间模式' : '点击切换夜间模式';

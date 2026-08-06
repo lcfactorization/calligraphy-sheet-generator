@@ -718,9 +718,28 @@ async function printViaIframe() {
         const idoc = iframe.contentDocument;
 
         // ── 骨架（<base> 让 ./fonts/ 相对路径可解析） ──
+        // v2.9.8：强制 light 主题，防止移动端浏览器对 iframe 施加 dark 模式
+        //   - <html data-theme="light"> → light 主题 CSS 变量生效
+        //   - <meta name="color-scheme" content="light"> → 移动端 UA 使用 light 样式
+        //   - html/body 内联 background:#fff → 杜绝 dark 背景透出形成"黑框"
+        //   - 额外 <style> 强制 light 变量 → 不依赖 @media print 即可生效
         const baseUrl = location.href.substring(0, location.href.lastIndexOf('/') + 1);
         idoc.open();
-        idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="' + baseUrl + '"></head><body style="margin:0;padding:0;background:#fff"></body></html>');
+        idoc.write('<!DOCTYPE html>' +
+            '<html data-theme="light" style="color-scheme:light;background:#fff">' +
+            '<head><meta charset="UTF-8"><meta name="color-scheme" content="light"><base href="' + baseUrl + '">' +
+            '<style>' +
+            // v2.9.8：iframe 内强制 light 主题变量（不依赖 [data-theme='dark'] 是否被浏览器忽略）
+            'html,body{background:#fff!important;color:#1e293b!important;}' +
+            'body::before{display:none!important;}' +
+            '.grid-svg-cell{color:#000!important;}' +
+            '.grid-svg-cell text{fill:#000!important;}' +
+            '.page-section-header,.page-section-footer{background:#fff!important;}' +
+            '.print-page-section{background:#fff!important;}' +
+            '</style>' +
+            '</head>' +
+            '<body style="margin:0;padding:0;background:#fff">' +
+            '</body></html>');
         idoc.close();
 
         // ── 克隆主文档全部 <style> 节点（含 grid-svg.css 的 mm 尺寸、print.css 的 @page 与 @media print，零漂移） ──
@@ -732,7 +751,7 @@ async function printViaIframe() {
         const fontSources = getFontSources();
         await Promise.all(fontSources.map(([name, url]) => {
             try {
-                const ff = new iwin.FontFace(name, 'url(' + url + ')', { display: 'swap' });
+                const ff = new iwin.FontFace(name, 'url("' + url + '")', { display: 'swap' });
                 return Promise.race([
                     ff.load().then(f => idoc.fonts.add(f)),
                     new Promise((_, rej) => setTimeout(() => rej(new Error('font timeout')), 5000))

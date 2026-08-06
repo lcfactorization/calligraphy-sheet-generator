@@ -1,4 +1,7 @@
 import HanziWriter from 'hanzi-writer';
+// v2.9.8：离线字符数据源 — 通过 charDataLoader 注入，彻底脱离 CDN
+// getCharDataAsync 支持网络备选（冷僻字在线获取并缓存）
+import { getCharDataAsync, isReady, ready as hanziDataReady } from './hanziDataStore.js';
 
 export function createStrokeSVG(strokes, currentIndex) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -50,6 +53,19 @@ function loadStrokesDirect(char, strokeContainer) {
         width: 60,
         height: 60,
         showOutline: false,
+        // v2.9.8：离线字符数据加载器，彻底脱离 jsdelivr CDN
+        // getCharDataAsync 含网络备选，冷僻字在线获取并缓存
+        charDataLoader: (ch, onComplete, onError) => {
+            getCharDataAsync(ch).then(data => {
+                if (data) {
+                    onComplete(data);
+                } else {
+                    onError(new Error(`无"${ch}"笔画数据（本地+网络均无）`));
+                }
+            }).catch(err => {
+                onError(err);
+            });
+        },
     });
     return writer.setCharacter(char).then(() => {
         const strokes = writer._character.strokes;
@@ -72,6 +88,14 @@ function loadStrokesDirect(char, strokeContainer) {
 
 function processStrokeQueue() {
     if (strokeLoading || strokeQueue.length === 0) return;
+    // v2.9.8：确保离线汉字数据已加载完成，否则等待就绪后再处理队列
+    if (!isReady()) {
+        hanziDataReady().then(processStrokeQueue).catch(() => {
+            // 数据加载失败也清空队列，避免无限等待
+            strokeQueue.length = 0;
+        });
+        return;
+    }
     strokeLoading = true;
     const { char, container } = strokeQueue.shift();
     loadStrokesDirect(char, container).finally(() => {

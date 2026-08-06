@@ -16,6 +16,9 @@ import { registerReportPanel } from './modules/reportPanel.js';
 import { initOnboarding, initScrollHints } from './modules/onboarding.js';
 // v2.9.5：桌面端 FAB 拖拽
 import { initFabDrag } from './modules/fabDrag.js';
+// v2.9.8：离线汉字笔画数据 + 点选单字演示笔画笔顺弹窗
+import { initHanziData } from './modules/hanziDataStore.js';
+import { initStrokeDemoClick, initStrokeDemoToolbar } from './modules/strokeDemoModal.js';
 
 // 初始化
 applyTheme();
@@ -31,6 +34,10 @@ initSidebar();
 initOnboarding();
 initScrollHints();
 initFabDrag();
+// v2.9.8：启动离线汉字数据加载（Web Worker 后台解压）+ 字格点击弹窗 + 工具栏"笔顺演示"开关
+initHanziData();
+initStrokeDemoClick();
+initStrokeDemoToolbar();
 
 // 读取当前渲染选项（合并侧栏状态 + 字体选择 + 契约默认值）
 // v2.4.4：新增 gridType 传递，描红透明度默认 0.1

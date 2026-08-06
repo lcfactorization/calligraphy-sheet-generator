@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.9.7-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.9.8-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -15,8 +15,8 @@
 - **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v2.9.7(引导增强 9 步 + "不再自动弹出"选项 + 智能推荐说明 + Dark 模式范字 inverted color)
-- **最新更新**:v2.9.7 — 引导从 5 步扩展到 9 步(新增字体选择/自定义字体/智能推荐/导入生词文件);引导浮层新增"不再自动弹出"复选框 + 设置中心开关;每步标注 🔄/✋ 是否自动刷新字帖;修复 Dark 模式下 SVG 范字硬编码黑色不可见问题(`currentColor` + dark 自动反色 + 打印强制黑色)。详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v2.9.8(笔画笔顺动态演示 + 导航引导增强 16 步 + Dark/触屏/移动端多项 Bug 修复)
+- **最新更新**:v2.9.8 — 新增离线笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + HanziWriter 双图层架构 + 播放/暂停 + 速度调节 1x-5x + 多窗口 + 速度持久化);引导从 9 步扩展到 16 步(新增笔顺演示/侧栏控件/历史记录引导);新增笔顺演示介绍页 stroke-demo-guide.html;修复 Dark 主题打印页脚黑底/汉字不显示、触屏 Light 主题渲染、移动端 settings/theme 按钮位置、移动端字格双击弹窗等 Bug;package.json 新增 fflate 依赖。详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
 
@@ -24,7 +24,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v2.9.7,ES Module)
+├── package.json             ← 依赖配置(v2.9.8,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -32,7 +32,7 @@ distribution/
 ├── 字帖生成器.html          ← 早期独立 HTML(参赛初版,仅作历史保留)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0.1 → v2.9.7 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v2.9.8 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
 ├── .github/workflows/       ← GitHub Pages 自动部署(触发分支:retake)
 ├── scripts/
@@ -106,7 +106,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v2.9.7 累计)
+### 核心功能(v2.0–v2.9.8 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -123,6 +123,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 11 | CI/CD 自动部署 | GitHub Actions 自动构建部署到 Pages | v2.0 |
 | 12 | 单文件构建能力 | vite-plugin-singlefile 生成可离线分发单 HTML | v2.0 |
 | 13 | Lucide Icons | 现代 SVG 图标库 | v2.0 |
+| 14 | **笔画笔顺动态演示** | 点击字格弹窗逐笔演示笔顺,9574 汉字离线数据 + HanziWriter 双图层 + 播放/暂停 + 速度调节 + 多窗口 | v2.9.8 |
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 
@@ -167,6 +168,9 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 40 | **引导增强 9 步** | 新增字体选择/自定义字体/智能推荐/导入生词文件,每步标注 🔄/✋ | v2.9.7 |
 | 41 | **"不再自动弹出"选项** | 引导浮层复选框 + 设置中心开关,双向绑定 localStorage | v2.9.7 |
 | 42 | **Dark 模式范字反色** | SVG `currentColor` + dark 自动反色 + 打印强制黑色 | v2.9.7 |
+| 43 | **笔画笔顺动态演示弹窗** | 点击字格弹窗逐笔演示,9574 汉字离线数据 + 双图层 + 播放/暂停 + 速度持久化 | v2.9.8 |
+| 44 | **导航引导增强 16 步** | 新增笔顺演示/侧栏控件/历史记录引导,含 autoOpen/tooltipText 字段 | v2.9.8 |
+| 45 | **Dark/触屏/移动端 Bug 修复** | Dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击 | v2.9.8 |
 
 ### 技术亮点
 
@@ -259,7 +263,7 @@ bash scripts/download-fonts.sh
 ### 移动端使用
 - 手机/平板浏览器打开在线版
 - 支持 PWA 安装到主屏,离线可用
-- 首次访问自动弹出 9 步引导(v2.9.7)
+- 首次访问自动弹出 16 步引导(v2.9.8)
 - 微信/QQ 内置浏览器会引导跳转外部浏览器打印
 
 ---

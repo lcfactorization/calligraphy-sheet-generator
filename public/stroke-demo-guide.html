@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#9E2A2B">
+    <title>笔顺演示功能介绍 · 字帖生成器</title>
+    <style>
+        /* ============================================================
+         * 笔顺演示介绍页面（v2.9.8+ 独立页面）
+         * 风格与主页一致：朱砂红主色 + light/dark 主题适配
+         * 完全离线自包含，不依赖任何外部资源
+         * ============================================================ */
+        :root {
+            --accent: #9E2A2B;
+            --accent-2: #f59e0b;
+            --bg: #fafaf7;
+            --bg-2: #f0eee8;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-2: #4b5563;
+            --border: #e5e7eb;
+            --code-bg: #f3f4f6;
+            --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        [data-theme="dark"] {
+            --bg: #1a1d23;
+            --bg-2: #15181d;
+            --card: #232830;
+            --text: #e5e7eb;
+            --text-2: #9ca3af;
+            --border: #2d3239;
+            --code-bg: #2d3239;
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #1a1d23;
+                --bg-2: #15181d;
+                --card: #232830;
+                --text: #e5e7eb;
+                --text-2: #9ca3af;
+                --border: #2d3239;
+                --code-bg: #2d3239;
+                --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 15px;
+            transition: background 0.25s, color 0.25s;
+        }
+        .container {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px 16px;
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 26px;
+            color: var(--accent);
+        }
+        header .subtitle {
+            color: var(--text-2);
+            font-size: 14px;
+            margin: 0;
+        }
+        header .meta {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-2);
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 6px 14px;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .back-link:hover { opacity: 0.9; }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: var(--shadow);
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.08); }
+        section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow);
+        }
+        section h2 {
+            margin: 0 0 14px;
+            font-size: 19px;
+            color: var(--accent);
+            border-left: 4px solid var(--accent);
+            padding-left: 10px;
+        }
+        section h3 {
+            margin: 18px 0 8px;
+            font-size: 16px;
+            color: var(--text);
+        }
+        section p {
+            margin: 8px 0;
+            color: var(--text);
+        }
+        section ul, section ol {
+            padding-left: 22px;
+            margin: 8px 0;
+        }
+        section li {
+            margin: 4px 0;
+        }
+        code {
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 13px;
+            color: var(--accent);
+        }
+        pre {
+            background: var(--code-bg);
+            padding: 14px 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: var(--text);
+            font-size: 13px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .badge-on  { background: #22c55e; color: #fff; }
+        .badge-off { background: #9ca3af; color: #fff; }
+        .badge-new { background: var(--accent-2); color: #fff; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            text-align: left;
+        }
+        th {
+            background: var(--bg-2);
+            font-weight: 600;
+        }
+        .tip {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid var(--accent-2);
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+        .tip strong { color: var(--accent-2); }
+        .kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text);
+        }
+        .demo-stage {
+            width: 200px;
+            aspect-ratio: 1 / 1;
+            margin: 14px auto;
+            background: #fff;
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .demo-stage .demo-char {
+            font-size: 140px;
+            font-family: "TW-Kai", "霞鹜文楷", "Source Han Serif SC", "Microsoft YaHei", serif;
+            color: #000;
+            opacity: 0.25;
+            font-weight: 500;
+        }
+        .demo-stage .demo-radical {
+            color: #d32f2f;
+        }
+        .demo-caption {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-2);
+            margin-top: 4px;
+        }
+        @media (max-width: 680px) {
+            .container { padding: 20px 12px 40px; }
+            section { padding: 16px; }
+            header { padding: 18px 12px; }
+            header h1 { font-size: 22px; }
+            table { font-size: 12px; }
+            th, td { padding: 6px 8px; }
+        }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="切换主题" title="切换日间/夜间模式">☀</button>
+
+<div class="container">
+    <header>
+        <h1>✍️ 笔顺演示功能介绍</h1>
+        <p class="subtitle">字帖生成器 v2.9.8 · 离线笔画笔顺动态演示（双图层重构 + 暂停/恢复）</p>
+        <p class="meta">更新日期：2026-08-06 · 适用版本：v2.9.8 及以上</p>
+        <a href="/" class="back-link">← 返回字帖主页</a>
+    </header>
+
+    <section>
+        <h2>一、功能概述</h2>
+        <p><span class="badge badge-new">新增</span><code>v2.9.8</code> 起字帖支持<strong>离线汉字笔画笔顺动态演示</strong>。点击字帖中任意汉字方格，即弹出标准窗口式演示弹窗，逐笔演示笔顺动画。</p>
+        <ul>
+            <li><span class="badge badge-on">开启</span>默认开启，可由工具栏"笔顺演示"按钮切换</li>
+            <li><span class="badge badge-on">离线</span>内置 <strong>9574 个汉字</strong>的笔画数据，完全离线可用</li>
+            <li><span class="badge badge-on">多弹窗</span>最多同时弹出 <strong>4 个</strong>不同汉字的演示窗口</li>
+            <li><span class="badge badge-on">标准窗口</span>支持最小化 / 最大化 / 关闭 / 拖拽</li>
+            <li><span class="badge badge-on">主题适配</span>light / dark 模式自动切换</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>二、入口位置与开关</h2>
+        <p>"笔顺演示"控件位于<strong>字体下拉菜单下方的快捷工具栏</strong>，与"刷新""打印"按钮平齐：</p>
+        <ul>
+            <li>按钮显示"笔顺演示"文字 + 小图标</li>
+            <li><span class="badge badge-on">开启</span><code>btn-primary</code> 橙色高亮（默认状态）</li>
+            <li><span class="badge badge-off">关闭</span><code>btn-secondary</code> 灰色暗淡</li>
+            <li>鼠标悬停（桌面端）或长按（移动端）显示功能说明：<em>"点击单字动态演示笔画笔顺"</em></li>
+        </ul>
+        <div class="tip">
+            <strong>提示：</strong>关闭后点击字格不会弹出弹窗，但字帖中的笔画数、笔顺 SVG 仍然正常显示（离线数据始终可用）。
+        </div>
+    </section>
+
+    <section>
+        <h2>三、弹窗使用说明</h2>
+
+        <h3>3.1 演示舞台</h3>
+        <p>弹窗中央的方形区域为演示舞台，背景始终为白色（即使 dark 模式也保持白色，确保黑色笔画清晰可读）。</p>
+        <div class="demo-stage">
+            <span class="demo-char">永<span class="demo-radical">氵</span></span>
+        </div>
+        <p class="demo-caption">↑ 未点击"播放"时：汉字以 0.25 不透明度黑色轮廓显示</p>
+
+        <h3>3.2 播放控制（v2.9.8 暂停/恢复 + v2.9.8 双图层架构）</h3>
+        <p><span class="badge badge-new">v2.9.8</span> 播放按钮支持<strong>播放/暂停两态切换</strong>：</p>
+        <ul>
+            <li><strong>▶ 播放</strong>按钮：点击开始逐笔演示笔画笔顺，按钮切换为 <strong>‖ 暂停</strong>状态（粉色背景）</li>
+            <li><strong>‖ 暂停</strong>按钮：播放中点击可暂停动画，笔画停在当前位置；按钮切回 <strong>▶ 播放</strong>状态</li>
+            <li>暂停后再次点击 <strong>▶ 播放</strong>：从暂停位置恢复动画，继续演示剩余笔画</li>
+            <li>播放完成后：按钮自动切回 <strong>▶ 播放</strong>状态，可再次点击重新演示</li>
+            <li>关闭弹窗后状态不保留，新弹窗默认为 ▶ 播放状态</li>
+        </ul>
+        <p><span class="badge badge-new">v2.9.8</span> 采用<strong>双图层架构</strong>，确保 0.25 不透明度的汉字轮廓在演示过程中始终显示（位于底层，被笔画遮挡而非消失）：</p>
+        <ul>
+            <li><strong>不点击播放按钮不会自动开始演示</strong>，舞台始终显示 0.25 不透明度的汉字轮廓</li>
+            <li><strong>底层（<code>.sd-stage-bg</code>）</strong>：始终以 0.25 不透明度显示完整汉字（黑色 + 偏旁红色），不参与动画</li>
+            <li><strong>顶层（<code>.sd-stage-fg</code>）</strong>：初始不可见，点击播放后逐笔绘制完全不透明笔画</li>
+            <li>播放过程中：顶层笔画逐笔<strong>覆盖</strong>底层对应位置（底层轮廓仍存在，仅被遮挡）</li>
+            <li>播放完成后：顶层完整显示，完全遮挡底层</li>
+            <li>重新点击"▶ 播放"：顶层先清除笔画（底层 0.25 轮廓再次显现），再重新逐笔绘制</li>
+        </ul>
+
+        <h3>3.3 速度调节</h3>
+        <p>速度滑块位于播放按钮下方：</p>
+        <ul>
+            <li>范围：<code>1x</code> ～ <code>5x</code>，步长 <code>1x</code>（v2.9.8 调整：5 档清晰可辨）</li>
+            <li>默认值：<code>1x</code>（v2.9.8 调整：原 5x 过快，1x 更易观察笔画走向）</li>
+            <li>调整后立即生效，下次播放按新速度演示</li>
+            <li><span class="badge badge-new">v2.9.8</span> 速度调整后<strong>持久化到 localStorage</strong>，后续新弹窗默认采用此速度（跨会话保留）</li>
+        </ul>
+
+        <h3>3.4 颜色规则</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>元素</th>
+                    <th>颜色</th>
+                    <th>不透明度</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>普通笔画</td>
+                    <td><code>#000000</code>（黑色）</td>
+                    <td>未播放 0.25 / 播放时 1.0</td>
+                </tr>
+                <tr>
+                    <td>偏旁部首</td>
+                    <td><code>#d32f2f</code>（朱砂红）</td>
+                    <td>未播放 0.25 / 播放时 1.0</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>偏旁部首的笔画索引由数据中的 <code>radStrokes</code> 字段自动识别。如该字段缺失，则所有笔画统一为黑色。</p>
+
+        <h3>3.5 窗口操作（v2.9.8 修复最小化/最大化）</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>操作</th>
+                    <th>方式</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>最小化</td>
+                    <td>点击标题栏右侧 <code>▱</code> 按钮，隐藏主体仅保留标题栏；同时记录当前窗口位置/尺寸</td>
+                </tr>
+                <tr>
+                    <td>最大化</td>
+                    <td>点击标题栏右侧 <code>▢</code> 按钮：从最小化恢复时<strong>精确还原</strong>最小化前的位置与尺寸；非最小化状态下切换最大化（放大/还原）</td>
+                </tr>
+                <tr>
+                    <td>关闭</td>
+                    <td>点击标题栏右侧 <code>✕</code> 按钮，或按 <span class="kbd">Esc</span> 键关闭最上层弹窗</td>
+                </tr>
+                <tr>
+                    <td>拖拽</td>
+                    <td>按住标题栏拖动（最大化状态不可拖拽）</td>
+                </tr>
+                <tr>
+                    <td>聚焦</td>
+                    <td>点击相同汉字的字格，已有弹窗会置顶并闪烁高亮</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="tip">
+            <strong>v2.9.8 关键修复：</strong>弹窗固定宽高比与汉字（1:1 舞台）匹配；最小化→最大化时位置和尺寸与最小化前完全一致，不发生偏移。
+        </div>
+
+        <h3>3.6 多弹窗管理</h3>
+        <ul>
+            <li>最多同时弹出 <strong>4 个</strong>不同汉字的演示弹窗</li>
+            <li>超过 4 个时弹出 toast 提示：<em>"最多同时演示 4 个汉字，请先关闭部分弹窗"</em></li>
+            <li>点击相同汉字的字格：聚焦已有弹窗（置顶 + 闪烁高亮，不自动播放）</li>
+            <li>桌面端：多弹窗水平排列于屏幕右下角</li>
+            <li>移动端：多弹窗垂直堆叠于屏幕右下方</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>四、离线数据方案</h2>
+
+        <h3>4.1 数据来源</h3>
+        <p>笔画数据来源于 <strong>MakeMeAHanzi</strong> 数据集，本项目内置 9574 个汉字的完整笔画信息（SVG 路径 + 中心线 + 偏旁索引）。</p>
+
+        <h3>4.2 数据格式</h3>
+        <p>每个汉字的数据结构：</p>
+        <pre><code>{
+  "strokes": ["M 518 382 Q 572 385 ...", ...],   // SVG path d 字符串数组，长度即笔画数
+  "medians": [[[121, 393], [193, 372], ...], ...], // 每笔中心线坐标
+  "radStrokes": [0, 1, 2]                          // 可选：偏旁笔画索引
+}</code></pre>
+
+        <h3>4.3 压缩与加载</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>方案</th>
+                    <th>文件</th>
+                    <th>大小</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>主数据源</td>
+                    <td><code>/hanzi-data/hanzi-data.bin</code></td>
+                    <td>11.75 MB</td>
+                    <td>Gzip 二进制，Web Worker 后台解压</td>
+                </tr>
+                <tr>
+                    <td>降级备用</td>
+                    <td><code>/hanzi-data/hanzi-data-embedded.js</code></td>
+                    <td>15.7 MB</td>
+                    <td>Base64 + Gzip，<code>file://</code> 协议时使用</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>4.4 查询优先级</h3>
+        <p>当点击字格查询汉字数据时，按以下顺序查找：</p>
+        <ol>
+            <li><strong>自定义数据</strong>（<code>_customDataMap</code>）— 用户手动添加的冷僻字 / 新造字，优先级最高</li>
+            <li><strong>内置数据</strong>（<code>_charDataMap</code>）— 9574 汉字离线字典</li>
+            <li><strong>网络缓存</strong>（<code>_networkCache</code>）— 之前从 CDN 加载过的字符（内存缓存）</li>
+            <li><strong>网络加载</strong>（仅 <code>navigator.onLine === true</code> 时）— 从 jsdelivr CDN 在线获取，成功后缓存到 <code>_networkCache</code></li>
+        </ol>
+        <div class="tip">
+            <strong>说明：</strong>常用字（9574 之内）查询不会发起任何网络请求，全部走本地字典。冷僻字在联网时自动从 jsdelivr CDN 备选加载并缓存到内存，离线时仅使用本地数据。
+        </div>
+
+        <h3>4.5 持久化与清理</h3>
+        <p>自定义数据通过 <code>localStorage</code> 持久化（key: <code>calligraphy_custom_hanzi</code>）：</p>
+        <ul>
+            <li>调用 <code>setCharData</code> + <code>persistCustomData</code> 添加冷僻字</li>
+            <li>调用 <code>clearCustomData</code> 清空自定义数据</li>
+            <li>调用 <code>persistNetworkCache</code> 将网络缓存的冷僻字合并到自定义数据并持久化</li>
+            <li>调用 <code>clearNetworkCache</code> 仅清空内存中的网络缓存</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>五、可扩展性（冷僻字 / 新造字）</h2>
+        <p>支持运行时通过代码插入冷僻字 / 新造字数据：</p>
+        <pre><code>import { setCharData, persistCustomData, buildCharData } from './src/modules/hanziDataStore.js';
+
+// 构造规范化数据（自动校验）
+const data = buildCharData(
+    ["M 100 500 L 924 500"],     // SVG path d 字符串数组
+    [[[100, 500], [924, 500]]],   // 每笔中心线坐标
+    undefined                     // 可选：偏旁笔画索引
+);
+
+// 插入并持久化
+setCharData('㐀', data);
+persistCustomData();</code></pre>
+        <p>坐标系必须为 MakeMeAHanzi 规范（X 轴 <code>0 ~ 1024</code>，Y 轴 <code>-124 ~ 900</code>，向下为正），否则渲染会错位。</p>
+    </section>
+
+    <section>
+        <h2>六、键盘快捷键</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>按键</th>
+                    <th>作用</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="kbd">Esc</span></td>
+                    <td>关闭最上层演示弹窗</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>七、技术实现</h2>
+        <ul>
+            <li><strong>渲染引擎</strong>：<code>hanzi-writer</code> npm 包（<code>^3.5.0</code>），通过自定义 <code>charDataLoader</code> 注入离线数据，脱离 CDN 依赖</li>
+            <li><strong>数据压缩</strong>：<code>fflate</code> 纯 JS 库的 <code>gunzipSync</code> 解压 Gzip 二进制</li>
+            <li><strong>Web Worker</strong>：数据加载与解压在后台线程执行，主线程零阻塞</li>
+            <li><strong>降级策略</strong>：Worker 不可用 → 主线程；<code>.bin</code> fetch 失败 → <code>.js</code> 备用</li>
+            <li><strong>SVG 自适应</strong>：通过手动添加 <code>viewBox</code> + <code>preserveAspectRatio="xMidYMid meet"</code> 实现弹窗大小变化时字体始终居中充满</li>
+            <li><strong>PWA 预缓存</strong>：数据文件进入 Service Worker 缓存，二次访问秒开</li>
+        </ul>
+        <p>详细数据结构与压缩方案见 <a href="https://github.com/lcfactorization/calligraphy-sheet-generator/blob/main/docs/%E7%A6%BB%E7%BA%BF%E6%B1%89%E5%AD%97%E6%95%B0%E6%8D%AE%E6%96%B9%E6%A1%88_v2.9.8.md">离线汉字数据方案_v2.9.8.md</a>。</p>
+    </section>
+
+    <section>
+        <h2>八、常见问题</h2>
+        <h3>Q1：为什么点击字格没有反应？</h3>
+        <p>请检查工具栏"笔顺演示"按钮是否处于开启状态（橙色高亮）。若关闭则点击字格不会弹出弹窗。</p>
+
+        <h3>Q2：弹窗显示"无'X'的笔画数据"怎么办？</h3>
+        <p>该字不在 9574 内置汉字范围内，且当前处于离线状态或网络备选加载失败。请联网后重试，或通过 <code>setCharData</code> 接口手动添加该字数据。</p>
+
+        <h3>Q3：弹窗舞台为什么是白色的？</h3>
+        <p>舞台背景始终为白色，确保黑色笔画在任何主题下都清晰可读。dark 模式下仅弹窗边框、标题栏、控件区跟随主题变化。</p>
+
+        <h3>Q4：为什么未播放时汉字是淡黑色？</h3>
+        <p>这是设计要求：未播放时整个汉字以 <strong>0.25 不透明度</strong>的黑色轮廓显示，作为预览。点击"▶ 播放"后切换为完全不透明逐笔演示。</p>
+
+        <h3>Q5：如何同时演示多个汉字？</h3>
+        <p>依次点击不同汉字的字格，最多同时弹出 4 个弹窗。相同汉字的字格点击不会新开弹窗，而是聚焦已有弹窗（置顶 + 闪烁高亮，需手动点击"▶ 播放"才会演示）。</p>
+    </section>
+
+    <section>
+        <h2>九、版本历史</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>版本</th>
+                    <th>日期</th>
+                    <th>主要变更</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-05</td>
+                    <td>新增离线笔画笔顺演示弹窗、工具栏按钮、9574 字离线数据</td>
+                </tr>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-05</td>
+                    <td>按钮文字化、自动播放移除、导航介绍联动抽屉、独立介绍页面</td>
+                </tr>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-05</td>
+                    <td>双图层重构（0.25 轮廓始终显示，仅被笔画遮挡）；默认速度 5x → 1x；修复最小化/最大化按钮失效；最小化→最大化精确还原位置与尺寸；弹窗固定宽高比</td>
+                </tr>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-05</td>
+                    <td>修复速度滑块失效（hanzi-writer 3.7.3 无 updateOptions）；滑块改为 5 档（1x-5x）；修复移动端 light 主题；修复打印黑框</td>
+                </tr>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-06</td>
+                    <td>播放速度持久化到 localStorage，后续新弹窗默认采用上次调整的速度</td>
+                </tr>
+                <tr>
+                    <td><code>v2.9.8</code></td>
+                    <td>2026-08-06</td>
+                    <td>播放按钮支持播放/暂停两态切换（pauseAnimation/resumeAnimation）；播放中按钮变粉色提示可暂停</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    // 主题切换：localStorage 持久化 + 跟随系统
+    (function() {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggle');
+        const KEY = 'guide_theme';
+
+        function apply(t) {
+            root.setAttribute('data-theme', t);
+            btn.textContent = t === 'dark' ? '🌙' : '☀';
+        }
+
+        // 初始化：localStorage > system
+        let saved = null;
+        try { saved = localStorage.getItem(KEY); } catch(e) {}
+        if (saved === 'light' || saved === 'dark') {
+            apply(saved);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            apply('dark');
+        }
+
+        btn.addEventListener('click', () => {
+            const cur = root.getAttribute('data-theme') || 'light';
+            const next = cur === 'dark' ? 'light' : 'dark';
+            apply(next);
+            try { localStorage.setItem(KEY, next); } catch(e) {}
+        });
+    })();
+</script>
+</body>
+</html>

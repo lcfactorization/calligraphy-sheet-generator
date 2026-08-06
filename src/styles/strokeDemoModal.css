@@ -1,0 +1,613 @@
+/* ============================================================
+ * strokeDemoModal.css
+ * 笔画笔顺动态演示弹窗（HanziWriter）样式
+ *
+ * v2.9.8 设计要点：
+ *  - 双图层结构：.sd-stage-bg（底层0.25静态）+ .sd-stage-fg（顶层1.0动画）
+ *  - 标准窗口式弹窗，支持最小化 / 最大化 / 关闭
+ *  - 最多同时显示 4 个弹窗，水平排列于屏幕右下角
+ *  - 主题适配复用项目既有 CSS 变量（light / dark）
+ *  - z-index 范围 10003-10006（不与既有 modal 9999-10002 冲突）
+ *  - 最小化/最大化使用固定 vw/vh 尺寸（不依赖 100%，避免 flex 容器失效）
+ * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 外层容器 .sd-overlay
+ * v2.9.8：弹窗居中显示（用户反馈"弹窗不能显示在屏幕正中央，寻找困难"）
+ * 多弹窗时使用 flex 水平排列，居中对齐
+ * ------------------------------------------------------------ */
+.sd-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10003;                /* 容器自身层级，子弹窗各自递增 */
+  display: flex;
+  flex-direction: row;           /* 多弹窗水平排列 */
+  align-items: center;           /* v2.9.8：垂直居中对齐 */
+  justify-content: center;       /* v2.9.8：水平居中对齐 */
+  gap: 12px;
+  pointer-events: none;          /* 容器空白区域不拦截鼠标事件 */
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+}
+
+/* 多弹窗 z-index 分配（最多 4 个，依次递增） */
+.sd-overlay .sd-window:nth-child(1) { z-index: 10003; }
+.sd-overlay .sd-window:nth-child(2) { z-index: 10004; }
+.sd-overlay .sd-window:nth-child(3) { z-index: 10005; }
+.sd-overlay .sd-window:nth-child(4) { z-index: 10006; }
+
+/* 弹窗自身需接收鼠标事件 */
+.sd-overlay > .sd-window {
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------
+ * 单个弹窗窗口 .sd-window
+ * v2.9.8：默认尺寸 340x440px，宽高比固定 ≈ 0.77:1
+ * 最大化时按比例放大到 60vw x 70vh（保持比例）
+ * ------------------------------------------------------------ */
+.sd-window {
+  width: 340px;
+  height: 440px;
+  min-height: 360px;             /* v2.9.8：最小高度，确保控件可见 */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;                /* v2.9.8：不让弹窗在 overlay 中被压缩 */
+  /* 出现动画 */
+  animation: sd-pop-in 0.2s var(--ease-out-soft) both;
+}
+
+/* 关闭动画类（JS 在移除弹窗前添加此 class 触发反向动画） */
+.sd-window.closing {
+  animation: sd-pop-out 0.15s var(--ease-out-soft) both;
+}
+
+/* 出现 / 关闭关键帧 */
+@keyframes sd-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes sd-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+}
+
+/* ------------------------------------------------------------
+ * 标题栏 .sd-window-header（可拖拽）
+ * ------------------------------------------------------------ */
+.sd-window-header {
+  height: 40px;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 14px;
+  cursor: move;                  /* 提示可拖拽 */
+  user-select: none;
+  /* light 主题渐变背景 */
+  background: linear-gradient(135deg, #fafafa, #f0f0f0);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s var(--ease-out-soft);
+}
+
+/* v2.9.8：移除 @media (prefers-color-scheme: dark) 误覆盖
+   原因：当系统 dark + data-theme="light" 时，此媒体查询仍命中，
+   导致弹窗标题栏呈 dark 渐变，与 light 应用主题不一致。
+   现仅依赖 data-theme 属性切换主题，与项目主题逻辑一致。 */
+
+/* 兼容基于 class / data-theme 的手动主题切换（常见模式） */
+.dark .sd-window-header,
+[data-theme="dark"] .sd-window-header {
+  background: linear-gradient(135deg, var(--bg), var(--toggle-bg));
+}
+
+/* 标题文本 */
+.sd-window-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--title-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 窗口控制按钮组 */
+.sd-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.sd-window-controls button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s var(--ease-out-soft),
+              color 0.15s var(--ease-out-soft);
+}
+
+.sd-window-controls button:hover {
+  background: var(--toggle-bg);
+}
+
+/* 关闭按钮 hover 红色高亮（约定俗成的危险色） */
+.sd-btn-close:hover {
+  background: #e53935;
+  color: #fff;
+}
+
+/* ------------------------------------------------------------
+ * 弹窗主体 .sd-window-body
+ * v2.9.8：使用 flex 布局让 stage 自适应缩放，确保所有控件可见
+ * ------------------------------------------------------------ */
+.sd-window-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;                /* 占满窗口剩余空间 */
+  min-height: 0;                 /* 允许子元素收缩 */
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------
+ * HanziWriter 演示舞台 .sd-stage
+ * v2.9.8：双图层结构
+ *   - .sd-stage-bg：底层，opacity 0.25，始终显示完整汉字（静态）
+ *   - .sd-stage-fg：顶层，opacity 1，初始为空，动画时绘制笔画
+ *   - .sd-stage 作为定位上下文（position: relative）
+ * 正方形舞台，居中显示，保持与汉字匹配的 1:1 宽高比
+ * 背景始终为白色（保证黑色笔画可读）
+ * ------------------------------------------------------------ */
+.sd-stage {
+  width: 260px;                  /* v2.9.8：固定宽度，保持正方形 */
+  height: 260px;                 /* v2.9.8：固定高度，与宽度一致保持 1:1 宽高比 */
+  margin: 0 auto;                /* 水平居中 */
+  background: #fff;              /* 即使 dark 模式也保持白色（汉字黑色可读） */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;            /* v2.9.8：作为双图层的定位上下文 */
+  overflow: hidden;
+  flex: 0 0 auto;                /* v2.9.8：不收缩不拉伸，保持固定尺寸 */
+}
+
+/* v2.9.8：双图层 - 底层与顶层的公共样式 */
+.sd-stage-bg,
+.sd-stage-fg {
+  position: absolute;
+  inset: 0;                      /* 充满 .sd-stage */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;          /* 不拦截鼠标事件，避免影响拖拽 */
+}
+
+/* v2.9.8：底层 - 始终 0.25 不透明度显示完整汉字 */
+.sd-stage-bg {
+  opacity: 0.25;
+  z-index: 1;                    /* 底层 */
+}
+
+/* v2.9.8：顶层 - 初始 opacity:0（完全透明），点击播放后 .sd-playing 切换为 1
+ * 确保 fg 的所有内容（笔画、中线、轮廓）初始都不可见，仅 bg 的 0.25 轮廓显示
+ * 播放时 fg 变为 1，animateCharacter 逐笔绘制笔画覆盖底层
+ * 重新播放时 animateCharacter 先隐藏笔画 → bg 0.25 轮廓再现 → 再逐笔绘制
+ */
+.sd-stage-fg {
+  opacity: 0;
+  z-index: 2;                    /* 顶层，覆盖底层 */
+  transition: opacity 0.15s var(--ease-out-soft);
+}
+
+/* v2.9.8：播放状态 - 顶层变为完全不透明 */
+.sd-stage-fg.sd-playing {
+  opacity: 1;
+}
+
+/* 演示舞台内 SVG 自适应填满（双图层共用） */
+.sd-stage svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ------------------------------------------------------------
+ * 控件区 .sd-controls
+ * ------------------------------------------------------------ */
+.sd-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* 播放按钮（accent 高亮）
+ * v2.9.8：支持播放/暂停两态切换
+ *   默认态：▶ 播放（accent 主色）
+ *   播放中态：|| 暂停（略暗色，提示可暂停） */
+.sd-play-btn {
+  width: 100%;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s var(--ease-out-soft),
+              transform 0.1s var(--ease-out-soft),
+              background 0.2s var(--ease-out-soft);
+}
+
+.sd-play-btn:hover {
+  opacity: 0.9;
+}
+
+.sd-play-btn:active {
+  transform: scale(0.98);
+}
+
+.sd-play-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* v2.9.8：播放中状态 — 切换为略暗色，提示当前可点击暂停 */
+.sd-play-btn.playing {
+  background: var(--accent2, #ec4899);
+}
+
+/* v2.9.8：播放/暂停图标尺寸与文本对齐 */
+.sd-play-btn svg {
+  flex-shrink: 0;
+}
+
+/* 速度调节行 */
+.sd-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-color);
+}
+
+.sd-speed-row > span:first-child {
+  flex: 0 0 auto;
+}
+
+/*
+ * 速度滑块 .sd-speed-slider
+ * v2.9.8：范围 1x - 5x，步长 1（5档：1x/2x/3x/4x/5x）
+ * 参考 settingsCenter.css 中 .sc-slider 的风格
+ */
+.sd-speed-slider {
+  flex: 1 1 auto;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--toggle-bg);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  /* v2.9.8：移动端触摸优化，允许滑块水平拖动而不触发页面滚动 */
+  touch-action: pan-x;
+}
+
+/* WebKit 滑块拇指 */
+.sd-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out-soft);
+}
+
+.sd-speed-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+/* Firefox 滑块拇指 */
+.sd-speed-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.sd-speed-slider::-moz-range-track {
+  height: 4px;
+  background: var(--toggle-bg);
+  border-radius: 2px;
+}
+
+/* 速度数值显示 */
+.sd-speed-val {
+  flex: 0 0 auto;
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------
+ * 信息区 .sd-info（笔画数、偏旁提示等）
+ * ------------------------------------------------------------ */
+.sd-info {
+  font-size: 12px;
+  color: var(--text-color);
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: var(--toggle-bg);
+  border-radius: 6px;
+  opacity: 0.85;
+  flex: 0 0 auto;
+}
+
+/* 偏旁名称高亮（与偏旁笔画同色） */
+.sd-info .sd-info-radical {
+  color: #d32f2f;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------
+ * 状态：最小化 .minimized
+ * v2.9.8：仅显示标题栏，主体隐藏，高度收缩为标题栏高度（40px）
+ * 使用 !important 确保覆盖移动端 min-height
+ * ------------------------------------------------------------ */
+.sd-window.minimized {
+  height: 40px !important;        /* v2.9.8：!important 确保覆盖移动端 min-height */
+  min-height: 40px !important;    /* v2.9.8：覆盖移动端 min-height: 400px */
+  width: 240px !important;        /* v2.9.8：最小化时宽度收缩，仅显示标题栏 */
+  flex: 0 0 auto;
+}
+
+.sd-window.minimized .sd-window-body {
+  display: none;
+}
+
+.sd-window.minimized .sd-window-header {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------
+ * 状态：最大化 .maximized
+ * v2.9.8：使用固定 vw/vh 尺寸，不依赖 100%（flex 容器中 100% 无效）
+ * 保持与默认弹窗相近的宽高比（约 0.77:1）
+ * ------------------------------------------------------------ */
+.sd-window.maximized {
+  width: min(60vw, 600px) !important;
+  height: min(78vh, 780px) !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 0 0 auto;
+}
+
+.sd-window.maximized .sd-window-body {
+  max-height: none;
+  flex: 1 1 auto;
+}
+
+/* v2.9.8：最大化时舞台放大，保持 1:1 宽高比居中显示 */
+.sd-window.maximized .sd-stage {
+  width: min(50vw, 480px);
+  height: min(50vw, 480px);
+  flex: 0 0 auto;
+}
+
+/* ------------------------------------------------------------
+ * 移动端适配（<768px）
+ * v2.9.8：弹窗宽度 90vw，高度 70vh，确保完整显示所有控件
+ * ------------------------------------------------------------ */
+@media (max-width: 768px) {
+  .sd-overlay {
+    /* v2.9.8：移动端也居中显示（继承桌面端 transform 居中） */
+    flex-direction: column;      /* 垂直堆叠 */
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .sd-window {
+    width: 90vw;
+    height: 70vh;                /* v2.9.8：固定高度，确保完整显示 */
+    max-height: 80vh;
+    min-height: 400px;           /* v2.9.8：移动端最小高度 */
+  }
+
+  /* v2.9.8：移动端舞台保持正方形，略小以适配窄屏 */
+  .sd-stage {
+    width: 200px;
+    height: 200px;
+  }
+
+  /* v2.9.8：移动端最大化时舞台放大 */
+  .sd-window.maximized {
+    width: 95vw !important;
+    height: 90vh !important;
+  }
+
+  .sd-window.maximized .sd-stage {
+    width: min(70vw, 360px);
+    height: min(70vw, 360px);
+  }
+
+  /* 移动端触摸时滑块拇指略大，便于操作 */
+  .sd-speed-slider::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sd-speed-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* ------------------------------------------------------------
+ * 打印隐藏
+ * ------------------------------------------------------------ */
+@media print {
+  .sd-overlay {
+    display: none !important;
+  }
+}
+
+/* ------------------------------------------------------------
+ * 无障碍：尊重用户"减少动态效果"系统偏好
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .sd-window,
+  .sd-window.closing {
+    animation-duration: 0.01ms !important;
+  }
+  .sd-stage svg path {
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+ * v2.9.8：工具栏"笔顺演示"开关按钮（图标 + 文字）
+ * 与"刷新""打印"按钮平齐，但显示文字"笔顺演示"+图标
+ * 通过 btn-primary（开启）/ btn-secondary（关闭）切换状态
+ * 功能说明"点击单字动态演示笔画笔顺"通过 title 悬停显示
+ * ============================================================ */
+.stroke-demo-toolbar-btn {
+    /* 继承 .btn-quick 的 padding/字号，仅微调 */
+    padding: 7px 12px !important;     /* 略小于文字按钮，紧凑 */
+    font-size: 13px;
+    font-weight: 600;
+    gap: 5px;
+}
+.stroke-demo-toolbar-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.stroke-demo-toolbar-btn .btn-text {
+    line-height: 1;
+    white-space: nowrap;
+}
+/* 关闭状态：通过 btn-secondary 显示灰色，悬停略变暗 */
+.stroke-demo-toolbar-btn.btn-secondary {
+    opacity: 0.75;
+}
+.stroke-demo-toolbar-btn.btn-secondary:hover {
+    opacity: 1;
+}
+/* 开启状态：通过 btn-primary 显示橙色高亮（继承 .quick-toolbar .btn-primary） */
+.stroke-demo-toolbar-btn.btn-primary {
+    opacity: 1;
+}
+/* 移动端：保持文字+图标，避免被 icon-only 规则误伤 */
+@media (max-width: 768px) {
+    .stroke-demo-toolbar-btn {
+        padding: 6px 10px !important;
+        font-size: 12px;
+    }
+    .stroke-demo-toolbar-btn svg {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* ============================================================
+ * v2.9.8：左侧栏"点选单字演示笔画笔顺"勾选项样式
+ * 复用 settingsCenter.css 的 .sc-switch 视觉风格，类名前缀改为 stroke-demo-
+ * ============================================================ */
+.stroke-demo-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--text-color);
+}
+.stroke-demo-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.stroke-demo-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.stroke-demo-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--toggle-bg, #ccc);
+  border-radius: 22px;
+  transition: background 0.25s var(--ease-out-soft);
+}
+.stroke-demo-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.25s var(--ease-out-soft);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.stroke-demo-switch input:checked + .stroke-demo-slider {
+  background: var(--accent, #9E2A2B);
+}
+.stroke-demo-switch input:checked + .stroke-demo-slider::before {
+  transform: translateX(18px);
+}
+.stroke-demo-label {
+  user-select: none;
+  cursor: pointer;
+}

@@ -86,6 +86,15 @@
         transform: none !important;
         box-shadow: none !important;
         border: 0 !important;
+        /* v2.9.8：强制白色背景，防止 dark 主题的 --paper-bg/--container-bg 透出形成黑框 */
+        background: #ffffff !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* v2.9.8：隐藏 body::before 极光渐变背景（position:fixed 会在每页重复） */
+    body::before {
+        display: none !important;
     }
 
     #grid-container,
@@ -110,6 +119,9 @@
         break-after: page !important;
         page-break-inside: avoid;
         break-inside: avoid;
+        /* v2.9.8：确保白色背景在打印时实际渲染，防止页眉左右边距区域透出暗色 */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
     /* 末页：不强制分页，高度由内容决定，避免空白尾页 */
     .print-page-section.last-page-section {
@@ -242,5 +254,10 @@
        currentColor 会继承此 color，SVG <text> 的 fill 自动变黑 */
     .grid-svg-cell {
         color: #000 !important;
+    }
+    /* v2.9.8：SVG text 显式 fill:#000，不依赖 currentColor 解析
+       原因：dark 模式下 currentColor 可能解析为浅色，打印时浅色文字在白底不可见 */
+    .grid-svg-cell text {
+        fill: #000 !important;
     }
 }

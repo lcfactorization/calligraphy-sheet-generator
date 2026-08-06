@@ -163,6 +163,43 @@ function createOpacitySection(state) {
 }
 
 /**
+ * v2.9.8 新增：创建"点选单字演示笔画笔顺"勾选项分节
+ * 默认勾选；开启后点击字格弹出动态演示弹窗
+ */
+function createStrokeDemoToggle(state) {
+    const section = document.createElement('div');
+    section.className = 'sidebar-section';
+    const checked = (state.showStrokeDemo != null ? state.showStrokeDemo : true);
+
+    section.innerHTML = `
+        <div class="sidebar-section-title">✍️ 笔顺演示</div>
+        <div class="stroke-demo-toggle-row">
+            <label class="stroke-demo-switch">
+                <input type="checkbox" id="strokeDemoToggle" ${checked ? 'checked' : ''}>
+                <span class="stroke-demo-slider"></span>
+            </label>
+            <span class="stroke-demo-label">点选单字演示笔画笔顺</span>
+        </div>
+    `;
+
+    const cb = section.querySelector('#strokeDemoToggle');
+    cb.addEventListener('change', () => {
+        // 通过 settingsCenter 统一管理，自动派发 'calligraphy:settings-updated'
+        updateSetting('showStrokeDemo', cb.checked);
+    });
+
+    // 监听设置中心变化，同步勾选状态（设置中心恢复默认时联动）
+    document.addEventListener('calligraphy:settings-updated', (e) => {
+        const s = e.detail || {};
+        if ('showStrokeDemo' in s && cb) {
+            cb.checked = !!s.showStrokeDemo;
+        }
+    });
+
+    return section;
+}
+
+/**
  * v2.5.3 新增：创建"线框颜色"快切分节
  * 性能影响：仅 4 个色块按钮，点击后通过 settingsCenter 触发重渲染，开销 < 1ms
  * 视觉上每个色块显示预设的 primary 色，hover 显示名称，点击切换并高亮
@@ -392,6 +429,9 @@ export function initSidebar() {
         sidebar.appendChild(createOpacitySection(state));
         sidebar.appendChild(createColorPresetSection(state));
     }
+
+    // v2.9.8："笔顺演示"控件已移至工具栏 .quick-toolbar（字体下拉菜单下方）
+    // 侧栏不再显示该控件
 
     // 3. 新增"预设场景"快速选择（留在侧栏底部）
     sidebar.appendChild(createPresetSection(state));

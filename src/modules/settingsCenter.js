@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
     showZuci: true,          // 显示组词
     showStrokes: true,       // 显示笔画
     showStrokeOrder: true,   // 显示笔顺编号
+    showStrokeDemo: true,    // v2.9.8：点选单字演示笔画笔顺（默认勾选）
+    strokeDemoSpeed: 1,      // v2.9.8：笔顺演示默认播放速度（1-5，对应 1x-5x）
     theme: 'light',          // 'light' | 'dark' | 'system'
     fontSize: 43,            // 字体大小 px (24-60)
     // v2.4.7：从 Sidebar.js 合并到设置中心，统一全局状态管理

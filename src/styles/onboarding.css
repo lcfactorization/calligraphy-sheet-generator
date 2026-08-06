@@ -88,6 +88,31 @@
     margin-bottom: 12px;
 }
 
+/* v2.9.8：tooltip 显示区块（鼠标悬停状态的文字说明）
+   显示该控件 title 属性的内容，让用户了解悬停时的简短提示 */
+.ob-bubble-tooltip {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--desc-color);
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(99, 102, 241, 0.08);
+    border-left: 3px solid #6366f1;
+    border-radius: 4px;
+}
+.ob-bubble-tooltip .ob-tooltip-label {
+    font-weight: 600;
+    color: #6366f1;
+    margin-right: 4px;
+}
+.ob-bubble-tooltip .ob-tooltip-text {
+    color: var(--text-color);
+    font-style: italic;
+}
+[data-theme='dark'] .ob-bubble-tooltip {
+    background: rgba(99, 102, 241, 0.15);
+}
+
 .ob-bubble-actions {
     display: flex;
     align-items: center;
@@ -164,6 +189,16 @@
 .ob-btn-done:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* v2.9.8：跳转介绍页按钮（笔顺演示步骤专用，绿色调与主操作区分） */
+.ob-btn-guide {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+}
+.ob-btn-guide:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
 }
 
 /* 气泡箭头（指向高亮目标，仅移动端显示） */

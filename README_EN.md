@@ -35,6 +35,7 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 | Desktop FAB Drag | Pointer Events + 8px grid snap + localStorage | v2.9.5 |
 | Mobile Print Fix | Hidden iframe static document architecture | v2.9.0 |
 | MatePad Adapted | HarmonyOS print PDF multi-round fixes | v2.8 |
+| Stroke Order Demo | Click char grid to popup stroke-by-stroke animation, 9574 offline chars + HanziWriter dual-layer + play/pause + speed | v2.9.8 |
 
 ## Quick Start
 
@@ -43,7 +44,7 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 Visit https://lcfactorization.github.io/calligraphy-sheet-generator/
 - PWA installable to desktop/mobile home screen
 - Works offline after first load
-- 9-step onboarding on first visit (v2.9.7)
+- 16-step onboarding on first visit (v2.9.8)
 
 ### Method 2: Local Development
 
@@ -72,7 +73,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v2.9.7, ES Module)
+├── package.json             # Dependencies (v2.9.8, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -80,7 +81,7 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0.1 → v2.9.7)
+├── CHANGELOG.md             # Version history (v1.0 → v2.9.8)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
 ├── .github/workflows/       # GitHub Pages auto-deploy (trigger: retake branch)
 ├── scripts/
@@ -113,6 +114,7 @@ This project was developed through human-AI co-creation in **Trae CN IDE** with 
 | v2.9.0 iframe architecture | Root-fix mobile print header/footer |
 | v2.9.5 swarm | 3 groups: cross-platform scripts / mobile onboarding / desktop FAB drag |
 | v2.9.7 onboarding enhancement | 9-step guide + dark mode inverted color |
+| v2.9.8 stroke order demo | Stroke-by-stroke animation popup + 16-step onboarding + dark/touch/mobile bug fixes |
 
 Trae AI played a decisive role in: SVG vectorization, multi-agent coordination, cross-platform encoding, mobile print architecture, and the dual-track PDF strategy.
 

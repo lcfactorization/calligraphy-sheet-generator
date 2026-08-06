@@ -5,6 +5,40 @@
 
 ---
 
+## [2.9.8] - 2026-08-06
+
+### 新增功能
+- **笔画笔顺动态演示**：点击字帖中任意汉字方格，弹出标准窗口式演示弹窗，逐笔演示笔顺动画
+  - 离线9574汉字数据（Gzip二进制+Web Worker后台解压+Base64降级+CDN备选+localStorage持久化）
+  - HanziWriter双图层架构（0.25不透明度轮廓始终显示）
+  - 播放/暂停两态切换、速度调节（1x-5x）、多窗口、拖拽、最小化/最大化
+  - 速度设置持久化到localStorage
+- **导航引导增强**：从9步扩展到16步引导流程
+  - 新增autoOpen/tooltipText字段
+  - 新增笔顺演示引导步骤（含"查看详细介绍"跳转按钮）
+  - 新增侧栏内部控件引导（网格类型/描红透明度/线框颜色/预设场景）
+  - 新增历史记录侧栏引导
+- **笔顺演示介绍页**：public/stroke-demo-guide.html，详细介绍功能用法
+
+### Bug修复
+- 修复dark主题打印时页面页脚黑色底色问题（iframe强制light主题+backdrop-filter:none+body::before隐藏）
+- 修复dark主题打印时汉字无法正常显示问题（.grid-svg-cell text fill:#000 + FontFace URL引号）
+- 修复触屏版无法正常渲染Light主题模式问题（settings.js内联color-scheme + theme.css声明color-scheme）
+- 修复移动端settings/theme按钮位置错误（交换为settings左上角/theme右上角）
+- 修复移动端字格双击无法弹出弹窗问题（touch-action:manipulation + -webkit-tap-highlight-color:transparent）
+- 修复UA原生控件不跟随主题问题（color-scheme声明）
+
+### 字体合规保障
+- 保持原有开源字体体系不变（霞鹜文楷/思源宋体/文鼎楷体TW-Kai/TeXGyreAdventor）
+- 默认字体保持TW-Kai（文鼎楷体）
+- 未引入任何不合规字体
+
+### 配置变更
+- package.json新增fflate依赖（Web Worker解压）
+- vite.config.js globPatterns新增bin类型 + hanzi-data-cache runtimeCaching
+
+---
+
 ## [文档同步] — 2026-07-27
 
 > **纯文档更新版本,不 bump 代码版本号**(package.json/index.html 保持 v2.9.7)。本次修订对项目用户可见文档进行全面同步,使之能反映最初的策略、迭代过程中策略的变化、以及当前最新版本中的有效状态。同时把策略性内部文档(审查报告/修复方案/发布说明/测试清单等)从 GitHub 跟踪中移除,仅本地保留。
@@ -35,7 +69,7 @@
 #### README_contest.md(保留参赛原貌 + 追加迭代演进附录)
 - **保留**:参赛最初文档全文(反映"最初的策略":纯HTML/9字体/双轨PDF/TRAE实践过程)
 - **新增头部说明**:标注文档性质为参赛最初文档,指向 README.md 和 CHANGELOG.md
-- **新增附录 A.1–A.8**:迭代演进时间线,记录从 v1.0.1 到 v2.9.7 的 8 个阶段策略变化
+- **新增附录 A.1–A.8**:迭代演进时间线,记录从 v1.0 到 v2.9.7 的 8 个阶段策略变化
 - **新增对比表**:参赛初版 vs 当前版本(v2.9.7)的 12 维度对比
 
 #### TASK_BOARD.md(从 v2.4.0 补充到 v2.9.7)

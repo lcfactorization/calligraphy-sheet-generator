@@ -1,5 +1,8 @@
 // Puppeteer 客户端：side-effect 脚本，绑定 #puppeteerBtn 点击事件
 const SERVER_URL = 'http://localhost:3210';
+// v2.9.8：在线矢量 PDF API（Cloudflare Pages Function 代理 Vercel）
+// 同域名调用无跨域问题；失败时自动回退到本地 Puppeteer 服务
+const ONLINE_API_URL = '/api/generate-pdf';
 const btn = document.getElementById('puppeteerBtn');
 if (btn) {
     // 请求计数器，防止重复请求
@@ -49,7 +52,7 @@ if (btn) {
         const text = textEl ? textEl.value : '';
         const fontSelect = document.getElementById('font-select');
         const selectedOption = fontSelect ? fontSelect.options[fontSelect.selectedIndex] : null;
-        // v2.8.6：修正默认字体名（原 '\u59dc\u6d69\u786c\u7b14\u6977\u4e66' 姜浩硬笔楷书 已不存在于字体列表）
+        // v2.8.6：修正默认字体名（原默认字体已不存在于字体列表）
         const font = selectedOption ? selectedOption.text : '\u6587\u9f0e\u6977\u4f53';
         // v2.5.2：获取自定义字体的 data URL 和内部名称，供服务器端注册
         const fontValue = selectedOption ? selectedOption.value : '';
@@ -76,6 +79,43 @@ if (btn) {
             btn.disabled = false;
             btn.style.opacity = '';
             return;
+        }
+
+        // v2.9.8：优先尝试在线矢量 PDF API（Cloudflare Pages Function 代理 Vercel）
+        // 同域名调用无跨域问题；仅当在线 API 不可用（404/500/网络错误）时回退到本地 Puppeteer 服务
+        try {
+            showToast('\u6b63\u5728\u751f\u6210\u77e2\u91cfPDF\uff08\u5728\u7ebfAPI\uff09\uff0c\u8bf7\u7a0d\u5019...', 'info', 120000);
+            const onlineResp = await fetch(ONLINE_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify({
+                    text: text, font: font, fontValue: fontValue, fontDataUrl: fontDataUrl,
+                    gridType: gridType, gridColorPreset: gridColorPreset, traceOpacity: traceOpacity,
+                    format: 'a4', header: '', footer: '\u7b2c {page} \u9875 / \u5171 {total} \u9875'
+                }),
+                signal: AbortSignal.timeout(120000)
+            });
+            if (onlineResp.ok) {
+                const blob = await onlineResp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const now = new Date();
+                const ts = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+                a.download = '\u5b57\u5e16_' + ts + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showToast('\u77e2\u91cfPDF\u751f\u6210\u6210\u529f\uff08\u5728\u7ebfAPI\uff09\uff01', 'success');
+                requestInProgress = false;
+                btn.disabled = false;
+                btn.style.opacity = '';
+                return;
+            }
+            console.log('[Client] \u5728\u7ebf API \u8fd4\u56de ' + onlineResp.status + '\uff0c\u56de\u9000\u5230\u672c\u5730\u670d\u52a1');
+        } catch (e) {
+            console.log('[Client] \u5728\u7ebf API \u4e0d\u53ef\u7528\uff0c\u56de\u9000\u5230\u672c\u5730\u670d\u52a1: ' + e.message);
         }
 
         showToast('\u6b63\u5728\u751f\u6210\u77e2\u91cfPDF\uff0c\u8bf7\u7a0d\u5019...', 'info', 30000);
