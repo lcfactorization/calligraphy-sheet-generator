@@ -29,6 +29,14 @@ export default defineConfig({
             workbox: {
                 globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,ttf,otf,bin}'],
                 maximumFileSizeToCacheInBytes: 41943040,
+                // v2.9.8：排除大文件precache（hanzi-data.bin 12MB + 字体 20-36MB）
+                // 通过下方runtimeCaching按需缓存，避免SW安装时下载140MB导致超时/失败
+                globIgnores: [
+                    '**/hanzi-data/hanzi-data.bin',
+                    '**/hanzi-data/hanzi-data-embedded.js',
+                    '**/fonts/*.ttf',
+                    '**/fonts/*.otf'
+                ],
                 runtimeCaching: [
                     {
                         urlPattern: /\/hanzi-data\/.+\.(?:bin|js)$/,
