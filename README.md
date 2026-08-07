@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-2.9.9-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -15,7 +15,7 @@
 - **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v2.9.9(笔画笔顺动态演示+AI组词补齐+弹窗加载态 + 导航引导增强 17 步 + Dark/触屏/移动端多项 Bug 修复)
+- **最新版本**:v3.0.0(笔画笔顺动态演示+AI组词补齐+弹窗加载态 + 导航引导增强 18 步 + Dark/触屏/移动端多项 Bug 修复 + 双引擎AI适配(DeepSeek/火山引擎豆包) + AI三模式分流(快速组词/单音字校验/多音字深度校验) + 5分钟硬超时+重试机制+缓存穿透修复 + 级联开关(组词补齐默认/拼音纠错可选/全量检查联动) + 旋转图标进度提示 + AI调用解读)
 - **最新更新**:v2.9.8 — 新增离线笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + HanziWriter 双图层架构 + 播放/暂停 + 速度调节 1x-5x + 多窗口 + 速度持久化);引导从 9 步扩展到 16 步(新增笔顺演示/侧栏控件/历史记录引导);新增笔顺演示介绍页 stroke-demo-guide.html;修复 Dark 主题打印页脚黑底/汉字不显示、触屏 Light 主题渲染、移动端 settings/theme 按钮位置、移动端字格双击弹窗等 Bug;package.json 新增 fflate 依赖。详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
@@ -24,7 +24,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v2.9.9,ES Module)
+├── package.json             ← 依赖配置(v3.0.0,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -32,7 +32,7 @@ distribution/
 ├── 字帖生成器.html          ← 早期独立 HTML(参赛初版,仅作历史保留)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v2.9.9 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.0 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
 ├── .github/workflows/       ← GitHub Pages 自动部署(触发分支:retake)
 ├── scripts/
@@ -106,7 +106,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v2.9.9 累计)
+### 核心功能(v2.0–v3.0.0 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -124,8 +124,8 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 12 | 单文件构建能力 | vite-plugin-singlefile 生成可离线分发单 HTML | v2.0 |
 | 13 | Lucide Icons | 现代 SVG 图标库 | v2.0 |
 | 14 | **笔画笔顺动态演示** | 点击字格弹窗逐笔演示笔顺,9574 汉字离线数据 + HanziWriter 双图层 + 播放/暂停 + 速度调节 + 多窗口 | v2.9.8 |
-| 15 | **笔画弹窗加载态** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗 | v2.9.9 |
-| 16 | **AI 组词补齐** | DeepSeek 大模型补齐默认词库缺失的二字组词，设置中心开关+API Key 配置 | v2.9.9 |
+| 15 | **笔画弹窗加载态** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗 | v3.0.0 |
+| 16 | **AI 组词补齐** | DeepSeek/火山引擎豆包双引擎补齐默认词库缺失的二字组词，三模式分流(快速/单音字校验/多音字深度校验)+5分钟超时+重试机制+级联开关+旋转图标进度提示+API Key 配置 | v3.0.0 |
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 
@@ -173,9 +173,11 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 43 | **笔画笔顺动态演示弹窗** | 点击字格弹窗逐笔演示,9574 汉字离线数据 + 双图层 + 播放/暂停 + 速度持久化 | v2.9.8 |
 | 44 | **导航引导增强 16 步** | 新增笔顺演示/侧栏控件/历史记录引导,含 autoOpen/tooltipText 字段 | v2.9.8 |
 | 45 | **Dark/触屏/移动端 Bug 修复** | Dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击 | v2.9.8 |
-| 46 | **笔画弹窗加载态+就绪徽章** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗,工具栏按钮显示数据加载状态指示器 | v2.9.9 |
-| 47 | **AI 组词补齐+拼音纠错** | 对默认词库缺失二字组词的汉字调用 DeepSeek 补齐并核对拼音(多音字修正),浏览器直连+localStorage 缓存+中断支持 | v2.9.9 |
-| 48 | **导航引导增强 17 步** | 新增 AI 组词补齐引导步骤(autoOpen:'settings'),强调 AI 概率属性需多次点击补齐 | v2.9.9 |
+| 46 | **笔画弹窗加载态+就绪徽章** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗,工具栏按钮显示数据加载状态指示器 | v3.0.0 |
+| 47 | **AI 组词补齐+拼音纠错** | 对默认词库缺失二字组词的汉字调用 DeepSeek/豆包补齐并核对拼音(多音字修正),浏览器直连+localStorage 缓存+中断支持 | v3.0.0 |
+| 48 | **导航引导增强 18 步** | 新增 AI 组词补齐引导步骤(autoOpen:'settings'),强调 AI 概率属性需多次点击补齐;追加 AI 调用流程解读步骤(引擎识别→分批→进度→结果→开关建议→缓存→概率) | v3.0.0 |
+| 49 | **双引擎AI适配** | API Key 自动识别 DeepSeek(sk-)/火山引擎豆包(ark-→doubao-seed-2-0-lite-260428),无需切换设置 | v3.0.0 |
+| 50 | **AI三模式分流+级联开关+进度提示** | 快速组词(默认)/单音字校验/多音字深度校验(自动升级强模型);组词补齐默认勾选,全量检查联动其余两项;5分钟硬超时+3次重试+缓存穿透修复;旋转图标+批次进度提示 | v3.0.0 |
 
 ### 技术亮点
 
@@ -268,7 +270,7 @@ bash scripts/download-fonts.sh
 ### 移动端使用
 - 手机/平板浏览器打开在线版
 - 支持 PWA 安装到主屏,离线可用
-- 首次访问自动弹出 17 步引导(v2.9.9)
+- 首次访问自动弹出 18 步引导(v3.0.0)
 - 微信/QQ 内置浏览器会引导跳转外部浏览器打印
 
 ---

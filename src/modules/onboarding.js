@@ -23,7 +23,7 @@ const OB_VERSION_KEY = 'onboarding_version';
 // v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
 // 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
 const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
-const OB_VERSION = 'v2.9.9';
+const OB_VERSION = 'v3.0.0';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
 // v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）
@@ -179,9 +179,19 @@ const ONBOARDING_STEPS = [
     // ── v2.9.9 新增：AI 组词补齐（autoOpen: 'settings'，主动打开设置面板） ──
     {
         selector: '#scAiZuci',
-        title: '🤖 AI 组词补齐（可选）',
-        desc: '设置中心内的"AI 组词补齐"区域。字帖中每个汉字会配 2 个二字组词，默认由 cnchar 词库 + 自定义词库提供；对个别默认词库没有合适二字组词的汉字（会显示"组词"占位），可启用此功能调用 DeepSeek 大模型补齐，同时核对并纠正拼音（特别是多音字）。启用后填入 API Key，点"▶ 补齐组词"即可，结果缓存在本地 localStorage 下次直接使用，纠错后的拼音会自动替换字帖中的原拼音。⚠️ 注意：因 AI 回答具有概率属性，少数情形下一次补齐未必能覆盖全部缺失的字；这时多重复点击几次"补齐组词"按钮，大概率能逐步补齐全部词组。API Key 仅存本地，不上传。',
-        tooltipText: 'AI 组词补齐（可选，需 DeepSeek API Key）',
+        title: '🤖 AI 辅助（可选）',
+        desc: '设置中心内的"AI 组词补齐 + 词库/拼音纠错"区域。字帖中每个汉字配 2 个二字组词，默认由 cnchar 词库 + 自定义词库提供。此区域提供三项级联开关：①组词补齐（默认勾选，仅补齐默认词库缺失二字词的字）；②拼音纠错（可选，核对多音字/误读并纠正拼音）；③全量检查（耗时·高级模型，核验所有字的拼音/语义/已有组词）。勾选"全量检查"时自动包含其余两项并灰显。支持双引擎：填入 DeepSeek API Key（sk- 开头，推荐）或火山引擎 API Key（ark- 开头，免费），系统根据前缀自动识别无需手动切换。API Key 输入框右侧有眼睛图标可切换显示/隐藏。处理时状态栏显示旋转图标和批次进度。结果缓存在本地 localStorage 下次直接使用，纠错后的拼音与组词会自动替换字帖原内容。⚠️ 因 AI 回答具有概率属性，少数情形一次未必能覆盖全部；多重复点击几次可逐步补齐/纠错全部。API Key 仅存本地，不上传。',
+        tooltipText: 'AI 组词补齐+词库/拼音纠错（可选，需 DeepSeek 或火山引擎 API Key）',
+        position: 'left',
+        hintCorner: 'top-right',
+        autoOpen: 'settings'
+    },
+    // ── v3.0.0 新增：AI 调用解读（autoOpen: 'settings'，解读点击运行后的调用流程） ──
+    {
+        selector: '#scAiSection',
+        title: '📖 AI 调用流程解读',
+        desc: '点击"▶ AI 检查与补齐"后的完整调用流程解读：\n①引擎识别：系统根据 API Key 前缀自动路由——sk- 调用 DeepSeek（deepseek-v4-flash，性价比优），ark- 调用火山引擎豆包（doubao-seed-2-0-lite-260428，免费），无需手动切换。\n②分批处理：待处理汉字按每批 ≤10 字分组，逐批调用大模型 API，支持 AbortController 中断（运行中按钮变为"⏹ 中断"，再次点击即中断）。\n③进度提示：状态栏显示蓝色旋转图标 + 批次进度（如"正在补齐 [DeepSeek]… 10/20 字（批次 1/2）"），直观感知处理中。\n④结果解读：完成后显示"✓ DeepSeek：共 X · 默认 X · AI X · 缺失 X（Xms）"，若开启拼音纠错还会列出纠错明细（原拼音→纠正拼音+原因）。\n⑤开关选择建议：默认已勾"组词补齐"（仅补缺失词）；怀疑多音字有误→加勾"拼音纠错"；想全面核验词库质量→勾"全量检查"（自动包含其余两项，耗时较长，处理所有字）。\n⑥缓存机制：已写入 AI 缓存的字（有组词或已纠拼音）会自动跳过，避免重复消耗；如需重查请先在浏览器控制台执行 localStorage.removeItem("ai_zuci_cache_v1") 清缓存。\n⑦概率属性：AI 回答有概率性，少数情形一次未必全覆盖；多重复点击几次可逐步补齐/纠错全部。',
+        tooltipText: 'AI 调用流程解读：引擎识别→分批处理→进度提示→结果解读→开关建议→缓存机制→概率属性',
         position: 'left',
         hintCorner: 'top-right',
         autoOpen: 'settings'

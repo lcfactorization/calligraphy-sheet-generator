@@ -7,6 +7,12 @@ import { toggleTheme } from './settings.js';
 // 不从 GridEngine.js import getActiveGridColors（会造成循环依赖：GridEngine 已 import 本模块的 getSettings）
 import { GRID_COLORS, GRID_COLOR_PRESETS } from '../contracts/interfaces.js';
 
+// v3.0.0：低调暗淡的眼睛 SVG 图标（隐藏态=带斜线眼-off，显示态=眼-on）
+const EYE_OFF_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const EYE_ON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+// v3.0.0：小型旋转图标（SMIL animateTransform，无需 CSS keyframes）
+const SPINNER_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align:-2px;"><circle cx="12" cy="12" r="9" fill="none" stroke="#6366f1" stroke-width="3" stroke-dasharray="40 20" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></circle></svg>';
+
 const SETTINGS_KEY = 'calligraphy_settings';
 
 const DEFAULT_SETTINGS = {
@@ -241,10 +247,10 @@ function createPanel() {
                         重新查看新手引导
                     </button>
                 </div>
-                <div class="sc-section">
-                    <div class="sc-section-title">🤖 AI 组词补齐（可选）</div>
+                <div class="sc-section" id="scAiSection">
+                    <div class="sc-section-title">🤖 AI 辅助（可选）</div>
                     <div class="sc-toggle-row">
-                        <span>启用 AI 补齐</span>
+                        <span>启用 AI 辅助</span>
                         <label class="sc-switch">
                             <input type="checkbox" id="scAiZuci" ${settings.aiZuciEnabled ? 'checked' : ''}>
                             <span class="sc-slider"></span>
@@ -252,14 +258,43 @@ function createPanel() {
                     </div>
                     <div id="scAiConfig" style="display:${settings.aiZuciEnabled ? 'block' : 'none'};margin-top:10px;">
                         <div class="sc-field">
-                            <label>DeepSeek API Key</label>
+                            <label>DeepSeek 或火山引擎 API Key</label>
                             <div style="display:flex;gap:6px;align-items:center;">
-                                <input type="password" id="scAiKey" placeholder="sk-..." value="${(localStorage.getItem('deepseek_api_key') || '').replace(/"/g, '&quot;')}" style="flex:1;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
+                                <input type="password" id="scAiKey" placeholder="sk-... (DeepSeek) 或 ark-... (火山引擎)" value="${(localStorage.getItem('deepseek_api_key') || '').replace(/"/g, '&quot;')}" style="flex:1;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
+                                <button class="btn btn-ghost" id="scAiKeyToggle" type="button" title="显示/隐藏 API Key" aria-label="显示/隐藏 API Key" style="padding:6px 10px;color:#9ca3af;line-height:0;">${EYE_OFF_SVG}</button>
                                 <button class="btn btn-ghost" id="scAiKeySave" type="button" style="padding:6px 12px;font-size:12px;">保存</button>
                             </div>
-                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 存储在本地 localStorage，不会上传</div>
+                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 存储本地，不上传。自动识别：sk- → DeepSeek（推荐），ark- → 火山引擎豆包（免费）</div>
                         </div>
-                        <button class="btn btn-primary" id="scAiRun" type="button" style="width:100%;margin-top:8px;">▶ 补齐组词</button>
+
+                        <!-- v3.0.0：级联开关，默认只勾组词补齐 -->
+                        <div class="sc-toggle-row" style="margin-top:8px;">
+                            <span>📝 组词补齐（仅缺失二字词） <span style="color:#6366f1;font-size:11px;">默认</span></span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scAiFillMissing" checked>
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sc-toggle-row" style="margin-top:8px;">
+                            <span>🔤 拼音纠错（核对多音字/误读） <span style="color:#9ca3af;font-size:11px;">可选</span></span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scAiFixPinyin">
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sc-toggle-row" style="margin-top:8px;">
+                            <span>🔍 全量检查（核验所有字词） <span style="color:#f59e0b;font-size:11px;">耗时·高级模型</span></span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scAiFullCheck">
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <!-- v3.0.0：全量检查警告提示（默认隐藏，勾选时显示） -->
+                        <div id="scAiFullCheckWarn" style="display:none;margin-top:6px;padding:6px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:11px;color:#92400e;line-height:1.5;">
+                            ⚠ 全量检查将核验所有汉字（含已有组词），处理量大时可能耗时数分钟，且会调用高级大模型（豆包 Turbo / DeepSeek）。建议字数较多时分批处理。
+                        </div>
+                        <div class="sc-hint" style="font-size:11px;color:#9ca3af;margin-top:6px;">启用 AI 辅助后默认开启「组词补齐」。勾选「全量检查」时自动包含其余两项。</div>
+                        <button class="btn btn-primary" id="scAiRun" type="button" style="width:100%;margin-top:8px;">▶ AI 检查与补齐</button>
                         <div id="scAiStatus" class="sc-hint" style="font-size:12px;margin-top:6px;"></div>
                     </div>
                 </div>
@@ -447,9 +482,63 @@ function bindPanelEvents(overlay) {
         });
     }
 
+    // v3.0.0：AI 功能开关联动逻辑
+    // 规则：启用总开关→默认勾组词补齐；勾全量检查→自动勾其余两项并禁用；取消全量→恢复可编辑
+    const fullCheckCb = overlay.querySelector('#scAiFullCheck');
+    const fillMissingCb = overlay.querySelector('#scAiFillMissing');
+    const fixPinyinCb = overlay.querySelector('#scAiFixPinyin');
+    const fullCheckWarn = overlay.querySelector('#scAiFullCheckWarn');
+
+    if (fullCheckCb) {
+        fullCheckCb.addEventListener('change', (e) => {
+            const isFull = e.target.checked;
+            if (isFull) {
+                if (fillMissingCb) { fillMissingCb.checked = true; fillMissingCb.disabled = true; }
+                if (fixPinyinCb) { fixPinyinCb.checked = true; fixPinyinCb.disabled = true; }
+                if (fullCheckWarn) fullCheckWarn.style.display = 'block';
+            } else {
+                if (fillMissingCb) { fillMissingCb.disabled = false; }
+                if (fixPinyinCb) { fixPinyinCb.disabled = false; }
+                if (fullCheckWarn) fullCheckWarn.style.display = 'none';
+            }
+        });
+    }
+
+    // v3.0.0：面板展开时若三个开关都未勾且非全量，确保组词补齐勾选
+    // （HTML checked 属性只在首次渲染生效，重复打开需手动同步）
+    if (aiZuciToggle) {
+        const syncDefault = () => {
+            const isFull = fullCheckCb?.checked;
+            if (isFull) return;
+            const anyChecked = fillMissingCb?.checked || fixPinyinCb?.checked;
+            if (!anyChecked && fillMissingCb) {
+                fillMissingCb.checked = true;
+            }
+        };
+        aiZuciToggle.addEventListener('change', syncDefault);
+    }
+
+    // v3.0.0：API Key 显示/隐藏切换（低调暗淡 SVG 眼睛图标）
+    const aiKeyToggleBtn = overlay.querySelector('#scAiKeyToggle');
+    if (aiKeyToggleBtn) {
+        aiKeyToggleBtn.addEventListener('click', () => {
+            const input = overlay.querySelector('#scAiKey');
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                aiKeyToggleBtn.innerHTML = EYE_ON_SVG;
+                aiKeyToggleBtn.style.color = '#6b7280';
+            } else {
+                input.type = 'password';
+                aiKeyToggleBtn.innerHTML = EYE_OFF_SVG;
+                aiKeyToggleBtn.style.color = '#9ca3af';
+            }
+        });
+    }
+
     const aiKeySaveBtn = overlay.querySelector('#scAiKeySave');
     if (aiKeySaveBtn) {
-        aiKeySaveBtn.addEventListener('click', () => {
+        aiKeySaveBtn.addEventListener('click', async () => {
             const input = overlay.querySelector('#scAiKey');
             const status = overlay.querySelector('#scAiStatus');
             const key = (input?.value || '').trim();
@@ -458,7 +547,14 @@ function bindPanelEvents(overlay) {
                 if (status) { status.textContent = '✓ 已清除 API Key'; status.style.color = '#16a34a'; }
             } else {
                 localStorage.setItem('deepseek_api_key', key);
-                if (status) { status.textContent = '✓ API Key 已保存到本地'; status.style.color = '#16a34a'; }
+                // v3.0.0：保存时标注识别到的引擎类型；未知前缀给出警告
+                const { getAiProvider } = await import('./aiZuci.js');
+                const providerInfo = getAiProvider(key);
+                if (providerInfo.type === 'unknown') {
+                    if (status) { status.textContent = '⚠ 无法识别 API Key 类型：请输入 sk- 开头（DeepSeek）或 ark- 开头（火山引擎）的 Key'; status.style.color = '#f59e0b'; }
+                } else {
+                    if (status) { status.textContent = `✓ API Key 已保存（识别为 ${providerInfo.label}）`; status.style.color = '#16a34a'; }
+                }
             }
         });
     }
@@ -478,7 +574,14 @@ function bindPanelEvents(overlay) {
 
             const apiKey = (localStorage.getItem('deepseek_api_key') || '').trim();
             if (!apiKey) {
-                setStatus('⚠ 请先填写并保存 DeepSeek API Key', '#ef4444');
+                setStatus('⚠ 请先填写并保存 DeepSeek 或火山引擎 API Key', '#ef4444');
+                return;
+            }
+            // v3.0.0：拦截无法识别的 API Key 前缀
+            const { getAiProvider } = await import('./aiZuci.js');
+            const providerInfo = getAiProvider(apiKey);
+            if (providerInfo.type === 'unknown') {
+                setStatus('⚠ 无法识别 API Key 类型：请输入 sk- 开头（DeepSeek）或 ark- 开头（火山引擎）的 Key', '#ef4444');
                 return;
             }
             const text = (document.getElementById('inputText')?.value || '');
@@ -491,35 +594,103 @@ function bindPanelEvents(overlay) {
 
             aiAbortCtrl = new AbortController();
             aiRunBtn.textContent = '⏹ 中断';
-            setStatus(`正在补齐 ${chars.length} 个字的组词…`, '#6366f1');
+            // v3.0.0：读取开关（组词补齐默认勾选；全量检查已联动勾选其余两项并禁用）
+            const fullCheck = !!overlay.querySelector('#scAiFullCheck')?.checked;
+            const fillMissing = !!overlay.querySelector('#scAiFillMissing')?.checked;
+            const fixPinyin = !!overlay.querySelector('#scAiFixPinyin')?.checked;
+            const anyOn = fullCheck || fillMissing || fixPinyin;
+            // v3.0.0：全量检查时豆包自动升级 turbo 强模型，重新获取 providerInfo 以显示正确标签
+            const providerInfoFull = getAiProvider(apiKey, fullCheck);
+            const opts = {
+                fullCheck,
+                fillMissing: anyOn ? fillMissing : true,  // 都不勾选时默认补齐
+                fixPinyin,
+                apiKey,
+                signal: aiAbortCtrl.signal
+            };
+            // v3.0.0：模式标签（简短，不重复引擎详情）
+            const modeParts = [];
+            if (fullCheck) modeParts.push('全量');
+            if (fillMissing || !anyOn) modeParts.push('补齐');
+            if (fixPinyin) modeParts.push('纠音');
+            const modeLabel = modeParts.join('+');
+            // v3.0.0：旋转图标 + 进度提示
+            const setProgress = (text) => {
+                if (status) {
+                    status.innerHTML = `${SPINNER_SVG} <span style="vertical-align:-1px;">${text}</span>`;
+                    status.style.color = '#6366f1';
+                }
+            };
+            setProgress(`正在${modeLabel} ${chars.length} 字 [${providerInfoFull.label}]…`);
+            opts.onProgress = (info) => {
+                if (info && info.total > 0) {
+                    setProgress(`正在${modeLabel} [${providerInfoFull.label}]… ${info.processed}/${info.total} 字（批次 ${info.batchIndex}/${info.totalBatches}）`);
+                }
+            };
 
             try {
                 const { fillMissingZuci } = await import('./aiZuci.js');
-                const result = await fillMissingZuci(chars, { apiKey, signal: aiAbortCtrl.signal });
-                // v2.9.9：构建含拼音纠错报告的状态消息
-                let msg = `✓ 完成：共 ${result.total} 字 · 默认 ${result.default} · AI 补齐 ${result.ai} · 缺失 ${result.missing}（${result.elapsed}ms）`;
+                const result = await fillMissingZuci(chars, opts);
+
+                // 构建状态消息
+                let msg = `✓ ${result.providerLabel}：共 ${result.total} · 默认 ${result.default} · AI ${result.ai} · 缺失 ${result.missing}（${result.elapsed}ms）`;
+
+                // 超时/部分成功提示
+                if (result.timedOut) {
+                    if (result.partialSuccess) {
+                        msg = `⏱ 处理超时（5分钟），已部分完成：AI ${result.ai}/${result.total} 字\n` + msg;
+                    } else {
+                        msg = `⏱ 处理超时（5分钟），未获得有效结果\n可能原因：${result.timeoutError || '网络或模型响应过慢'}\n建议：${result.suggestion || '减少单次处理字数或更换 API 提供商'}`;
+                        if (status) status.style.whiteSpace = 'pre-line';
+                        setStatus(msg, '#f59e0b');
+                        return;
+                    }
+                }
+
+                // 无有效结果
+                if (result.ai === 0 && result.total > 0 && !result.timedOut) {
+                    msg = `✗ 未能处理任何字\n${result.suggestion || '请检查 API Key 和网络连接后重试'}`;
+                    if (status) status.style.whiteSpace = 'pre-line';
+                    setStatus(msg, '#ef4444');
+                    return;
+                }
+
+                // 拼音纠错报告
                 if (result.pinyinFixed > 0) {
-                    msg += `\n📌 拼音纠错 ${result.pinyinFixed} 次：`;
+                    msg += `\n📌 纠音 ${result.pinyinFixed} 次：`;
                     result.fixes.forEach(f => {
                         msg += `\n  ${f.char}：${f.from} → ${f.to}（${f.reason}）`;
                     });
                 } else if (result.pinyinChecked > 0) {
-                    msg += `\n📌 拼音核对 ${result.pinyinChecked} 字，均无误`;
+                    msg += `\n📌 纠音核对 ${result.pinyinChecked} 字，均无误`;
                 }
+
                 if (status) status.style.whiteSpace = 'pre-line';
-                setStatus(msg, '#16a34a');
-                // 触发重渲染，使 AI 缓存生效（消除 "组词" 占位 + 纠正拼音）
+                setStatus(msg, result.timedOut ? '#f59e0b' : '#16a34a');
+
+                // 触发重渲染
                 document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
             } catch (err) {
                 if (err && err.name === 'AbortError') {
                     setStatus('已中断', '#6b7280');
                 } else {
                     console.error('[AI组词] 失败:', err);
-                    setStatus(`✗ 失败：${err.message || err}`, '#ef4444');
+                    let errMsg = `✗ 失败：${err.message || err}`;
+                    if (err.message && err.message.includes('401')) {
+                        errMsg += '\n建议：API Key 无效，请检查设置';
+                    } else if (err.message && err.message.includes('403')) {
+                        errMsg += '\n建议：无该模型权限或额度耗尽，请更换模型或充值';
+                    } else if (err.message && err.message.includes('429')) {
+                        errMsg += '\n建议：请求过频，请等待 30 秒后重试';
+                    } else if (err.message && err.message.includes('Failed to fetch')) {
+                        errMsg += '\n建议：网络连接失败，请检查网络';
+                    }
+                    if (status) status.style.whiteSpace = 'pre-line';
+                    setStatus(errMsg, '#ef4444');
                 }
             } finally {
                 aiAbortCtrl = null;
-                aiRunBtn.textContent = '▶ 补齐组词';
+                aiRunBtn.textContent = '▶ AI 检查与补齐';
             }
         });
     }
