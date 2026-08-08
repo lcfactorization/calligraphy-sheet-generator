@@ -7,6 +7,20 @@
 
 ## [3.0.0] - 2026-08-07
 
+### 修复（2026-08-08 IDM 拦截 hanzi-data.bin 导致笔画笔顺拆解缺失）
+- **现象**：安装 IDM（Internet Download Manager）的用户打开本地网页端 `http://localhost:3210` 时，每次刷新都会触发 IDM 下载 `hanzi-data.bin`（11.75MB），下载文件在 IDM 目录堆积，浏览器 fetch 拿到空/失败响应 → 笔画笔顺拆解缺失。此前修复仅解决了 puppeteer 内部 `file://` 模式的 CORS 问题，未解决用户浏览器的 IDM 拦截问题。
+- **根因**：IDM 浏览器扩展会拦截 `.bin` 后缀的大文件下载请求接管为下载。`hanziDataStore.js` 的 `initHanziData()` 原加载顺序为 `.bin`（Worker fetch）→ `.bin`（主线程降级 fetch）→ CDN 逐字 fallback，两条主路径都被 IDM 拦截，CDN fallback 因 jsdelivr 国内不稳定且逐字请求性能差而效果不佳。
+- **修复**：重构 `hanziDataStore.js` 的 `initHanziData()` 加载顺序为 **embedded.js（`<script>` 注入）→ .bin Worker → .bin 主线程降级 → CDN 逐字 fallback**。
+  - `embedded.js`（`dist/hanzi-data/hanzi-data-embedded.js`，15.7MB Base64+Gzip）是 `.js` 后缀，IDM 不拦截；用 `<script>` 加载后从 `window.HANZI_DATA_BASE64` 取值，`atob` + `gunzipSync` + `JSON.parse` 解码。
+  - `embedded.js` 失败时降级到原 `.bin` Worker 路径（puppeteer 内部 headless Chrome 无 IDM，`.bin` 可正常 fetch）。
+  - `_fallbackMainThread` 在 `.bin` 失败后再尝试 `embedded.js`，形成完整降级链。
+  - 复用项目已有的备选数据源 `hanzi-data-embedded.js`（此前已生成但代码路径未使用），无需新增数据文件。
+- **验证**：
+  - puppeteer 路径（`file://`，无 IDM）：`puppeteer-pdf.cjs --text "床前明月光"` → 笔画加载 `5/5 行, 共 34 个笔画 SVG` ✓
+  - http 模式 + IDM 拦截模拟（server 对 `.bin` 返回 204 空响应）：`strokeBoxCount=5, strokeBoxsWithSvg=5`，console 输出 `[hanziData] embedded.js 数据加载完成，共 9574 字` ✓
+- **影响范围**：本次修改 `src/modules/hanziDataStore.js` 参与前端构建，需重新部署 GitHub Pages / Cloudflare Pages 前端。puppeteer 工具链无需改动（上一轮的 `--allow-file-access-from-files` 仍有效，作为 embedded.js 失败时的降级路径）。
+- **版本号不变**：按"仅记录变更、不更新版本号"的偏好处理，未改变 `package.json` 中的 `version` 字段。
+
 ### 修复（2026-08-08 Puppeteer 笔画笔顺拆解缺失）
 - **现象**：本地启动 Puppeteer 生成矢量 PDF 时，拼音行右侧的笔画数 + 笔画拆解 SVG 整块缺失（5 个 `.grid-svg-stroke-box` 全空）。网页端打开、`window.print()` 打印到 PDF 均正常。
 - **根因**：`puppeteer-server.cjs` / `puppeteer-pdf.cjs` 用 `file:///` 协议加载 `dist/index.html`，页面 origin 为 `null`，Chrome CORS 策略禁止 `file://` origin fetch 其他本地文件，导致 12MB 的 `hanzi-data/hanzi-data.bin` 加载失败 → Web Worker 创建失败 → 主线程降级 fetch 也失败 → `loadStrokes()` 拿不到笔画数据 → stroke-box 全空。

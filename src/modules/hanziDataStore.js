@@ -23,7 +23,11 @@
 import { gunzipSync } from 'fflate';
 
 // 数据源 URL（Vite public 目录，构建后位于站点 /hanzi-data/）
-// 优先用 .bin（11.75MB，最小）；失败时降级 .js（15.7MB，Base64+Gzip，需 fflate 解码 Base64）
+// v3.0.2：加载顺序调整为 embedded.js → .bin → CDN 逐字 fallback
+//   根因：IDM 等下载插件会拦截 .bin 后缀的大文件请求接管为下载，
+//         导致浏览器 fetch 拿到空响应、hanzi-data.bin 加载失败、笔画笔顺缺失。
+//   embedded.js 是 .js 后缀，IDM 不拦截；用 <script> 加载后从 window.HANZI_DATA_BASE64 取值。
+//   .bin 仍作为 Worker 主线程降级路径（puppeteer 内部 headless Chrome 无 IDM，.bin 可正常 fetch）。
 // v2.9.8：使用 import.meta.env.BASE_URL 适配 GitHub Pages 子路径部署（base: './'）
 // 并通过 new URL 转为绝对 URL，确保 Web Worker 中也能正确 fetch（Worker 的 base 可能是 blob URL）
 const _BASE = import.meta.env.BASE_URL;
@@ -45,13 +49,77 @@ let _loadError = null;              // 加载错误（用于诊断）
 let _worker = null;                 // Web Worker 实例（解压完成后终止）
 
 /**
+ * 通过 <script> 标签加载 hanzi-data-embedded.js（绕开 IDM 对 .bin 的拦截）。
+ * embedded.js 把 Base64 字符串挂到 window.HANZI_DATA_BASE64，本函数负责 atob + gunzip + JSON.parse。
+ * @returns {Promise<void>}
+ */
+function _loadViaEmbeddedScript() {
+    return new Promise((resolve, reject) => {
+        // 已加载过则直接取值（幂等）
+        if (typeof window !== 'undefined' && window.HANZI_DATA_BASE64) {
+            try {
+                _charDataMap = _decodeEmbeddedBase64(window.HANZI_DATA_BASE64);
+                console.info(`[hanziData] embedded.js 数据加载完成（已缓存），共 ${Object.keys(_charDataMap).length} 字`);
+                resolve();
+                return;
+            } catch (e) {
+                reject(e);
+                return;
+            }
+        }
+        const script = document.createElement('script');
+        script.src = DATA_JS_URL;
+        script.async = true;
+        script.onload = () => {
+            try {
+                if (!window.HANZI_DATA_BASE64) {
+                    throw new Error('embedded.js 加载完成但 window.HANZI_DATA_BASE64 为空');
+                }
+                _charDataMap = _decodeEmbeddedBase64(window.HANZI_DATA_BASE64);
+                console.info(`[hanziData] embedded.js 数据加载完成，共 ${Object.keys(_charDataMap).length} 字`);
+                resolve();
+            } catch (e) {
+                reject(e);
+            }
+        };
+        script.onerror = () => reject(new Error('embedded.js 加载失败（网络错误或文件不存在）'));
+        document.head.appendChild(script);
+    });
+}
+
+/** 解码 embedded.js 的 Base64+Gzip 数据为字典对象 */
+function _decodeEmbeddedBase64(base64Str) {
+    // atob 返回二进制字符串，逐字节写入 Uint8Array
+    const binary = atob(base64Str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const decompressed = gunzipSync(bytes);
+    const jsonStr = new TextDecoder('utf-8').decode(decompressed);
+    return JSON.parse(jsonStr);
+}
+
+/**
  * 初始化汉字数据加载（幂等，可重复调用）。
  * 返回 Promise，resolve 后即可同步调用 getCharData。
+ * v3.0.2：加载顺序调整为 embedded.js（<script>，绕开 IDM 拦截 .bin）
+ *   → .bin Worker（puppeteer 内部无 IDM）→ .bin 主线程降级 → CDN 逐字 fallback。
  */
 export function initHanziData() {
     if (_readyPromise) return _readyPromise;
     _readyPromise = new Promise((resolve, reject) => {
-        // 优先尝试 Web Worker 解压（主线程零阻塞）
+        // 1. 优先用 <script> 加载 embedded.js（绕开 IDM 对 .bin 的拦截）
+        _loadViaEmbeddedScript().then(resolve).catch((embeddedErr) => {
+            console.warn('[hanziData] embedded.js 加载失败，降级到 .bin Worker:', embeddedErr.message || embeddedErr);
+            // 2. embedded.js 失败 → 降级到 Web Worker + .bin（puppeteer 内部无 IDM，.bin 可正常 fetch）
+            _loadViaWorker().then(resolve).catch(reject);
+        });
+    });
+    return _readyPromise;
+}
+
+/** Web Worker 加载 .bin（主线程零阻塞） */
+function _loadViaWorker() {
+    return new Promise((resolve, reject) => {
         try {
             _worker = new Worker(new URL('./hanziDataWorker.js', import.meta.url), { type: 'module' });
             const timeoutId = setTimeout(() => {
@@ -67,7 +135,7 @@ export function initHanziData() {
                     _charDataMap = e.data.map;
                     try { _worker.terminate(); } catch (_) {}
                     _worker = null;
-                    console.info(`[hanziData] 离线数据加载完成，共 ${Object.keys(_charDataMap).length} 字`);
+                    console.info(`[hanziData] 离线数据加载完成（.bin Worker），共 ${Object.keys(_charDataMap).length} 字`);
                     resolve();
                 } else if (e.data && e.data.type === 'error') {
                     clearTimeout(timeoutId);
@@ -91,13 +159,12 @@ export function initHanziData() {
             _fallbackMainThread().then(resolve).catch(reject);
         }
     });
-    return _readyPromise;
 }
 
 /** 主线程降级加载（Worker 不可用时） */
 async function _fallbackMainThread() {
+    // 1. 先尝试 .bin（puppeteer 内部无 IDM，.bin 可正常 fetch）
     try {
-        // 先尝试 .bin
         const resp = await fetch(DATA_BIN_URL);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const buf = await resp.arrayBuffer();
@@ -105,11 +172,18 @@ async function _fallbackMainThread() {
         const decompressed = gunzipSync(compressed);
         const jsonStr = new TextDecoder('utf-8').decode(decompressed);
         _charDataMap = JSON.parse(jsonStr);
-        console.info(`[hanziData] 主线程降级加载完成，共 ${Object.keys(_charDataMap).length} 字`);
+        console.info(`[hanziData] 主线程降级加载完成（.bin），共 ${Object.keys(_charDataMap).length} 字`);
+        return;
+    } catch (binErr) {
+        console.warn('[hanziData] 主线程 .bin 降级失败，最后尝试 embedded.js:', binErr.message || binErr);
+    }
+    // 2. .bin 也失败（如用户浏览器被 IDM 拦截且 Worker 也挂了）→ 最后尝试 embedded.js
+    try {
+        await _loadViaEmbeddedScript();
     } catch (err) {
         _loadError = err;
-        console.error('[hanziData] 主线程降级加载也失败:', err);
-        // 最终降级：抛出错误，让上层处理（例如显示提示）
+        console.error('[hanziData] 全部加载路径均失败（embedded.js + .bin Worker + .bin 主线程）:', err);
+        // 最终降级：抛出错误，让上层处理（getCharDataAsync 会逐字走 CDN fallback）
         throw err;
     }
 }
