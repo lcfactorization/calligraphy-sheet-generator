@@ -7,6 +7,18 @@
 
 ## [3.0.0] - 2026-08-07
 
+### 修复（2026-08-08 Puppeteer 笔画笔顺拆解缺失）
+- **现象**：本地启动 Puppeteer 生成矢量 PDF 时，拼音行右侧的笔画数 + 笔画拆解 SVG 整块缺失（5 个 `.grid-svg-stroke-box` 全空）。网页端打开、`window.print()` 打印到 PDF 均正常。
+- **根因**：`puppeteer-server.cjs` / `puppeteer-pdf.cjs` 用 `file:///` 协议加载 `dist/index.html`，页面 origin 为 `null`，Chrome CORS 策略禁止 `file://` origin fetch 其他本地文件，导致 12MB 的 `hanzi-data/hanzi-data.bin` 加载失败 → Web Worker 创建失败 → 主线程降级 fetch 也失败 → `loadStrokes()` 拿不到笔画数据 → stroke-box 全空。
+  - 网页端正常：用户通过 `http://localhost:3210` 访问，origin 正常。
+  - `window.print()` 正常：复用网页端已加载好的笔画数据。
+  - 中途尝试改用 `http://localhost` 模式加载页面，被 IDM 等下载插件拦截 `.bin` fetch 返回 `status=204` 空响应，证实 http 模式不可行。
+- **修复**：两个 Puppeteer 启动脚本的 `args` 新增 `--allow-file-access-from-files`，允许 `file://` origin fetch 本地资源。
+  - 这是 `file://` 模式下最干净的修复，避开 IDM 对 http 模式 `.bin` fetch 的拦截（headless Chrome 已 `--disable-extensions` 禁用 IDM 等扩展，不影响 puppeteer 内部）。
+- **验证**：`puppeteer-pdf.cjs --text "床前明月光"` → 笔画加载 `5/5 行, 共 34 个笔画 SVG`（床7+前9+明8+月4+光6=34 ✓）。
+- **影响范围**：仅影响用户本地运行 Puppeteer 生成 PDF 的场景。GitHub Pages / Cloudflare Pages 前端构建产物无变化（`.cjs` 文件不参与 Vite 构建），Cloudflare Pages Function 代理的 Vercel 在线 PDF API 为独立部署，均无需重新部署。
+- **版本号不变**：本次为本地 Puppeteer 工具链 bug 修复，未触及前端功能、未改变 `package.json` 中的 `version` 字段。按"仅记录变更、不更新版本号"的偏好处理，避免对已发布的 v3.0.0 造成版本号噪音。
+
 ### 新增功能
 - **双引擎 AI 适配**：AI 组词补齐功能支持 DeepSeek 和火山引擎豆包两种大模型，根据 API Key 前缀自动识别引擎类型
   - API Key 以 `sk-` 开头 → 自动使用 DeepSeek（deepseek-v4-flash，推荐，性价比优）
