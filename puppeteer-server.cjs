@@ -54,6 +54,14 @@ async function getBrowser() {
             '--font-render-hinting=none',
             '--disable-extensions',
             '--disable-component-extensions-with-background-pages',
+            // v3.0.1 修复：允许 file:// 协议下 fetch 本地资源（hanzi-data.bin 等）
+            // 根因：本服务用 file:/// 加载 dist/index.html，origin 为 null，
+            //   Chrome 默认禁止 file:// origin fetch 其他本地文件（CORS），
+            //   导致 hanzi-data.bin 加载失败 → 笔画笔顺拆解部分缺失。
+            //   网页端 http://localhost 正常是因为 origin 正常；
+            //   改用 http://localhost 会被 IDM 等下载插件拦截 .bin 返回空响应。
+            //   --allow-file-access-from-files 是 file:// 模式下最干净的修复。
+            '--allow-file-access-from-files',
         ]
     });
     return browserInstance;

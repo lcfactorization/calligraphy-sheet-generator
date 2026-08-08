@@ -287,6 +287,11 @@ async function generatePDF() {
             // v2.5.0：禁用浏览器扩展（IDM等），提升效率
             '--disable-extensions',
             '--disable-component-extensions-with-background-pages',
+            // v3.0.1 修复：允许 file:// 协议下 fetch 本地资源（hanzi-data.bin 等）
+            // 根因：脚本用 file:/// 加载 dist/index.html，origin 为 null，
+            //   Chrome 默认禁止 file:// origin fetch 其他本地文件（CORS），
+            //   导致 hanzi-data.bin 加载失败 → 拼音行笔画笔顺拆解部分缺失。
+            '--allow-file-access-from-files',
         ],
     });
 
