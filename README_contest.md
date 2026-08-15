@@ -297,9 +297,9 @@ https://forum.trae.cn/t/topic/31676
 - **v2.9.7 策略变化**:引导从 5 步扩展到 9 步 + "不再自动弹出"选项 + 智能推荐机理说明;修复 Dark 模式下 SVG 范字硬编码黑色不可见问题(`currentColor` + dark 自动反色 + 打印强制黑色)
 - **v2.9.8 策略变化**:新增笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 后台解压 + HanziWriter 双图层架构 + 播放/暂停 + 速度调节 1x-5x + 多窗口 + 速度持久化);引导从 9 步扩展到 16 步(新增笔顺演示/侧栏控件/历史记录引导);新增笔顺演示介绍页 stroke-demo-guide.html;修复 Dark 主题打印页脚黑底/汉字不显示、触屏 Light 主题渲染、移动端 settings/theme 按钮位置、移动端字格双击弹窗等 Bug;package.json 新增 fflate 依赖
 
-### A.8 当前有效状态(v3.0.0)
+### A.8 当前有效状态(v3.0.3)
 
-| 维度 | 参赛初版(v1.0) | 当前版本(v3.0.0) |
+| 维度 | 参赛初版(v1.0) | 当前版本(v3.0.3) |
 |---|---|---|
 | 架构 | 纯 HTML 单文件 | Vite 工程 + PWA + SingleFile |
 | 字体 | 9 款(含商业字体) | 5 款(4 开源中文字体 + 1 拼音字体) |
@@ -312,7 +312,7 @@ https://forum.trae.cn/t/topic/31676
 | Dark 模式 | 简单切换 | SVG currentColor 自动反色 |
 | 笔顺演示 | 无 | 离线 9574 汉字笔画笔顺动态演示弹窗 |
 | 工程化 | 无 | ES Module + Tailwind + 接口契约层 |
-| 部署 | 手动 | GitHub Actions 自动部署 |
+| 部署 | 手动 | GitHub Actions 自动部署(GitHub Pages + Cloudflare Pages 双平台) |
 | 离线 | 需下载字体 | PWA 完全离线 |
 
 > 详细版本历史与变更文件清单请参阅 [CHANGELOG.md](./CHANGELOG.md)。

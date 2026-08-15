@@ -5,6 +5,87 @@
 
 ---
 
+## v3.0.3 (2026-08-16) — 访问统计系统
+
+### 新增
+- 📊 **访问统计系统（自用版移植）**：新增 `functions/_middleware.js`（Cloudflare Pages Functions）
+  - 记录每位访客的 IP、操作系统、浏览器、访问时间、访问次数、国家/地区、设备类型、来源链接
+  - 自动排除静态资源（图片/CSS/JS/字体）与 API 请求，只统计真实页面访问
+  - `?admin=1` 种植 Cookie 排除管理员自身访问
+  - 提供 `/api/report`、`/api/stats`、`/api/health` 端点（均需 CRON_SECRET 鉴权）
+- 📧 **每日邮件报告（Cron Worker）**：新增 `analytics/cron-worker/`，每天北京时间 08:00 自动把前一天完整统计报告发送到指定邮箱（Resend）
+- ⚙️ **一键配置脚本**：新增 `analytics/setup.ps1`（创建 D1 数据库、绑定 Pages、部署 Functions 与 Cron Worker）
+- 📖 **设置导航文档**：新增 `analytics/README.md`（详细步骤：创建 D1、绑定、环境变量、部署、验证、常见问题）
+
+### 与个人版差异（公开发布版适配）
+- ✅ **无密码保护**：公开发布版中间件不包含密码登录页（自用版 _middleware.js 含密码保护）
+- ✅ **无调试/测试端点**：移除 /api/debug（会暴露环境变量前缀）与 /api/test-email（公开发送测试邮件）
+- ✅ **默认密钥更换**：CRON_SECRET 默认值已更换为 calligraphy_cron_secret_x8k3n5q9w2r7（部署时请改为强随机值）
+- ✅ **名称合规**：报告/邮件中均使用“字帖生成器”，无个人版名称
+
+### 安全说明
+- 🔒 API 端点均需 CRON_SECRET 鉴权
+- 🔒 密钥通过 Cloudflare Secrets 存储，不入代码仓库
+- 🔒 .gitignore 已放开 functions/ 与 analytics/（功能代码需发布），但保留排除 wrangler.toml（含默认密钥）与 analytics/cron-worker/node_modules/
+## v3.0.2 (2026-08-16) — 弹窗交互优化
+
+### 行为变更
+- 🪟 **点击弹窗外部不再关闭**：设置中心、手动修改、智能推荐、学习报告 4 个弹窗统一移除"点击遮罩外部关闭"逻辑，与笔顺演示弹窗行为一致（点击外部保持打开，仅通过关闭按钮/ESC 关闭）
+- 🪟 **弹窗窗口控制按钮**：4 个弹窗标题栏统一新增 最小化（▁）/ 最大化（□）/ 关闭（✕）按钮
+  - 设置中心 (settingsCenter.js)：scMin / scMax / scClose
+  - 手动修改 (manualEdit.js)：meMin / meMax / meClose
+  - 智能推荐 (recommender.js)：rec-btn-min / rec-btn-max / rec-close
+  - 学习报告 (reportPanel.js)：reportMin / reportMax / reportModalClose
+- 🪟 最小化状态：仅保留标题栏，高度收缩（~52px）；最大化状态：撑满可视区域（90vw×88vh 以内）
+
+### 修复
+- 🔧 manualEdit.js：冲突检查改为仅当其他 modal **可见**时才跳过（此前已关闭的设置弹窗 DOM 残留会阻塞手动修改弹窗打开）
+
+### 样式优化
+- 🎨 settingsCenter.css / recommender.css / reportPanel.js 内联样式：新增 .sc-window-controls / .rec-window-controls / .report-window-controls 及 .minimized / .maximized 状态样式
+
+### 不包含（与个人版的差异）
+- ❌ 在线 PDF API（个人版功能）
+- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
+
+## v3.0.1 (2026-08-15) — 功能增强与安全加固
+
+### 新增功能
+- ✨ 手动修改模式：点击字帖行右侧"拼音+组词"区域，弹出轻量编辑浮层，支持手动修改拼音和组词
+- ✨ 导入格式增强：宽松输入支持（多音字、拼音数字声调、组词自由输入）
+- ✨ 导入格式说明页面 (public/import-guide.html)
+- ✨ 笔顺演示指南页面更新
+- ✨ 引导步骤增强（更详细的导航引导）
+- ✨ macOS 启动脚本 (启动Puppeteer.command)
+- ✨ **多 API Key 管理**：支持保存多个 Key（DeepSeek sk- / 火山引擎豆包 ark-），下拉切换即生效，眼睛/复制/删除按钮（src/modules/aiKeyStore.js）
+- ✨ **API Key 文件导入**：从 txt/md/csv/docx 批量导入 Key（src/modules/aiKeyImporter.js，docx 自动解压提取）
+- ✨ **API Key 使用说明页面** (public/api-key-guide.html)，设置面板增加「📂 从文件添加 Key」入口
+
+### 样式优化
+- 🎨 引导(onboarding)样式增强
+- 🎨 基础(base)样式微调
+- 🎨 FAB按钮样式增强
+- 🎨 打印(print)样式优化
+- 🎨 SVG网格(grid-svg)样式优化
+
+### 安全加固
+- 🔒 .gitignore 追加 API Key 排除规则（密钥值仅存 localStorage，不入库）
+- 🔒 .gitignore 追加个人版专属文件排除规则
+
+### 代码质量
+- 🔧 zuci.js 添加手动修改优先级逻辑（手动 > AI > 默认词库）
+- 🔧 aiZuci.js 添加 userEdited 标记和缓存更新
+- 🔧 aiZuci.js 添加 aiKeyStore 活跃 Key 兑底（fillMissingZuci 未传 key 时自动读取活跃 Key）
+- 🔧 settingsCenter.js 升级为多 Key UI（下拉选择 + 内联添加 + 文件导入 + 复制/删除）
+- 🔧 main.js 添加 manualEdit 模块初始化
+- 🔧 pinyin.js 补充导出 convert（手动编辑拼音转换用）
+
+### 不包含（与个人版的差异）
+- ❌ 在线 PDF API（个人版功能）
+- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
+
+---
+
 ## [3.0.0] - 2026-08-07
 
 ### 修复（2026-08-08 IDM 拦截 hanzi-data.bin 导致笔画笔顺拆解缺失）
@@ -2614,85 +2695,3 @@ await new Promise(r => setTimeout(r, 500));
 
 ---
 
-## v3.0.1 (2026-08-15) — 功能增强与安全加固
-
-### 新增功能
-- ✨ 手动修改模式：点击字帖行右侧"拼音+组词"区域，弹出轻量编辑浮层，支持手动修改拼音和组词
-- ✨ 导入格式增强：宽松输入支持（多音字、拼音数字声调、组词自由输入）
-- ✨ 导入格式说明页面 (public/import-guide.html)
-- ✨ 笔顺演示指南页面更新
-- ✨ 引导步骤增强（更详细的导航引导）
-- ✨ macOS 启动脚本 (启动Puppeteer.command)
-- ✨ **多 API Key 管理**：支持保存多个 Key（DeepSeek sk- / 火山引擎豆包 ark-），下拉切换即生效，眼睛/复制/删除按钮（src/modules/aiKeyStore.js）
-- ✨ **API Key 文件导入**：从 txt/md/csv/docx 批量导入 Key（src/modules/aiKeyImporter.js，docx 自动解压提取）
-- ✨ **API Key 使用说明页面** (public/api-key-guide.html)，设置面板增加「📂 从文件添加 Key」入口
-
-### 样式优化
-- 🎨 引导(onboarding)样式增强
-- 🎨 基础(base)样式微调
-- 🎨 FAB按钮样式增强
-- 🎨 打印(print)样式优化
-- 🎨 SVG网格(grid-svg)样式优化
-
-### 安全加固
-- 🔒 .gitignore 追加 API Key 排除规则（密钥值仅存 localStorage，不入库）
-- 🔒 .gitignore 追加个人版专属文件排除规则
-
-### 代码质量
-- 🔧 zuci.js 添加手动修改优先级逻辑（手动 > AI > 默认词库）
-- 🔧 aiZuci.js 添加 userEdited 标记和缓存更新
-- 🔧 aiZuci.js 添加 aiKeyStore 活跃 Key 兑底（fillMissingZuci 未传 key 时自动读取活跃 Key）
-- 🔧 settingsCenter.js 升级为多 Key UI（下拉选择 + 内联添加 + 文件导入 + 复制/删除）
-- 🔧 main.js 添加 manualEdit 模块初始化
-- 🔧 pinyin.js 补充导出 convert（手动编辑拼音转换用）
-
-### 不包含（与个人版的差异）
-- ❌ 在线 PDF API（个人版功能）
-- ❌ Cloudflare Pages 中间件/Analytics（个人版功能）
-- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
-
----
-
-## v3.0.2 (2026-08-16) — 弹窗交互优化
-
-### 行为变更
-- 🪟 **点击弹窗外部不再关闭**：设置中心、手动修改、智能推荐、学习报告 4 个弹窗统一移除"点击遮罩外部关闭"逻辑，与笔顺演示弹窗行为一致（点击外部保持打开，仅通过关闭按钮/ESC 关闭）
-- 🪟 **弹窗窗口控制按钮**：4 个弹窗标题栏统一新增 最小化（▁）/ 最大化（□）/ 关闭（✕）按钮
-  - 设置中心 (settingsCenter.js)：scMin / scMax / scClose
-  - 手动修改 (manualEdit.js)：meMin / meMax / meClose
-  - 智能推荐 (recommender.js)：rec-btn-min / rec-btn-max / rec-close
-  - 学习报告 (reportPanel.js)：reportMin / reportMax / reportModalClose
-- 🪟 最小化状态：仅保留标题栏，高度收缩（~52px）；最大化状态：撑满可视区域（90vw×88vh 以内）
-
-### 修复
-- 🔧 manualEdit.js：冲突检查改为仅当其他 modal **可见**时才跳过（此前已关闭的设置弹窗 DOM 残留会阻塞手动修改弹窗打开）
-
-### 样式优化
-- 🎨 settingsCenter.css / recommender.css / reportPanel.js 内联样式：新增 .sc-window-controls / .rec-window-controls / .report-window-controls 及 .minimized / .maximized 状态样式
-
-### 不包含（与个人版的差异）
-- ❌ 在线 PDF API（个人版功能）
-- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
-
-## v3.0.3 (2026-08-16) — 访问统计系统
-
-### 新增
-- 📊 **访问统计系统（自用版移植）**：新增 `functions/_middleware.js`（Cloudflare Pages Functions）
-  - 记录每位访客的 IP、操作系统、浏览器、访问时间、访问次数、国家/地区、设备类型、来源链接
-  - 自动排除静态资源（图片/CSS/JS/字体）与 API 请求，只统计真实页面访问
-  - `?admin=1` 种植 Cookie 排除管理员自身访问
-  - 提供 `/api/report`、`/api/stats`、`/api/health` 端点（均需 CRON_SECRET 鉴权）
-- 📧 **每日邮件报告（Cron Worker）**：新增 `analytics/cron-worker/`，每天北京时间 08:00 自动把前一天完整统计报告发送到指定邮箱（Resend）
-- ⚙️ **一键配置脚本**：新增 `analytics/setup.ps1`（创建 D1 数据库、绑定 Pages、部署 Functions 与 Cron Worker）
-- 📖 **设置导航文档**：新增 `analytics/README.md`（详细步骤：创建 D1、绑定、环境变量、部署、验证、常见问题）
-
-### 与个人版差异（公开发布版适配）
-- ✅ **无密码保护**：公开发布版中间件不包含密码登录页（自用版 _middleware.js 含密码保护）
-- ✅ **无调试/测试端点**：移除 /api/debug（会暴露环境变量前缀）与 /api/test-email（公开发送测试邮件）
-- ✅ **默认密钥更换**：CRON_SECRET 默认值已更换为 calligraphy_cron_secret_x8k3n5q9w2r7（部署时请改为强随机值）
-- ✅ **名称合规**：报告/邮件中均使用“字帖生成器”，无个人版名称
-
-### 安全说明
-- 🔒 API 端点均需 CRON_SECRET 鉴权
-- 🔒 密钥通过 Cloudflare Secrets 存储，不入代码仓库
-- 🔒 .gitignore 已放开 functions/ 与 analytics/（功能代码需发布），但保留排除 wrangler.toml（含默认密钥）与 analytics/cron-worker/node_modules/

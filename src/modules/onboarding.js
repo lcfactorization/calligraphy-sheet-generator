@@ -1,4 +1,4 @@
-// 移动端首次使用引导 + 滚动边角提示（v2.9.5）
+﻿// 移动端首次使用引导 + 滚动边角提示（v2.9.5）
 // localStorage keys: onboarding_completed / onboarding_version
 // 兼容现有 .puppeteer-toast 机制（fab.css 已定义 .info/.success/.error 变体）
 // 防御性编程：每步前检查 document.querySelector(selector) 是否存在且可见（offsetParent !== null），不存在则跳过
@@ -29,7 +29,7 @@ const OB_VERSION_KEY = 'onboarding_version';
 // v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
 // 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
 const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
-const OB_VERSION = 'v3.0.0';
+const OB_VERSION = 'v3.0.3';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
 // v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）

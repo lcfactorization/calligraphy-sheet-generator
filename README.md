@@ -1,22 +1,22 @@
-# 字帖生成器 — Vite工程化 + PWA离线 + SVG矢量化 + 学习闭环 + 双轨PDF
+﻿# 字帖生成器 — Vite工程化 + PWA离线 + SVG矢量化 + 学习闭环 + 双轨PDF
 
 > TRAE AI 创造力大赛复赛作品 | 从"字帖生成工具"升级为"汉字学习闭环平台"
 > 双轨方案:浏览器直接打印(全平台) + Puppeteer 命令行批量生成(桌面端)
-> 在线体验:https://lcfactorization.github.io/calligraphy-sheet-generator/
+> 在线体验:https://calligraphy-sheet-generator.pages.dev/
 
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
-[![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.1-blue)](CHANGELOG.md)
+[![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
+[![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
+[![Version](https://img.shields.io/badge/version-3.0.3-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
 
-- **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
+- **在线访问**:https://calligraphy-sheet-generator.pages.dev/
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.1(多Key管理+手动修改模式+导入格式增强+macOS启动脚本+安全加固+.gitignore排除API Key和个人版专属文件)
-- **最新更新**:v3.0.1 — 新增多 Key 管理(下拉切换即生效、从文件批量导入、眼睛/复制/删除)与 API Key 使用说明页 api-key-guide.html;新增手动修改模式(点击拼音+组词区域弹出编辑浮层);导入格式增强(宽松输入支持多音字/拼音数字声调/组词自由输入);新增导入格式说明页面 import-guide.html;macOS 启动脚本(启动Puppeteer.command);引导步骤增强;样式优化(onboarding/base/fab/print/grid-svg);安全加固(.gitignore 排除 API Key 和个人版专属文件);详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v3.0.3(访问统计系统:IP/设备/浏览器/访问时间统计 + 每日邮件报告 + 弹窗交互优化 + 多Key管理 + 手动修改模式)
+- **最新更新**:v3.0.3 — 访问统计系统(记录访问 IP/操作系统/浏览器/访问时间/次数,每日 08:00 邮件报告)+ 弹窗交互优化(点击外部不关闭 + 最小化/最大化/关闭按钮);v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
 
@@ -24,7 +24,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v3.0.0,ES Module)
+├── package.json             ← 依赖配置(v3.0.3,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -32,9 +32,15 @@ distribution/
 ├── 字帖生成器.html          ← 早期独立 HTML(参赛初版,仅作历史保留)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.0 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.3 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
-├── .github/workflows/       ← GitHub Pages 自动部署(触发分支:retake)
+├── .github/workflows/       ← GitHub Actions 自动部署(触发分支:retake)
+├── functions/
+│   └── _middleware.js       ← Cloudflare Pages 访问统计中间件(IP/设备/浏览器统计 + /api/report /api/stats /api/health)
+├── analytics/
+│   ├── README.md            ← 访问统计系统设置导航(详细步骤)
+│   ├── setup.ps1            ← 一键配置脚本(建 D1 + 部署 Functions + Cron Worker)
+│   └── cron-worker/         ← 每日邮件报告 Worker(北京时间 08:00 发送)
 ├── scripts/
 │   └── download-fonts.sh    ← CI 构建时下载开源字体
 ├── public/
@@ -98,7 +104,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 ```
 
 ### 在线使用
-直接访问 https://lcfactorization.github.io/calligraphy-sheet-generator/
+直接访问 https://calligraphy-sheet-generator.pages.dev/
 - 支持 PWA 安装到桌面/手机
 - 离线可用(Service Worker 缓存)
 
@@ -204,7 +210,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 - **触发条件**:push 到 `main` 或 `retake` 分支,或手动 `workflow_dispatch`
 - **构建流程**:`npm ci` → 下载字体 → `npm run build` → 上传 artifact → 部署到 Pages
 - **部署环境**:`github-pages` environment
-- **访问 URL**:https://lcfactorization.github.io/calligraphy-sheet-generator/
+- **访问 URL**:https://calligraphy-sheet-generator.pages.dev/
 
 ### CI 字体下载脚本
 

@@ -1,4 +1,4 @@
-# 字帖生成器 — 重构任务看板（v2.4.0 · SVG 矢量化 + 双轨 PDF + 朱砂暖宣 UI）
+﻿# 字帖生成器 — 重构任务看板（v2.4.0 · SVG 矢量化 + 双轨 PDF + 朱砂暖宣 UI）
 
 > [!NOTE]
 > **文档状态**:v2.4.0 重构已全部完成,本看板保留作为重构历史记录。
@@ -82,13 +82,13 @@
 - v2.9.7:引导增强(9 步 + "不再自动弹出"选项 + 智能推荐说明)+ Dark 模式范字 inverted color
 - v2.9.8:笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + 双图层 + 播放/暂停 + 速度持久化)+ 引导增强 16 步 + 笔顺演示介绍页 + Dark/触屏/移动端多项 Bug 修复(dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击)
 
-### 当前状态(v3.0.1)
-- **代码版本**:v3.0.1(package.json + CHANGELOG)
+### 当前状态(v3.0.3)
+- **代码版本**:v3.0.3(package.json + CHANGELOG)
 - **构建模块**:846 模块(随迭代增长)
 - **源文件**:15 JS + 18 CSS + 3 数据 + 2 组件 + 1 契约 + 1 工具 + 1 入口 = 41 源文件
 - **备份机制**:每个版本有 backup 分支可回退（v3.0.0 AI 加固前备份分支：backup/pre_v300_final_20260807）
-- **部署**:GitHub Actions 自动部署到 GitHub Pages(触发分支:retake)
-- **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
+- **部署**:GitHub Actions 自动部署(GitHub Pages + Cloudflare Pages 双平台,触发分支:retake)
+- **在线访问**:https://calligraphy-sheet-generator.pages.dev/
 - **v3.0.0 AI 加固**(2026-08-07):三模式分流(快速/单音字校验/多音字深度校验)+5分钟硬超时+3次重试+缓存穿透修复+级联开关+404/401/403/429错误诊断+AbortSignal.any兼容兜底+紧急逃生门+豆包JSON mode实测验证(90字组词测试通过)
 
 ### v3.0.1 — 功能增强与安全加固(2026-08-15)
@@ -100,4 +100,18 @@
 - **样式优化**:onboarding/base/fab/print/grid-svg 样式微调
 - **代码质量**:zuci.js 手动修改优先级逻辑 + aiZuci.js userEdited 标记 + aiZuci.js 活跃 Key 兑底 + settingsCenter.js 多 Key UI + pinyin.js convert 导出 + main.js manualEdit 模块初始化
 - **CI/CD**:deploy.yml 触发分支新增 main(同时支持 main 和 retake 分支推送)
-- **不包含**:在线 PDF API/Cloudflare Pages 中间件/Analytics/商业字体(均为个人版专属功能)
+- **不包含**:在线 PDF API/商业字体(均为个人版专属功能)
+
+### v3.0.2 — 弹窗交互优化(2026-08-16)
+- **弹窗行为统一**:所有弹窗(设置/手动修改/智能推荐/学习报告)移除"点击外部关闭"逻辑,点击外部保持打开(变灰)
+- **窗口控制按钮**:每个弹窗新增最小化/最大化/关闭按钮(settingsCenter/manualEdit/recommender/reportPanel 四模块同步)
+- **关键 Bug 修复**:manualEdit.js 修复设置弹窗关闭后 DOM 残留(仅 display:none)导致手动修改弹窗打不开的问题,改为检查可见 modal
+
+### v3.0.3 — 访问统计系统(2026-08-16)
+- **访问统计**:Cloudflare Pages Functions 中间件(functions/_middleware.js),记录访问 IP/操作系统/浏览器/访问时间/次数/地理位置/来源/路径
+- **每日邮件报告**:analytics/cron-worker 每天北京时间 08:00 发送 Markdown 统计报告到指定邮箱(IP Top20/国家/浏览器/OS/设备/来源/路径/小时分布)
+- **数据存储**:Cloudflare D1 数据库(analytics/daily_stats/reports 三表),API 端点 /api/report /api/stats /api/health(CRON_SECRET 鉴权)
+- **一键配置**:analytics/setup.ps1(建 D1 + 部署 Pages Functions + 部署 Cron Worker + 验证)
+- **设置导航**:analytics/README.md 详细 7 节步骤(创建 D1/绑定/环境变量/部署/验证/常见问题)
+- **安全**:无密码保护(公开版,与自用版不同)、无 /api/debug /api/test-email、CRON_SECRET 默认值更换、wrangler.toml 不入库
+- **在线访问改为 Cloudflare Pages**:https://calligraphy-sheet-generator.pages.dev/ 为主发布链接(统计功能仅 Cloudflare 生效)

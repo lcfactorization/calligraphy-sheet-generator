@@ -1,8 +1,8 @@
-# Calligraphy Sheet Generator — Vite + PWA + SVG Vector + Learning Loop + Dual-track PDF
+﻿# Calligraphy Sheet Generator — Vite + PWA + SVG Vector + Learning Loop + Dual-track PDF
 
 > **A Type, A Trace** — Generate printable calligraphy practice sheets with Pinyin, word associations, and stroke decomposition. Supports vector PDF output.
 > TRAE AI Creativity Contest entry | Evolved from "calligraphy tool" to "Chinese character learning platform"
-> Live demo: https://lcfactorization.github.io/calligraphy-sheet-generator/
+> Live demo: https://calligraphy-sheet-generator.pages.dev/
 
 **English** | [中文](./README.md)
 
@@ -41,7 +41,7 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 
 ### Method 1: Online (Recommended)
 
-Visit https://lcfactorization.github.io/calligraphy-sheet-generator/
+Visit https://calligraphy-sheet-generator.pages.dev/
 - PWA installable to desktop/mobile home screen
 - Works offline after first load
 - 16-step onboarding on first visit (v2.9.8)
@@ -73,7 +73,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v3.0.0, ES Module)
+├── package.json             # Dependencies (v3.0.3, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -81,9 +81,15 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0 → v3.0.0)
+├── CHANGELOG.md             # Version history (v1.0 → v3.0.3)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
-├── .github/workflows/       # GitHub Pages auto-deploy (trigger: retake branch)
+├── .github/workflows/       # GitHub Actions auto-deploy (trigger: retake branch)
+├── functions/
+│   └── _middleware.js       # Cloudflare Pages analytics middleware (IP/device/browser tracking + /api/report /api/stats /api/health)
+├── analytics/
+│   ├── README.md            # Analytics setup guide (detailed steps)
+│   ├── setup.ps1            # One-click setup script (D1 + Functions + Cron Worker)
+│   └── cron-worker/         # Daily email report worker (08:00 Beijing time)
 ├── scripts/
 │   └── download-fonts.sh    # CI font download script
 ├── public/
