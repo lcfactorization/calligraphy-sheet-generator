@@ -36,7 +36,11 @@ api-key-*.txt
 wrangler.toml
 .wrangler/
 vercel.json
-analytics/
+
+# v3.0.3：访问统计系统已移植，functions/ 与 analytics/ 需随仓库发布；
+# 仅排除 analytics 内的 node_modules 与本地生成物
+analytics/cron-worker/node_modules/
+analytics/*.log
 
 # 说明：src/modules/aiKeyImporter.js / aiKeyStore.js 为功能代码（不含密钥值），需随仓库发布；
 # 密钥值仅存 localStorage，不会写入代码/仓库。
@@ -44,7 +48,6 @@ analytics/
 # v3.0.1：排除个人版专属文件（本地保留，不入仓库）
 使用说明.txt
 api/generate-pdf.js
-functions/
 
 # v3.0.1：排除本地视频制作产物与临时文件（不入仓库）
 video-demo/

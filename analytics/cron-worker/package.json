@@ -1,0 +1,14 @@
+{
+  "name": "calligraphy-analytics-cron",
+  "version": "1.0.0",
+  "description": "Cron Worker for daily analytics report generation and email delivery",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,4 +1,4 @@
-# 更新日志
+﻿# 更新日志
 
 所有 notable 变更记录在此文件中。
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
@@ -2672,5 +2672,27 @@ await new Promise(r => setTimeout(r, 500));
 
 ### 不包含（与个人版的差异）
 - ❌ 在线 PDF API（个人版功能）
-- ❌ Cloudflare Pages 中间件/Analytics（个人版功能）
 - ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
+
+## v3.0.3 (2026-08-16) — 访问统计系统
+
+### 新增
+- 📊 **访问统计系统（自用版移植）**：新增 `functions/_middleware.js`（Cloudflare Pages Functions）
+  - 记录每位访客的 IP、操作系统、浏览器、访问时间、访问次数、国家/地区、设备类型、来源链接
+  - 自动排除静态资源（图片/CSS/JS/字体）与 API 请求，只统计真实页面访问
+  - `?admin=1` 种植 Cookie 排除管理员自身访问
+  - 提供 `/api/report`、`/api/stats`、`/api/health` 端点（均需 CRON_SECRET 鉴权）
+- 📧 **每日邮件报告（Cron Worker）**：新增 `analytics/cron-worker/`，每天北京时间 08:00 自动把前一天完整统计报告发送到指定邮箱（Resend）
+- ⚙️ **一键配置脚本**：新增 `analytics/setup.ps1`（创建 D1 数据库、绑定 Pages、部署 Functions 与 Cron Worker）
+- 📖 **设置导航文档**：新增 `analytics/README.md`（详细步骤：创建 D1、绑定、环境变量、部署、验证、常见问题）
+
+### 与个人版差异（公开发布版适配）
+- ✅ **无密码保护**：公开发布版中间件不包含密码登录页（自用版 _middleware.js 含密码保护）
+- ✅ **无调试/测试端点**：移除 /api/debug（会暴露环境变量前缀）与 /api/test-email（公开发送测试邮件）
+- ✅ **默认密钥更换**：CRON_SECRET 默认值已更换为 calligraphy_cron_secret_x8k3n5q9w2r7（部署时请改为强随机值）
+- ✅ **名称合规**：报告/邮件中均使用“字帖生成器”，无个人版名称
+
+### 安全说明
+- 🔒 API 端点均需 CRON_SECRET 鉴权
+- 🔒 密钥通过 Cloudflare Secrets 存储，不入代码仓库
+- 🔒 .gitignore 已放开 functions/ 与 analytics/（功能代码需发布），但保留排除 wrangler.toml（含默认密钥）与 analytics/cron-worker/node_modules/

@@ -1,8 +1,8 @@
 {
   "name": "calligraphy-sheet-generator",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "type": "module",
-  "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.2 弹窗交互优化",
+  "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.3 访问统计系统",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
