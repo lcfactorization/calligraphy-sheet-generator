@@ -2650,3 +2650,27 @@ await new Promise(r => setTimeout(r, 500));
 - ❌ 在线 PDF API（个人版功能）
 - ❌ Cloudflare Pages 中间件/Analytics（个人版功能）
 - ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）
+
+---
+
+## v3.0.2 (2026-08-16) — 弹窗交互优化
+
+### 行为变更
+- 🪟 **点击弹窗外部不再关闭**：设置中心、手动修改、智能推荐、学习报告 4 个弹窗统一移除"点击遮罩外部关闭"逻辑，与笔顺演示弹窗行为一致（点击外部保持打开，仅通过关闭按钮/ESC 关闭）
+- 🪟 **弹窗窗口控制按钮**：4 个弹窗标题栏统一新增 最小化（▁）/ 最大化（□）/ 关闭（✕）按钮
+  - 设置中心 (settingsCenter.js)：scMin / scMax / scClose
+  - 手动修改 (manualEdit.js)：meMin / meMax / meClose
+  - 智能推荐 (recommender.js)：rec-btn-min / rec-btn-max / rec-close
+  - 学习报告 (reportPanel.js)：reportMin / reportMax / reportModalClose
+- 🪟 最小化状态：仅保留标题栏，高度收缩（~52px）；最大化状态：撑满可视区域（90vw×88vh 以内）
+
+### 修复
+- 🔧 manualEdit.js：冲突检查改为仅当其他 modal **可见**时才跳过（此前已关闭的设置弹窗 DOM 残留会阻塞手动修改弹窗打开）
+
+### 样式优化
+- 🎨 settingsCenter.css / recommender.css / reportPanel.js 内联样式：新增 .sc-window-controls / .rec-window-controls / .report-window-controls 及 .minimized / .maximized 状态样式
+
+### 不包含（与个人版的差异）
+- ❌ 在线 PDF API（个人版功能）
+- ❌ Cloudflare Pages 中间件/Analytics（个人版功能）
+- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）

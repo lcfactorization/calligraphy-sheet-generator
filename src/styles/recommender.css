@@ -70,6 +70,44 @@
   transform:rotate(90deg);
 }
 
+/* v3.0.2：窗口控制按钮组（最小化/最大化/关闭） */
+.rec-window-controls{
+  display:flex;align-items:center;gap:2px;
+}
+.rec-window-controls button{
+  width:28px;height:28px;padding:0;
+  border:none;border-radius:6px;
+  background:transparent;
+  color:var(--text-color);
+  font-size:14px;line-height:1;
+  cursor:pointer;outline:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:all .2s var(--ease-out-soft);
+}
+.rec-window-controls button:hover{background:rgba(99,102,241,0.15)}
+.rec-window-controls .rec-close:hover{
+  background:rgba(239,68,68,0.18);
+  color:#ef4444;
+  transform:rotate(90deg);
+}
+
+/* v3.0.2：最小化状态（仅显示标题栏） */
+.rec-modal.minimized{
+  height:52px !important;min-height:0 !important;max-height:52px !important;
+  width:320px !important;overflow:hidden;
+}
+.rec-modal.minimized .rec-tabs,
+.rec-modal.minimized .rec-body,
+.rec-modal.minimized .rec-footer{display:none !important}
+.rec-modal.minimized .rec-header{border-bottom:none}
+
+/* v3.0.2：最大化状态 */
+.rec-modal.maximized{
+  width:min(92vw,1100px) !important;height:min(90vh,860px) !important;
+  max-height:min(90vh,860px) !important;
+}
+.rec-modal.maximized .rec-body{flex:1 1 auto;min-height:0;overflow-y:auto}
+
 /* ── 标签页 ── */
 .rec-tabs{
   display:flex;gap:4px;

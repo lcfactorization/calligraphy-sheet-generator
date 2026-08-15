@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT=3210
 
 echo "═══════════════════════════════════════════════════"
-echo "  帅小呆字帖 - Puppeteer 矢量PDF服务 (macOS)"
+echo "  字帖生成器 - Puppeteer 矢量PDF服务 (macOS)"
 echo "═══════════════════════════════════════════════════"
 echo ""
 

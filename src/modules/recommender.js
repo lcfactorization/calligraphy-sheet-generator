@@ -118,7 +118,11 @@ const Recommender = {
       <div class="rec-modal" role="dialog" aria-modal="true" aria-labelledby="recTitle">
         <div class="rec-header">
           <h3 id="recTitle">✨ 智能推荐</h3>
-          <button class="rec-close" type="button" aria-label="关闭推荐面板">×</button>
+          <div class="rec-window-controls">
+            <button class="rec-btn-min" type="button" aria-label="最小化" title="最小化">▁</button>
+            <button class="rec-btn-max" type="button" aria-label="最大化" title="最大化">□</button>
+            <button class="rec-close" type="button" aria-label="关闭推荐面板">×</button>
+          </div>
         </div>
         <div class="rec-tabs" role="tablist">
           <button class="rec-tab active" type="button" data-tab="difficulty" role="tab">按难度</button>
@@ -146,10 +150,23 @@ const Recommender = {
     // 关闭按钮
     this.overlayEl.querySelector('.rec-close')
       .addEventListener('click', () => this.close());
-    // 点击遮罩区域 → 关闭
-    this.overlayEl.addEventListener('click', (e) => {
-      if (e.target === this.overlayEl) this.close();
+    // v3.0.2：最小化/最大化按钮
+    const recModal = this.overlayEl.querySelector('.rec-modal');
+    this.overlayEl.querySelector('.rec-btn-min').addEventListener('click', () => {
+      recModal.classList.toggle('minimized');
     });
+    this.overlayEl.querySelector('.rec-btn-max').addEventListener('click', () => {
+      if (recModal.classList.contains('minimized')) {
+        recModal.classList.remove('minimized');
+        recModal.classList.add('maximized');
+      } else {
+        recModal.classList.toggle('maximized');
+      }
+    });
+    // v3.0.2：移除"点击遮罩外部关闭"（与笔顺演示弹窗行为一致）
+    // this.overlayEl.addEventListener('click', (e) => {
+    //   if (e.target === this.overlayEl) this.close();
+    // });
     // Esc 键 → 关闭
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !this.overlayEl.hidden) this.close();

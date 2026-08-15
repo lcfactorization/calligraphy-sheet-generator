@@ -209,7 +209,11 @@ function createPanel() {
         <div class="sc-modal" role="dialog" aria-modal="true" aria-labelledby="scTitle">
             <div class="sc-header">
                 <span class="sc-title" id="scTitle">⚙️ 设置中心</span>
-                <button class="sc-close" id="scClose" aria-label="关闭" title="关闭">✕</button>
+                <div class="sc-window-controls">
+                    <button type="button" class="sc-btn-min" id="scMin" aria-label="最小化" title="最小化">▁</button>
+                    <button type="button" class="sc-btn-max" id="scMax" aria-label="最大化" title="最大化">□</button>
+                    <button class="sc-close" id="scClose" aria-label="关闭" title="关闭">✕</button>
+                </div>
             </div>
             <div class="sc-body">
                 <div class="sc-section">
@@ -402,6 +406,7 @@ function createPanel() {
 }
 
 function bindPanelEvents(overlay) {
+    const modal = overlay.querySelector('.sc-modal');
     const close = () => {
         overlay.classList.remove('open');
         setTimeout(() => { overlay.style.display = 'none'; }, 250);
@@ -415,11 +420,36 @@ function bindPanelEvents(overlay) {
     overlay._open = open;
     overlay._close = close;
 
+    // v3.0.2：窗口控制按钮（最小化/最大化/关闭）
+    const toggleMin = () => {
+        if (!modal) return;
+        if (modal.classList.contains('minimized')) {
+            modal.classList.remove('minimized');
+        } else {
+            modal.classList.add('minimized');
+        }
+    };
+    const toggleMax = () => {
+        if (!modal) return;
+        if (modal.classList.contains('minimized')) {
+            // 最小化时点击最大化：先恢复再最大化
+            modal.classList.remove('minimized');
+            modal.classList.add('maximized');
+        } else {
+            modal.classList.toggle('maximized');
+        }
+    };
+    const minBtn = overlay.querySelector('#scMin');
+    const maxBtn = overlay.querySelector('#scMax');
+    if (minBtn) minBtn.addEventListener('click', toggleMin);
+    if (maxBtn) maxBtn.addEventListener('click', toggleMax);
+
     overlay.querySelector('#scClose').addEventListener('click', close);
     overlay.querySelector('#scDone').addEventListener('click', close);
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) close();
-    });
+    // v3.0.2：移除"点击遮罩外部关闭"逻辑（与笔顺演示弹窗行为一致，点击外部不关闭弹窗）
+    // overlay.addEventListener('click', (e) => {
+    //     if (e.target === overlay) close();
+    // });
 
     // 滑块绑定（v2.5.3：移除 scFontSize 条目，因面板 UI 已删除字号控件；
     //   残留引用会导致 querySelector 返回 null，throw TypeError 中断后续事件绑定

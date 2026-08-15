@@ -19,7 +19,11 @@ function openEditModal(char, pinyin, zuci) {
         <div class="sc-modal" role="dialog" aria-modal="true">
             <div class="sc-header">
                 <span class="sc-title">✏️ 手动修改「${char}」</span>
-                <button class="sc-close" id="meClose" aria-label="关闭">✕</button>
+                <div class="sc-window-controls">
+                    <button type="button" class="sc-btn-min" id="meMin" aria-label="最小化" title="最小化">▁</button>
+                    <button type="button" class="sc-btn-max" id="meMax" aria-label="最大化" title="最大化">□</button>
+                    <button class="sc-close" id="meClose" aria-label="关闭">✕</button>
+                </div>
             </div>
             <div class="sc-body">
                 <div class="sc-field"><label>拼音（支持数字声调，如 xian1 或 xiān）</label>
@@ -47,7 +51,21 @@ function openEditModal(char, pinyin, zuci) {
 
     overlay.querySelector('#meClose').addEventListener('click', closeEditModal);
     overlay.querySelector('#meCancel').addEventListener('click', closeEditModal);
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeEditModal(); });
+    // v3.0.2：最小化/最大化按钮
+    const meModal = overlay.querySelector('.sc-modal');
+    overlay.querySelector('#meMin').addEventListener('click', () => {
+        meModal.classList.toggle('minimized');
+    });
+    overlay.querySelector('#meMax').addEventListener('click', () => {
+        if (meModal.classList.contains('minimized')) {
+            meModal.classList.remove('minimized');
+            meModal.classList.add('maximized');
+        } else {
+            meModal.classList.toggle('maximized');
+        }
+    });
+    // v3.0.2：移除"点击遮罩外部关闭"逻辑（与笔顺演示弹窗行为一致）
+    // overlay.addEventListener('click', e => { if (e.target === overlay) closeEditModal(); });
     overlay.querySelector('#meSave').addEventListener('click', () => {
         const rawPy = overlay.querySelector('#mePinyin').value.trim();
         // 自动转换数字声调为符号（xian1 → xiān），兼容已带声调或空值
@@ -88,8 +106,11 @@ export function initManualEdit() {
         }
         const char = row.getAttribute('data-char');
         if (!char) return;
-        // 避免与笔顺演示弹窗冲突：若已有其他 modal 打开则跳过
-        if (document.querySelector('.sc-modal[aria-modal="true"]')) return;
+        // 避免与笔顺演示弹窗冲突：若已有其他可见 modal 打开则跳过
+        // v3.0.2：改为仅当其他 modal 可见时才跳过（隐藏的已关闭弹窗不应阻塞）
+        const openModal = [...document.querySelectorAll('.sc-modal[aria-modal="true"]')]
+            .find(m => m.offsetParent !== null || (m.getBoundingClientRect().width > 0 && m.getBoundingClientRect().height > 0));
+        if (openModal) return;
         const pinyin = row.getAttribute('data-pinyin') || '';
         const zuci = (row.getAttribute('data-zuci') || '').split('|');
         openEditModal(char, pinyin, zuci);

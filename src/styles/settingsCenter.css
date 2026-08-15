@@ -29,6 +29,37 @@
 }
 .sc-overlay.open{opacity:1}
 
+/* v3.0.2：窗口控制按钮组（最小化/最大化/关闭，与笔顺演示弹窗风格一致） */
+.sc-window-controls{
+    display:flex;align-items:center;gap:2px;flex:0 0 auto;
+}
+.sc-window-controls button{
+    width:26px;height:26px;padding:0;border:none;background:transparent;
+    color:var(--text-color);font-size:14px;line-height:1;cursor:pointer;
+    border-radius:6px;display:inline-flex;align-items:center;justify-content:center;
+    transition:background .15s var(--ease-out-soft),color .15s var(--ease-out-soft);
+    outline:none;
+}
+.sc-window-controls button:hover{background:var(--toggle-bg)}
+.sc-window-controls .sc-close:hover{background:#e53935;color:#fff;border-color:#e53935}
+
+/* v3.0.2：最小化状态（仅显示标题栏，高度收缩） */
+.sc-modal.minimized{
+    height:52px !important;min-height:0 !important;max-height:52px !important;
+    width:320px !important;flex:0 0 auto;overflow:hidden;
+}
+.sc-modal.minimized .sc-body,
+.sc-modal.minimized .sc-footer{display:none !important}
+.sc-modal.minimized .sc-header{border-bottom:none}
+
+/* v3.0.2：最大化状态（撑满可视区域，保留内边距） */
+.sc-modal.maximized{
+    width:min(90vw,900px) !important;height:min(88vh,820px) !important;
+    max-width:min(90vw,900px) !important;max-height:min(88vh,820px) !important;
+    min-height:0 !important;
+}
+.sc-modal.maximized .sc-body{flex:1 1 auto;min-height:0}
+
 /* 模态框 */
 .sc-modal{
     width:420px;max-width:100%;max-height:90vh;

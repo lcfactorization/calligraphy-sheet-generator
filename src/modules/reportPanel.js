@@ -333,6 +333,33 @@ function injectBaseStyles() {
             padding: 4px 10px; border-radius: 6px; transition: background .2s;
         }
         .report-modal-close:hover { background: rgba(99,102,241,0.1); }
+        .report-window-controls {
+            display: flex; align-items: center; gap: 2px;
+        }
+        .report-window-controls button {
+            width: 28px; height: 28px; padding: 0;
+            border: none; border-radius: 6px;
+            background: transparent; color: var(--desc-color);
+            font-size: 14px; line-height: 1; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background .2s;
+        }
+        .report-window-controls button:hover { background: rgba(99,102,241,0.1); }
+        .report-window-controls .report-modal-close:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .report-modal.minimized {
+            height: 56px !important; min-height: 0 !important; max-height: 56px !important;
+            max-width: 320px !important; overflow: hidden;
+        }
+        .report-modal.minimized .report-modal-body,
+        .report-modal.minimized .report-modal-footer { display: none !important; }
+        .report-modal.minimized .report-modal-header { border-bottom: none; }
+        .report-modal.maximized {
+            max-width: min(94vw, 1200px) !important;
+            width: min(94vw, 1200px) !important;
+            height: min(92vh, 900px) !important;
+            max-height: min(92vh, 900px) !important;
+        }
+        .report-modal.maximized .report-modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
         .report-modal-body { padding: 20px 24px; }
         .report-modal-footer {
             display: flex; gap: 10px; justify-content: flex-end;
@@ -386,7 +413,11 @@ function buildModal() {
     modal.innerHTML = `
         <div class="report-modal-header">
             <h2 class="report-modal-title">📊 学习报告</h2>
-            <button class="report-modal-close" id="reportModalClose" aria-label="关闭">✕</button>
+            <div class="report-window-controls">
+                <button class="report-btn-min" id="reportMin" aria-label="最小化" title="最小化">▁</button>
+                <button class="report-btn-max" id="reportMax" aria-label="最大化" title="最大化">□</button>
+                <button class="report-modal-close" id="reportModalClose" aria-label="关闭">✕</button>
+            </div>
         </div>
         <div class="report-modal-body" id="reportModalBody">
             <div class="report-loading">加载中…</div>
@@ -592,15 +623,29 @@ export const ReportPanel = {
         createReportButton(openPanel);
         buildModal();
 
-        // 关闭事件：按钮 + 点击遮罩 + ESC
+        // 关闭事件：按钮 + ESC（v3.0.2：移除点击遮罩关闭，与笔顺弹窗行为一致）
         const closeBtn = document.getElementById('reportModalClose');
         if (closeBtn) closeBtn.addEventListener('click', closePanel);
         const overlay = document.getElementById('reportModalOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) closePanel();
-            });
-        }
+        // v3.0.2：最小化/最大化按钮
+        const rModal = document.querySelector('#reportModalOverlay .report-modal');
+        const rMin = document.getElementById('reportMin');
+        const rMax = document.getElementById('reportMax');
+        if (rMin && rModal) rMin.addEventListener('click', () => rModal.classList.toggle('minimized'));
+        if (rMax && rModal) rMax.addEventListener('click', () => {
+            if (rModal.classList.contains('minimized')) {
+                rModal.classList.remove('minimized');
+                rModal.classList.add('maximized');
+            } else {
+                rModal.classList.toggle('maximized');
+            }
+        });
+        // v3.0.2：移除点击遮罩关闭
+        // if (overlay) {
+        //     overlay.addEventListener('click', (e) => {
+        //         if (e.target === overlay) closePanel();
+        //     });
+        // }
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && overlay && overlay.classList.contains('open')) {
                 closePanel();
