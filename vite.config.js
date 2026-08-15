@@ -35,7 +35,8 @@ export default defineConfig({
                     '**/hanzi-data/hanzi-data.bin',
                     '**/hanzi-data/hanzi-data-embedded.js',
                     '**/fonts/*.ttf',
-                    '**/fonts/*.otf'
+                    '**/fonts/*.otf',
+                    '**/fonts/*.woff2'
                 ],
                 runtimeCaching: [
                     {

@@ -1,7 +1,8 @@
 #!/bin/bash
-# 在CI构建时下载开源字体
-# v3.0.1：合并个人版优化策略注释，保持 distribution 的完整字体下载逻辑
-#   - distribution 使用 GitHub Pages（无 25MB 单文件限制），可直接下载 TTF/OTF
+# 在CI构建时下载开源字体并转换为 woff2
+# v3.0.4：字体统一转为 woff2 格式（Cloudflare Pages 25MiB 单文件限制）
+#   - 源 release 仅提供 TTF/OTF，下载后通过 fontTools 转 woff2（压缩率 31-68%）
+#   - fontManager.js 已改为引用 .woff2
 #   - 个人版使用 Cloudflare Pages（25MB 限制），大型字体改 CDN 运行时加载
 #   - 拼音字体 texgyreadventor 已通过 base64 内嵌在 fontManager.js 中，无需下载文件
 #   - 商业字体（方正/姜浩/田英章/我逸清晨体）不纳入开源 distribution
@@ -9,6 +10,26 @@ set -e
 
 FONTS_DIR="public/fonts"
 mkdir -p "$FONTS_DIR"
+
+# 安装 fontTools（用于 ttf/otf -> woff2 转换）
+pip3 install --quiet fonttools brotli || pip install --quiet fonttools brotli
+
+convert_to_woff2() {
+  local src="$1"
+  local dst="$2"
+  if [ ! -f "$dst" ]; then
+    echo "  Converting $src -> $dst..."
+    python3 -c "
+from fontTools.ttLib import TTFont
+f = TTFont('$src')
+f.flavor = 'woff2'
+f.save('$dst')
+print('  Done: $dst')
+"
+  fi
+  # 转换完成后删除源 ttf/otf（fontManager 仅引用 woff2，避免 dist 残留大文件）
+  rm -f "$src"
+}
 
 echo "Downloading open-source fonts..."
 
@@ -18,6 +39,7 @@ if [ ! -f "$FONTS_DIR/LXGWWenKai-Regular.ttf" ]; then
   curl -L -o "$FONTS_DIR/LXGWWenKai-Regular.ttf" \
     "https://github.com/lxgw/LxgwWenKai/releases/latest/download/LXGWWenKai-Regular.ttf"
 fi
+convert_to_woff2 "$FONTS_DIR/LXGWWenKai-Regular.ttf" "$FONTS_DIR/LXGWWenKai-Regular.woff2"
 
 # 霞鹜文楷 Light (~27MB TTF)
 if [ ! -f "$FONTS_DIR/LXGWWenKai-Light.ttf" ]; then
@@ -25,6 +47,7 @@ if [ ! -f "$FONTS_DIR/LXGWWenKai-Light.ttf" ]; then
   curl -L -o "$FONTS_DIR/LXGWWenKai-Light.ttf" \
     "https://github.com/lxgw/LxgwWenKai/releases/latest/download/LXGWWenKai-Light.ttf"
 fi
+convert_to_woff2 "$FONTS_DIR/LXGWWenKai-Light.ttf" "$FONTS_DIR/LXGWWenKai-Light.woff2"
 
 # 思源宋体 SC Regular (~20MB+ OTF)
 # 注：解压后实际路径为 /tmp/shs/OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf
@@ -44,6 +67,7 @@ if [ ! -f "$FONTS_DIR/SourceHanSerifSC-Regular.otf" ]; then
   cp "$SHS_FILE" "$FONTS_DIR/SourceHanSerifSC-Regular.otf"
   rm -rf /tmp/shs /tmp/shs.zip
 fi
+convert_to_woff2 "$FONTS_DIR/SourceHanSerifSC-Regular.otf" "$FONTS_DIR/SourceHanSerifSC-Regular.woff2"
 
 # 文鼎楷体 (TW-Kai) — ARPH 公共许可证
 if [ ! -f "$FONTS_DIR/TW-Kai.ttf" ]; then
@@ -51,6 +75,7 @@ if [ ! -f "$FONTS_DIR/TW-Kai.ttf" ]; then
   curl -L -o "$FONTS_DIR/TW-Kai.ttf" \
     "https://github.com/anthonyfok/TW-Kai/releases/latest/download/TW-Kai.ttf"
 fi
+convert_to_woff2 "$FONTS_DIR/TW-Kai.ttf" "$FONTS_DIR/TW-Kai.woff2"
 
 # 注：拼音字体 texgyreadventor 已通过 base64 内嵌在 fontManager.js 中，无需下载文件
 # 注：商业字体（方正楷体/姜浩硬笔/田英章楷书/我逸清晨体）为个人版专属，不纳入开源 distribution
