@@ -13,6 +13,12 @@
 // v2.9.9 更新：
 //   - 新增 AI 组词补齐引导步骤（autoOpen: 'settings'，主动打开设置面板）
 //   - 强调 AI 回答的概率属性：一次补齐未必能覆盖全部缺失字，多重复点击几次可逐步补齐
+// 引导修复更新：
+//   - 修复问题 1：按钮顺序改为 跳过→上一步→下一步；按钮区 sticky 固定；新增键盘导航（←/↑/PageUp 上一步，→/↓/PageDown 下一步，Escape 跳过）
+//   - 修复问题 2：goPrev 改用模块级 currentStep，修复上一步按钮点击无反应
+//   - 修复问题 3：guideBtn 移出按钮行，独立一行置于 desc 下方、按钮区上方，宽度 100% 居中
+//   - 修复问题 4：新增导入增强格式 / 手动修改拼音组词 2 个引导步骤（原帮助步骤顺延）
+//   - 修复问题 5：精简 AI 调用流程解读步骤 desc，并新增『查看详细介绍』按钮
 
 import '../styles/onboarding.css';
 // v2.9.9：静态导入 openSettings（settingsCenter 仅动态 import onboarding，无静态循环依赖）
@@ -186,15 +192,62 @@ const ONBOARDING_STEPS = [
         hintCorner: 'top-right',
         autoOpen: 'settings'
     },
-    // ── v3.0.0 新增：AI 调用解读（autoOpen: 'settings'，解读点击运行后的调用流程） ──
+    // ── AI 调用解读精简 + 查看详细介绍按钮 ──
     {
         selector: '#scAiSection',
         title: '📖 AI 调用流程解读',
-        desc: '点击"▶ AI 检查与补齐"后的完整调用流程解读：\n①引擎识别：系统根据 API Key 前缀自动路由——sk- 调用 DeepSeek（deepseek-v4-flash，性价比优），ark- 调用火山引擎豆包（doubao-seed-2-0-lite-260428，免费），无需手动切换。\n②分批处理：待处理汉字按每批 ≤10 字分组，逐批调用大模型 API，支持 AbortController 中断（运行中按钮变为"⏹ 中断"，再次点击即中断）。\n③进度提示：状态栏显示蓝色旋转图标 + 批次进度（如"正在补齐 [DeepSeek]… 10/20 字（批次 1/2）"），直观感知处理中。\n④结果解读：完成后显示"✓ DeepSeek：共 X · 默认 X · AI X · 缺失 X（Xms）"，若开启拼音纠错还会列出纠错明细（原拼音→纠正拼音+原因）。\n⑤开关选择建议：默认已勾"组词补齐"（仅补缺失词）；怀疑多音字有误→加勾"拼音纠错"；想全面核验词库质量→勾"全量检查"（自动包含其余两项，耗时较长，处理所有字）。\n⑥缓存机制：已写入 AI 缓存的字（有组词或已纠拼音）会自动跳过，避免重复消耗；如需重查请先在浏览器控制台执行 localStorage.removeItem("ai_zuci_cache_v1") 清缓存。\n⑦概率属性：AI 回答有概率性，少数情形一次未必全覆盖；多重复点击几次可逐步补齐/纠错全部。',
+        desc: '点击"▶ AI 检查与补齐"后的调用流程：\n①根据 Key 前缀自动路由引擎（DeepSeek/火山豆包）\n②分批处理（≤10字/批），支持中断\n③进度提示显示批次进度\n④结果含默认/AI/缺失统计\n⑤缓存自动跳过已处理字\n\n详细说明请点击下方"📖 查看详细介绍"按钮。',
         tooltipText: 'AI 调用流程解读：引擎识别→分批处理→进度提示→结果解读→开关建议→缓存机制→概率属性',
         position: 'left',
         hintCorner: 'top-right',
-        autoOpen: 'settings'
+        autoOpen: 'settings',
+        guideUrl: '/api-key-guide.html'
+    },
+    // ── 新增：导入增强格式 ──
+    {
+        selector: '#fileImportBtn',
+        title: '📥 导入增强格式',
+        desc: '导入生词文件时支持三种增强格式：①多音字指定（如"行 xíng 行走,行动 háng 银行,行业"）②字+拼音+组词（如"春 chūn 春天,春风"）③字+组词（如"春 春天,春风"）。增强行占比 >60% 自动启用，否则按纯汉字导入。',
+        tooltipText: '导入支持多音字指定/拼音/组词增强格式',
+        position: 'top',
+        hintCorner: 'bottom-left',
+        autoOpen: null
+    },
+    // ── 新增：手动修改拼音组词（帮助步骤，指向 /import-guide.html） ──
+    {
+        selector: null,  // 虚拟步骤，不高亮任何元素
+        title: '✏️ 手动修改拼音与组词',
+        desc: '点击字帖中任意汉字右侧的拼音/组词区域，弹出编辑浮层可手动修改。手动修改优先级高于 AI 和默认词库，保存后自动刷新字帖。',
+        tooltipText: null,
+        position: 'center',
+        hintCorner: 'top',
+        autoOpen: null,
+        isGuideStep: true,
+        guideUrl: '/import-guide.html'
+    },
+    // ── API Key 配置（帮助步骤，指向 /api-key-guide.html） ──
+    {
+        selector: null,  // 虚拟步骤，不高亮任何元素
+        title: '🔑 API Key 配置',
+        desc: '支持 DeepSeek（sk-）和火山引擎豆包（ark-），自动识别引擎；可保存多个 Key 下拉切换，也可从文件批量导入。点击右上角「API Key 使用」可查看详情。',
+        tooltipText: null,
+        position: 'center',
+        hintCorner: 'top',
+        autoOpen: null,
+        isGuideStep: true,
+        guideUrl: '/api-key-guide.html'
+    },
+    // ── 帮助文档步骤（isGuideStep，selector 为 null 不高亮任何元素） ──
+    {
+        selector: null,
+        title: '📥 导入格式与手动修改',
+        desc: '导入文件支持带拼音/组词/多音字指定的增强格式，也可手动编辑单个汉字的拼音和组词。点击右上角「导入与修改」可查看详情。',
+        tooltipText: null,
+        position: 'center',
+        hintCorner: 'top',
+        autoOpen: null,
+        isGuideStep: true,
+        guideUrl: '/import-guide.html'
     }
 ];
 
@@ -209,6 +262,7 @@ let currentStep = -1;
 let bubbleEl = null;
 let highlightEl = null;
 let resizeHandler = null; // 当前气泡的 resize 重定位处理器
+let keyNavHandler = null; // 键盘导航事件处理器引用（用于统一移除）
 
 // 滚动提示状态
 const hintsState = {
@@ -395,6 +449,11 @@ function clearBubble() {
         window.removeEventListener('resize', resizeHandler);
         resizeHandler = null;
     }
+    // 移除键盘导航监听
+    if (keyNavHandler) {
+        window.removeEventListener('keydown', keyNavHandler);
+        keyNavHandler = null;
+    }
 }
 
 // 移动端：气泡贴近高亮控件
@@ -513,24 +572,31 @@ export function showOnboardingStep(stepIndex) {
         : '';
 
     // v2.9.8：判断是否为"笔顺演示"步骤，添加"查看详细介绍页"按钮
+    // 新增 isGuideStep（帮助文档）步骤，按钮文案"📖 查看详细说明"，指向 step.guideUrl
+    // 新增 isAiDetailStep（AI 调用流程解读步骤），按钮指向 /api-key-guide.html
     const isStrokeDemoStep = step.selector === '#strokeDemoToolbarBtn';
-    const guideBtnHtml = isStrokeDemoStep
-        ? `<button class="ob-btn ob-btn-guide" type="button" title="打开笔顺演示功能详细介绍页面">📖 查看详细介绍</button>`
-        : '';
+    const isGuideStep = !!step.isGuideStep;
+    const isAiDetailStep = step.selector === '#scAiSection';
+    const guideBtnHtml = isGuideStep
+        ? `<button class="ob-btn ob-btn-guide" type="button" title="打开帮助文档">📖 查看详细说明</button>`
+        : isStrokeDemoStep
+            ? `<button class="ob-btn ob-btn-guide" type="button" title="打开笔顺演示功能详细介绍页面">📖 查看详细介绍</button>`
+            : isAiDetailStep
+                ? `<button class="ob-btn ob-btn-guide" type="button" title="打开 AI 调用流程详细介绍页面">📖 查看详细介绍</button>`
+                : '';
 
     bubbleEl.innerHTML = `
         <div class="ob-bubble-title">${step.title}</div>
         <div class="ob-bubble-desc">${step.desc}</div>
         ${tooltipHtml}
         <div class="ob-bubble-arrow"></div>
+        ${guideBtnHtml ? `<div style="margin-bottom:8px;">${guideBtnHtml}</div>` : ''}
         <div class="ob-bubble-actions">
             <span class="ob-bubble-step">${actualIndex + 1} / ${ONBOARDING_STEPS.length}</span>
             <div class="ob-bubble-buttons">
-                ${guideBtnHtml}
                 <button class="ob-btn ob-btn-skip" type="button">跳过引导</button>
-                <button class="ob-btn ${isLast ? 'ob-btn-done' : 'ob-btn-next'}" type="button">
-                    ${isLast ? '开始使用' : '下一步'}
-                </button>
+                <button class="ob-btn ob-btn-prev" type="button" ${actualIndex === 0 ? 'disabled' : ''}>← 上一步</button>
+                <button class="ob-btn ${isLast ? 'ob-btn-done' : 'ob-btn-next'}" type="button">${isLast ? '开始使用' : '下一步'}</button>
             </div>
         </div>
         <label class="ob-bubble-nevershow" title="勾选后下次访问不再自动弹出引导">
@@ -541,12 +607,14 @@ export function showOnboardingStep(stepIndex) {
     document.body.appendChild(bubbleEl);
 
     // v2.9.8：绑定"查看详细介绍"按钮（跳转到独立介绍页）
-    if (isStrokeDemoStep) {
+    // isGuideStep 帮助步骤同样支持跳转（guideUrl 指向对应帮助文档）
+    // isAiDetailStep 步骤跳转 /api-key-guide.html
+    if (isGuideStep || isStrokeDemoStep || isAiDetailStep) {
         const guideBtn = bubbleEl.querySelector('.ob-btn-guide');
         if (guideBtn) {
             guideBtn.addEventListener('click', () => {
                 // 在新标签页打开介绍页，保留当前字帖状态
-                window.open('/stroke-demo-guide.html', '_blank');
+                window.open(step.guideUrl || '/stroke-demo-guide.html', '_blank');
             });
         }
     }
@@ -568,9 +636,16 @@ export function showOnboardingStep(stepIndex) {
         if (isLast) {
             completeOnboarding();
         } else {
-            showOnboardingStep(actualIndex + 1);
+            showOnboardingStep(currentStep + 1);
         }
     });
+    // 上一步按钮 → goPrev（第一页时 disabled，事件绑定仍安全：disabled 按钮不触发 click）
+    const prevBtn = bubbleEl.querySelector('.ob-btn-prev');
+    prevBtn.addEventListener('click', goPrev);
+
+    // 引导激活期间注册键盘导航（←/↑/PageUp 上一步，→/↓/PageDown 下一步，Escape 跳过）
+    keyNavHandler = buildKeyNavHandler();
+    window.addEventListener('keydown', keyNavHandler);
 
     // 滚动目标到视口（确保可见，FAB 是 fixed 不受影响，但 .sidebar-drawer-toggle 等可能需要）
     // v2.9.8：对 autoOpen 打开的浮层，延迟滚动以确保浮层动画完成
@@ -579,6 +654,56 @@ export function showOnboardingStep(stepIndex) {
             target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         } catch (e) { /* 静默失败 */ }
     }, step.autoOpen ? 300 : 0);
+}
+
+// 键盘导航处理器（模块级引用，showOnboardingStep 时注册，clearBubble/skipOnboarding/completeOnboarding 时移除）
+function buildKeyNavHandler() {
+    return function keyNavHandler(e) {
+        // 忽略输入框等嵌套控件的键盘事件，避免干扰正常输入
+        const tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        switch (e.key) {
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'PageUp':
+                e.preventDefault();
+                goPrev();
+                break;
+            case 'ArrowRight':
+            case 'ArrowDown':
+            case 'PageDown':
+            case ' ':
+                e.preventDefault();
+                goNext();
+                break;
+            case 'Escape':
+                e.preventDefault();
+                skipOnboarding();
+                break;
+        }
+    };
+}
+
+// 上一步按钮（修复：改用模块级 currentStep，不再引用 showOnboardingStep 函数局部变量 actualIndex）
+// 防御：已是最前一步时静默忽略；关闭当前 autoOpen 浮层后回退一步，与前进逻辑完全对称
+function goPrev() {
+    if (currentStep <= 0) return; // 防御：已是最前一步时静默忽略
+    // 关闭当前 autoOpen 浮层（与 showOnboardingStep 保持一致）
+    if (_currentAutoOpen) {
+        closeAutoOverlay(_currentAutoOpen);
+        _currentAutoOpen = null;
+    }
+    showOnboardingStep(currentStep - 1);
+}
+
+// 下一步按钮（供键盘导航调用，与气泡中 nextBtn click handler 逻辑一致）
+function goNext() {
+    if (currentStep >= ONBOARDING_STEPS.length - 1) return;
+    if (_currentAutoOpen) {
+        closeAutoOverlay(_currentAutoOpen);
+        _currentAutoOpen = null;
+    }
+    showOnboardingStep(currentStep + 1);
 }
 
 export function skipOnboarding() {

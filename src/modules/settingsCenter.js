@@ -118,6 +118,73 @@ function notifySettingsUpdated(settings) {
     document.dispatchEvent(new CustomEvent('calligraphy:settings-updated', { detail: settings }));
 }
 
+// v1.2.0：懒加载 aiKeyStore 模块 API（顶部不 import，避免加重首屏/循环依赖风险）
+let _keyStorePromise = null;
+function getKeyStoreApi() {
+    if (!_keyStorePromise) {
+        // v1.2.1（问题6）：resolve 时写入模块内共享引用，供 refreshKeyUI/眼睛预览等同步使用
+        _keyStorePromise = import('./aiKeyStore.js').then(m => {
+            aiKeyStoreApiRef = m;
+            return m;
+        });
+    }
+    return _keyStorePromise;
+}
+// 模块内共享的 store API 引用（首次 getKeyStoreApi() resolve 后注入；未就绪时 UI 刷新显示空态）
+let aiKeyStoreApiRef = null;
+
+// v1.2.1（问题6）：刷新 AI Key 区 UI —— 单下拉菜单结构
+//   - 下拉始终显示（不隐藏）
+//   - 0 Key：仅一个 disabled 占位 option「尚未添加 API Key」
+//   - ≥1 Key：`${label} · ${maskKey}`（label 按前缀自动分类：sk- → DeepSeek / ark- → 火山引擎豆包）
+//   - 末尾固定 option「＋ 添加新 Key…」（value="__add_new__"）
+//   - 眼睛/复制/删除按钮：0 Key 时隐藏，≥1 Key 时显示（眼睛同步复位为隐藏态）
+function refreshKeyUI(overlay) {
+    const keys = aiKeyStoreApiRef ? aiKeyStoreApiRef.getAllKeys() : [];
+    const active = aiKeyStoreApiRef ? aiKeyStoreApiRef.getActiveKey() : null;
+    const select = overlay.querySelector('#scAiKeySelect');
+    if (select) {
+        const opts = [];
+        if (keys.length === 0) {
+            // 0 Key：禁用占位
+            opts.push('<option value="" disabled selected>尚未添加 API Key</option>');
+        } else {
+            keys.forEach(k => {
+                const sel = active && k.id === active.id ? ' selected' : '';
+                opts.push(`<option value="${k.id}"${sel}>${k.label} · ${aiKeyStoreApiRef.maskKey(k.key)}</option>`);
+            });
+        }
+        // 末尾固定「＋ 添加新 Key…」（0 Key 时也保留，作为唯一可操作入口）
+        opts.push('<option value="__add_new__">＋ 添加新 Key…</option>');
+        select.innerHTML = opts.join('');
+        select.style.display = 'block'; // v1.2.1：始终显示
+    }
+
+    // 眼睛/复制/删除按钮：0 Key 时隐藏（无值可看/可删）；≥1 Key 时显示
+    const hasKeys = keys.length > 0;
+    ['#scAiKeyToggle', '#scAiKeyCopy', '#scAiKeyRemove'].forEach(sel => {
+        const el = overlay.querySelector(sel);
+        if (el) el.style.display = hasKeys ? '' : 'none';
+    });
+    const rm = overlay.querySelector('#scAiKeyRemove');
+    if (rm) rm.disabled = !active;
+
+    // 眼睛复位：隐藏态图标 + 收起临时预览（切换/删除/新增后保持遮码）
+    const toggleBtn = overlay.querySelector('#scAiKeyToggle');
+    if (toggleBtn) {
+        toggleBtn.innerHTML = EYE_OFF_SVG;
+        toggleBtn.style.color = '#9ca3af';
+    }
+    const preview = overlay.querySelector('#scAiKeyPreview');
+    if (preview) {
+        preview.value = active ? active.key : '';
+        preview.style.display = 'none';
+    }
+    // 收起「＋ 添加新 Key…」的内联输入行
+    const inlineRow = overlay.querySelector('#scAiKeyInlineRow');
+    if (inlineRow) inlineRow.style.display = 'none';
+}
+
 /** 更新单个设置项 */
 export function updateSetting(key, value) {
     const settings = getSettings();
@@ -258,13 +325,32 @@ function createPanel() {
                     </div>
                     <div id="scAiConfig" style="display:${settings.aiZuciEnabled ? 'block' : 'none'};margin-top:10px;">
                         <div class="sc-field">
-                            <label>DeepSeek 或火山引擎 API Key</label>
-                            <div style="display:flex;gap:6px;align-items:center;">
-                                <input type="password" id="scAiKey" placeholder="sk-... (DeepSeek) 或 ark-... (火山引擎)" value="${(localStorage.getItem('deepseek_api_key') || '').replace(/"/g, '&quot;')}" style="flex:1;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
-                                <button class="btn btn-ghost" id="scAiKeyToggle" type="button" title="显示/隐藏 API Key" aria-label="显示/隐藏 API Key" style="padding:6px 10px;color:#9ca3af;line-height:0;">${EYE_OFF_SVG}</button>
-                                <button class="btn btn-ghost" id="scAiKeySave" type="button" style="padding:6px 12px;font-size:12px;">保存</button>
+                            <label>API Key（可存多个，选中即生效）</label>
+                            <!-- v1.2.1（问题6）：单下拉菜单结构：下拉 + 眼睛 + 复制 + 删除 一行；文件导入全宽一行 -->
+                            <div style="display:flex;gap:6px;align-items:center;width:100%;">
+                                <select id="scAiKeySelect" style="display:block;flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;background:var(--bg,#fff);color:var(--text,#1f2937);">
+                                    <!-- 由 refreshKeyUI 动态填充：
+                                         <option value="k_xxx">DeepSeek · sk-1234…abcd</option>
+                                         <option value="__add_new__">＋ 添加新 Key…</option> -->
+                                </select>
+                                <button class="btn btn-ghost" id="scAiKeyToggle" type="button" title="显示/隐藏当前 Key 完整值" aria-label="显示/隐藏 API Key" style="padding:6px 10px;color:#9ca3af;line-height:0;flex-shrink:0;">${EYE_OFF_SVG}</button>
+                                <button class="btn btn-ghost" id="scAiKeyCopy" type="button" title="复制当前 Key" aria-label="复制 API Key" style="padding:6px 10px;font-size:13px;color:#6b7280;flex-shrink:0;">📋</button>
+                                <button class="btn btn-ghost" id="scAiKeyRemove" type="button" style="padding:6px 10px;font-size:12px;color:#ef4444;flex-shrink:0;" title="删除当前 Key">🗑</button>
                             </div>
-                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 存储本地，不上传。自动识别：sk- → DeepSeek（推荐），ark- → 火山引擎豆包（免费）</div>
+                            <!-- v1.2.1：眼睛展开的临时完整值预览（默认隐藏，readonly 防编辑） -->
+                            <input type="text" id="scAiKeyPreview" readonly value="" style="display:none;width:100%;box-sizing:border-box;margin-top:6px;padding:6px 8px;border:1px dashed var(--border,#e5e7eb);border-radius:6px;font-size:12px;color:#6b7280;background:var(--bg,#fff);word-break:break-all;">
+                            <!-- v1.2.1：下拉选中「＋ 添加新 Key…」后展开的内联输入行（默认隐藏） -->
+                            <div id="scAiKeyInlineRow" style="display:none;gap:6px;align-items:center;margin-top:6px;width:100%;">
+                                <input type="password" id="scAiKeyInlineNew" placeholder="粘贴新 Key：sk-… (DeepSeek) 或 ark-… (火山引擎)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
+                                <button class="btn btn-ghost" id="scAiKeyInlineAdd" type="button" style="padding:6px 12px;font-size:12px;flex-shrink:0;">确认</button>
+                            </div>
+                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 仅存本地。自动识别：sk- → DeepSeek（推荐），ark- → 火山引擎豆包（免费）。下拉选中即生效并自动匹配大模型。</div>
+                            <!-- v1.2.1：文件导入与下拉同列，全宽一行 -->
+                            <div style="display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;">
+                                <input type="file" id="scAiKeyFile" accept=".txt,.md,.csv,.docx,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none;">
+                                <button class="btn btn-ghost" id="scAiKeyImport" type="button" style="padding:4px 10px;font-size:11px;">📂 从文件添加 Key</button>
+                                <span id="scAiKeyImportInfo" style="font-size:11px;color:#9ca3af;"></span>
+                            </div>
                         </div>
 
                         <!-- v3.0.0：级联开关，默认只勾组词补齐 -->
@@ -518,46 +604,207 @@ function bindPanelEvents(overlay) {
         aiZuciToggle.addEventListener('change', syncDefault);
     }
 
+    // v1.1.0：从文件导入 API Key（txt/md/csv/docx，正则匹配 sk-/ark-）
+    // v1.2.0：改为批量入库（全部 addKey），不再"填第一个"
+    const aiKeyImportBtn = overlay.querySelector('#scAiKeyImport');
+    const aiKeyFileInput = overlay.querySelector('#scAiKeyFile');
+    const aiKeyImportInfo = overlay.querySelector('#scAiKeyImportInfo');
+    if (aiKeyImportBtn && aiKeyFileInput) {
+        aiKeyImportBtn.addEventListener('click', () => { aiKeyFileInput.click(); });
+        aiKeyFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                const { importKeysFromFile } = await import('./aiKeyImporter.js');
+                const { addKey } = await import('./aiKeyStore.js');
+                const result = await importKeysFromFile(file);
+                if (!result.ok) {
+                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `⚠ ${result.error}`; aiKeyImportInfo.style.color = '#ef4444'; }
+                    return;
+                }
+                if (result.count === 0) {
+                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `⚠ ${result.filename} 中未找到 sk- 或 ark- 开头的 API Key`; aiKeyImportInfo.style.color = '#f59e0b'; }
+                } else {
+                    // v1.2.0：全部加入 Key 列表，最后一个置活跃（addKey 每次都会置活跃，故按文件顺序最后一个生效）
+                    let lastEntry = null;
+                    result.keys.forEach(k => { lastEntry = addKey(k); });
+                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `✓ 已导入 ${result.count} 个 Key（当前生效：${lastEntry ? lastEntry.label : ''}）`; aiKeyImportInfo.style.color = '#16a34a'; }
+                    refreshKeyUI(overlay);
+                }
+            } catch (err) {
+                console.error('[Key导入] 失败:', err);
+                if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `✗ 解析失败：${err.message || err}`; aiKeyImportInfo.style.color = '#ef4444'; }
+            } finally {
+                // 允许重复选择同一文件
+                e.target.value = '';
+            }
+        });
+    }
+
     // v3.0.0：API Key 显示/隐藏切换（低调暗淡 SVG 眼睛图标）
+    // v1.2.1（问题6）：改为切换下拉旁 #scAiKeyPreview 的显示/隐藏，value 为当前选中 Key 完整值
     const aiKeyToggleBtn = overlay.querySelector('#scAiKeyToggle');
     if (aiKeyToggleBtn) {
         aiKeyToggleBtn.addEventListener('click', () => {
-            const input = overlay.querySelector('#scAiKey');
-            if (!input) return;
-            if (input.type === 'password') {
-                input.type = 'text';
+            const preview = overlay.querySelector('#scAiKeyPreview');
+            const select = overlay.querySelector('#scAiKeySelect');
+            if (!preview || !select) return;
+            // 未选中实际 Key（如 0 Key 或处于「＋ 添加新 Key…」态）时无值可看
+            const selVal = select.value;
+            if (!selVal || selVal === '__add_new__') return;
+            if (preview.style.display === 'none') {
+                // 取当前选中 Key 的完整值：优先活跃 Key，兜底按下拉选中 id 查找
+                let fullKey = '';
+                const activeEntry = aiKeyStoreApiRef ? aiKeyStoreApiRef.getActiveKey() : null;
+                if (activeEntry) {
+                    fullKey = activeEntry.key;
+                } else if (aiKeyStoreApiRef && select.value) {
+                    const selKey = aiKeyStoreApiRef.getAllKeys().find(k => k.id === select.value);
+                    fullKey = selKey ? selKey.key : '';
+                }
+                preview.value = fullKey;
+                preview.style.display = 'block';
                 aiKeyToggleBtn.innerHTML = EYE_ON_SVG;
                 aiKeyToggleBtn.style.color = '#6b7280';
             } else {
-                input.type = 'password';
+                preview.style.display = 'none';
                 aiKeyToggleBtn.innerHTML = EYE_OFF_SVG;
                 aiKeyToggleBtn.style.color = '#9ca3af';
             }
         });
     }
 
-    const aiKeySaveBtn = overlay.querySelector('#scAiKeySave');
-    if (aiKeySaveBtn) {
-        aiKeySaveBtn.addEventListener('click', async () => {
-            const input = overlay.querySelector('#scAiKey');
+    // v1.2.1（问题6）：复制当前选中 Key 到剪贴板，成功后短暂提示「✓ 已复制」
+    const aiKeyCopyBtn = overlay.querySelector('#scAiKeyCopy');
+    if (aiKeyCopyBtn) {
+        aiKeyCopyBtn.addEventListener('click', async () => {
+            const select = overlay.querySelector('#scAiKeySelect');
             const status = overlay.querySelector('#scAiStatus');
-            const key = (input?.value || '').trim();
-            if (!key) {
-                localStorage.removeItem('deepseek_api_key');
-                if (status) { status.textContent = '✓ 已清除 API Key'; status.style.color = '#16a34a'; }
-            } else {
-                localStorage.setItem('deepseek_api_key', key);
-                // v3.0.0：保存时标注识别到的引擎类型；未知前缀给出警告
-                const { getAiProvider } = await import('./aiZuci.js');
-                const providerInfo = getAiProvider(key);
-                if (providerInfo.type === 'unknown') {
-                    if (status) { status.textContent = '⚠ 无法识别 API Key 类型：请输入 sk- 开头（DeepSeek）或 ark- 开头（火山引擎）的 Key'; status.style.color = '#f59e0b'; }
-                } else {
-                    if (status) { status.textContent = `✓ API Key 已保存（识别为 ${providerInfo.label}）`; status.style.color = '#16a34a'; }
-                }
+            const id = select?.value;
+            if (!id || id === '__add_new__') {
+                if (status) { status.textContent = '⚠ 请先选择要复制的 Key'; status.style.color = '#f59e0b'; }
+                return;
             }
+            const api = await getKeyStoreApi();
+            const entry = api.getAllKeys().find(k => k.id === id);
+            if (!entry) {
+                if (status) { status.textContent = '⚠ 未找到该 Key'; status.style.color = '#f59e0b'; }
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(entry.key);
+            } catch (err) {
+                // 剪贴板 API 不可用（非安全上下文等）时降级为 textarea 复制
+                console.warn('[复制Key] clipboard API 不可用，降级复制:', err);
+                const ta = document.createElement('textarea');
+                ta.value = entry.key;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e2) { /* ignore */ }
+                ta.remove();
+            }
+            const orig = aiKeyCopyBtn.textContent;
+            aiKeyCopyBtn.textContent = '✓ 已复制';
+            aiKeyCopyBtn.style.color = '#16a34a';
+            setTimeout(() => {
+                aiKeyCopyBtn.textContent = orig;
+                aiKeyCopyBtn.style.color = '#6b7280';
+            }, 1500);
+            if (status) { status.textContent = `✓ 已复制：${entry.label}（${api.maskKey(entry.key)}）`; status.style.color = '#16a34a'; }
         });
     }
+
+    // v1.2.0：多 Key 支持 —— 下拉选择器：选中即生效（无需保存按钮）
+    // v1.2.1（问题6）：选中「＋ 添加新 Key…」→ 展开内联输入行；选中已有 Key → 即时生效
+    const aiKeySelect = overlay.querySelector('#scAiKeySelect');
+    if (aiKeySelect) {
+        aiKeySelect.addEventListener('change', async () => {
+            const id = aiKeySelect.value;
+            const inlineRow = overlay.querySelector('#scAiKeyInlineRow');
+            const status = overlay.querySelector('#scAiStatus');
+            // 隐藏完整值预览（切换 Key 时同步收起眼睛态）
+            const preview = overlay.querySelector('#scAiKeyPreview');
+            if (preview) preview.style.display = 'none';
+            if (aiKeyToggleBtn) { aiKeyToggleBtn.innerHTML = EYE_OFF_SVG; aiKeyToggleBtn.style.color = '#9ca3af'; }
+
+            if (id === '__add_new__') {
+                // 添加模式：展开内联输入行，聚焦输入框
+                if (inlineRow) {
+                    inlineRow.style.display = 'flex';
+                    const inputNew = overlay.querySelector('#scAiKeyInlineNew');
+                    if (inputNew) setTimeout(() => { try { inputNew.focus(); } catch (e) { /* ignore */ } }, 0);
+                }
+                return;
+            }
+            if (inlineRow) inlineRow.style.display = 'none'; // 切回已有 Key → 收起添加行
+            if (!id) return;
+            const api = await getKeyStoreApi();
+            api.setActiveKey(id); // 选中即生效：写 ai_active_key_id
+            const entry = api.getAllKeys().find(k => k.id === id);
+            if (status && entry) {
+                status.textContent = `✓ 已切换：${entry.label}（${api.maskKey(entry.key)}），AI 检查将自动使用该引擎`;
+                status.style.color = '#16a34a';
+            }
+            refreshKeyUI(overlay); // 刷新下拉选中态/预览值
+        });
+    }
+
+    // v1.2.1（问题6）：内联「确认」按钮 —— 添加新 Key 后 addKey 并刷新（复用原 #scAiKeyAdd 逻辑）
+    const aiKeyInlineAddBtn = overlay.querySelector('#scAiKeyInlineAdd');
+    if (aiKeyInlineAddBtn) {
+        aiKeyInlineAddBtn.addEventListener('click', async () => {
+            const inputNew = overlay.querySelector('#scAiKeyInlineNew');
+            const status = overlay.querySelector('#scAiStatus');
+            const key = (inputNew?.value || '').trim();
+            if (!key) {
+                if (status) { status.textContent = '⚠ 请先粘贴 API Key'; status.style.color = '#f59e0b'; }
+                return;
+            }
+            // v3.0.0 延续：未知前缀给出警告（但同样入库，便于用户自行判断）
+            const { getAiProvider } = await import('./aiZuci.js');
+            const providerInfo = getAiProvider(key);
+            const api = await getKeyStoreApi();
+            const entry = api.addKey({ key });
+            if (inputNew) inputNew.value = '';
+            if (status) {
+                if (providerInfo.type === 'unknown') {
+                    status.textContent = `⚠ 已添加但无法识别类型：${key.slice(0, 4)}…（请确认 sk- 或 ark- 开头；当前已生效）`;
+                    status.style.color = '#f59e0b';
+                } else {
+                    status.textContent = `✓ 已添加并生效：${entry.label}（${api.maskKey(entry.key)}）`;
+                    status.style.color = '#16a34a';
+                }
+            }
+            refreshKeyUI(overlay); // 刷新后下拉回落到新添加的 Key
+        });
+    }
+
+    // v1.2.0：删除当前活跃 Key（删空清两把键，删活跃自动切第一个）
+    const aiKeyRemoveBtn = overlay.querySelector('#scAiKeyRemove');
+    if (aiKeyRemoveBtn) {
+        aiKeyRemoveBtn.addEventListener('click', async () => {
+            const api = await getKeyStoreApi();
+            const active = api.getActiveKey();
+            const status = overlay.querySelector('#scAiStatus');
+            if (!active) {
+                if (status) { status.textContent = '⚠ 当前没有可删除的 Key'; status.style.color = '#f59e0b'; }
+                return;
+            }
+            api.removeKey(active.id);
+            const rest = api.getAllKeys();
+            if (status) {
+                status.textContent = rest.length > 0
+                    ? `✓ 已删除 ${active.label}，当前生效：${rest[0].label}`
+                    : '✓ 已删除所有 API Key';
+                status.style.color = '#16a34a';
+            }
+            refreshKeyUI(overlay);
+        });
+    }
+
+    // v1.2.1（问题6）：添加新 Key 功能已合并进下拉菜单「＋ 添加新 Key…」内联输入行（见 #scAiKeyInlineAdd），此处不再单独绑定 #scAiKeyAdd/#scAiKeyNew
 
     const aiRunBtn = overlay.querySelector('#scAiRun');
     let aiAbortCtrl = null; // v2.9.9：支持再次点击中断
@@ -572,9 +819,11 @@ function bindPanelEvents(overlay) {
                 return;
             }
 
-            const apiKey = (localStorage.getItem('deepseek_api_key') || '').trim();
+            // v1.2.0：从活跃键取值（内部自动迁移旧键）；不再直接读 deepseek_api_key
+            const api = await getKeyStoreApi();
+            const apiKey = api.getActiveKeyValue();
             if (!apiKey) {
-                setStatus('⚠ 请先填写并保存 DeepSeek 或火山引擎 API Key', '#ef4444');
+                setStatus('⚠ 请先添加并选择 DeepSeek 或火山引擎 API Key', '#ef4444');
                 return;
             }
             // v3.0.0：拦截无法识别的 API Key 前缀
@@ -647,6 +896,17 @@ function bindPanelEvents(overlay) {
                     }
                 }
 
+                // v1.1.0：无需 AI 处理（所有字默认词库已足够 或 已有缓存）→ 提示正常而非误报
+                if (result.noWorkNeeded && result.total > 0) {
+                    msg = `✓ ${result.providerLabel}：共 ${result.total} 字，默认词库均已足够，无需 AI 处理（${result.elapsed}ms）`;
+                    if (result.pinyinChecked > 0) {
+                        msg += `\n📌 纠音核对 ${result.pinyinChecked} 字，均无误`;
+                    }
+                    if (status) status.style.whiteSpace = 'pre-line';
+                    setStatus(msg, '#16a34a');
+                    return;
+                }
+
                 // 无有效结果
                 if (result.ai === 0 && result.total > 0 && !result.timedOut) {
                     msg = `✗ 未能处理任何字\n${result.suggestion || '请检查 API Key 和网络连接后重试'}`;
@@ -694,6 +954,12 @@ function bindPanelEvents(overlay) {
             }
         });
     }
+
+    // v1.2.1（问题6）：面板创建后异步加载 Key 列表并刷新下拉
+    //   修复既有 bug：原代码 refreshKeyUI 仅由用户交互触发，首次打开面板时下拉为空
+    getKeyStoreApi()
+        .then(() => refreshKeyUI(overlay))
+        .catch(err => console.warn('[settingsCenter] 加载 aiKeyStore 失败:', err));
 }
 
 /** 打开设置面板 */

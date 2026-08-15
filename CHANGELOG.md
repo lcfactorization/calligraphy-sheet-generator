@@ -2611,3 +2611,42 @@ await new Promise(r => setTimeout(r, 500));
 │  矢量PDF（文字可选择+字体嵌入+页眉页脚）                 │
 └─────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## v3.0.1 (2026-08-15) — 功能增强与安全加固
+
+### 新增功能
+- ✨ 手动修改模式：点击字帖行右侧"拼音+组词"区域，弹出轻量编辑浮层，支持手动修改拼音和组词
+- ✨ 导入格式增强：宽松输入支持（多音字、拼音数字声调、组词自由输入）
+- ✨ 导入格式说明页面 (public/import-guide.html)
+- ✨ 笔顺演示指南页面更新
+- ✨ 引导步骤增强（更详细的导航引导）
+- ✨ macOS 启动脚本 (启动Puppeteer.command)
+- ✨ **多 API Key 管理**：支持保存多个 Key（DeepSeek sk- / 火山引擎豆包 ark-），下拉切换即生效，眼睛/复制/删除按钮（src/modules/aiKeyStore.js）
+- ✨ **API Key 文件导入**：从 txt/md/csv/docx 批量导入 Key（src/modules/aiKeyImporter.js，docx 自动解压提取）
+- ✨ **API Key 使用说明页面** (public/api-key-guide.html)，设置面板增加「📂 从文件添加 Key」入口
+
+### 样式优化
+- 🎨 引导(onboarding)样式增强
+- 🎨 基础(base)样式微调
+- 🎨 FAB按钮样式增强
+- 🎨 打印(print)样式优化
+- 🎨 SVG网格(grid-svg)样式优化
+
+### 安全加固
+- 🔒 .gitignore 追加 API Key 排除规则（密钥值仅存 localStorage，不入库）
+- 🔒 .gitignore 追加个人版专属文件排除规则
+
+### 代码质量
+- 🔧 zuci.js 添加手动修改优先级逻辑（手动 > AI > 默认词库）
+- 🔧 aiZuci.js 添加 userEdited 标记和缓存更新
+- 🔧 aiZuci.js 添加 aiKeyStore 活跃 Key 兑底（fillMissingZuci 未传 key 时自动读取活跃 Key）
+- 🔧 settingsCenter.js 升级为多 Key UI（下拉选择 + 内联添加 + 文件导入 + 复制/删除）
+- 🔧 main.js 添加 manualEdit 模块初始化
+- 🔧 pinyin.js 补充导出 convert（手动编辑拼音转换用）
+
+### 不包含（与个人版的差异）
+- ❌ 在线 PDF API（个人版功能）
+- ❌ Cloudflare Pages 中间件/Analytics（个人版功能）
+- ❌ 商业字体（方正/姜浩/田英章/我逸清晨体）

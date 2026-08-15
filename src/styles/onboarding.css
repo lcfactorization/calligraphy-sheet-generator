@@ -55,6 +55,9 @@
     position: fixed;
     z-index: 10012;
     max-width: 280px;
+    /* 限制气泡最大高度，长内容时气泡内部滚动，避免超出视口 */
+    max-height: 85vh;
+    overflow-y: auto;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -88,7 +91,7 @@
     margin-bottom: 12px;
 }
 
-/* v2.9.8：tooltip 显示区块（鼠标悬停状态的文字说明）
+/* tooltip 显示区块（鼠标悬停状态的文字说明）
    显示该控件 title 属性的内容，让用户了解悬停时的简短提示 */
 .ob-bubble-tooltip {
     font-size: 12px;
@@ -118,6 +121,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    /* sticky 固定按钮区，长内容滚动时按钮始终可见 */
+    position: sticky;
+    bottom: 0;
+    background: var(--toggle-bg);
+    padding-top: 8px;
 }
 
 .ob-bubble-step {
@@ -180,6 +188,24 @@
     border-color: var(--toggle-border);
 }
 
+/* 新增：上一步按钮（透明底 + 紫色边框 + 紫色文字，位于跳过按钮右侧）
+   可用态改为紫色描边样式；禁用态降透明度 + 灰色 + not-allowed */
+.ob-btn-prev {
+    background: transparent;
+    color: #6366f1;
+    border: 1px solid #6366f1;
+}
+.ob-btn-prev:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.08);
+}
+.ob-btn-prev:disabled {
+    opacity: 0.35;
+    color: #9ca3af;
+    border-color: var(--border);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .ob-btn-next,
 .ob-btn-done {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -191,8 +217,11 @@
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
 }
 
-/* v2.9.8：跳转介绍页按钮（笔顺演示步骤专用，绿色调与主操作区分） */
+/* 跳转介绍页按钮（笔顺演示步骤专用，绿色调与主操作区分）
+   宽度 100% 独立成行（desc 下方、按钮区上方），文字居中 */
 .ob-btn-guide {
+    width: 100%;
+    text-align: center;
     background: linear-gradient(135deg, #22c55e, #16a34a);
     color: #fff;
 }

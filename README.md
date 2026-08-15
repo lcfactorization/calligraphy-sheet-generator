@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-online-brightgreen)](https://lcfactorization.github.io/calligraphy-sheet-generator/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://lcfactorization.github.io/calligraphy-sheet-generator/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.1-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -15,8 +15,8 @@
 - **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.0(笔画笔顺动态演示+AI组词补齐+弹窗加载态 + 导航引导增强 18 步 + Dark/触屏/移动端多项 Bug 修复 + 双引擎AI适配(DeepSeek/火山引擎豆包) + AI三模式分流(快速组词/单音字校验/多音字深度校验) + 5分钟硬超时+重试机制+缓存穿透修复 + 级联开关(组词补齐默认/拼音纠错可选/全量检查联动) + 旋转图标进度提示 + AI调用解读)
-- **最新更新**:v2.9.8 — 新增离线笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + HanziWriter 双图层架构 + 播放/暂停 + 速度调节 1x-5x + 多窗口 + 速度持久化);引导从 9 步扩展到 16 步(新增笔顺演示/侧栏控件/历史记录引导);新增笔顺演示介绍页 stroke-demo-guide.html;修复 Dark 主题打印页脚黑底/汉字不显示、触屏 Light 主题渲染、移动端 settings/theme 按钮位置、移动端字格双击弹窗等 Bug;package.json 新增 fflate 依赖。详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v3.0.1(多Key管理+手动修改模式+导入格式增强+macOS启动脚本+安全加固+.gitignore排除API Key和个人版专属文件)
+- **最新更新**:v3.0.1 — 新增多 Key 管理(下拉切换即生效、从文件批量导入、眼睛/复制/删除)与 API Key 使用说明页 api-key-guide.html;新增手动修改模式(点击拼音+组词区域弹出编辑浮层);导入格式增强(宽松输入支持多音字/拼音数字声调/组词自由输入);新增导入格式说明页面 import-guide.html;macOS 启动脚本(启动Puppeteer.command);引导步骤增强;样式优化(onboarding/base/fab/print/grid-svg);安全加固(.gitignore 排除 API Key 和个人版专属文件);详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
 
@@ -178,6 +178,9 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 48 | **导航引导增强 18 步** | 新增 AI 组词补齐引导步骤(autoOpen:'settings'),强调 AI 概率属性需多次点击补齐;追加 AI 调用流程解读步骤(引擎识别→分批→进度→结果→开关建议→缓存→概率) | v3.0.0 |
 | 49 | **双引擎AI适配** | API Key 自动识别 DeepSeek(sk-)/火山引擎豆包(ark-→doubao-seed-2-0-lite-260428),无需切换设置 | v3.0.0 |
 | 50 | **AI三模式分流+级联开关+进度提示** | 快速组词(默认)/单音字校验/多音字深度校验(自动升级强模型);组词补齐默认勾选,全量检查联动其余两项;5分钟硬超时+3次重试+缓存穿透修复;旋转图标+批次进度提示 | v3.0.0 |
+| 51 | **手动修改拼音和组词** | 点击字帖行右侧"拼音+组词"区域,弹出轻量编辑浮层,支持手动修改拼音和组词(localStorage 持久化,优先级:手动 > AI > 默认词库) | v3.0.1 |
+| 52 | **导入格式增强** | 宽松输入支持:多音字强制指定、拼音数字声调(如 lv4)、组词自由输入;新增导入格式说明页面 import-guide.html | v3.0.1 |
+| 53 | **macOS 启动脚本** | 启动Puppeteer.command,跨平台启动脚本补齐 macOS 支持 | v3.0.1 |
 
 ### 技术亮点
 
@@ -198,7 +201,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 项目通过 `.github/workflows/deploy.yml` 配置了 GitHub Pages 自动部署:
 
-- **触发条件**:push 到 `retake` 分支,或手动 `workflow_dispatch`
+- **触发条件**:push 到 `main` 或 `retake` 分支,或手动 `workflow_dispatch`
 - **构建流程**:`npm ci` → 下载字体 → `npm run build` → 上传 artifact → 部署到 Pages
 - **部署环境**:`github-pages` environment
 - **访问 URL**:https://lcfactorization.github.io/calligraphy-sheet-generator/

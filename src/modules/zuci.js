@@ -1,12 +1,17 @@
 import cnchar from 'cnchar';
 import words from 'cnchar-words';
 import customZuCi from '../data/customZuCi.js';
-import { getAiZuci } from './aiZuci.js';  // v2.9.9：AI 组词缓存回退
+import { getAiZuci, getAiPinyin, isUserEdited } from './aiZuci.js';  // v2.9.9：AI 组词缓存回退 / v1.2.0：手动修改优先
 
 cnchar.use(words);
 
 export function getZuCi(char) {
     try {
+        // ★ v1.2.0：手动修改最高优先（须在 customZuCi 之前，否则默认词库≥2词会盖掉手动结果）
+        if (isUserEdited(char)) {
+            const manual = getAiZuci(char);
+            if (manual && manual.length > 0) return manual;
+        }
         let zuciArray = customZuCi[char] || [];
         if (zuciArray.length >= 2) {
             return zuciArray.slice(0, 2);

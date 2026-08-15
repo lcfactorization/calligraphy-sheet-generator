@@ -1,0 +1,480 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#9E2A2B">
+    <title>导入格式与手动修改说明 · 字帖生成器</title>
+    <style>
+        /* ============================================================
+         * 导入格式与手动修改说明页面（v3.0.1 独立页面）
+         * 风格与主页一致：朱砂红主色 + light/dark 主题适配
+         * 完全离线自包含，不依赖任何外部资源
+         * ============================================================ */
+        :root {
+            --accent: #9E2A2B;
+            --accent-2: #f59e0b;
+            --bg: #fafaf7;
+            --bg-2: #f0eee8;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-2: #4b5563;
+            --border: #e5e7eb;
+            --code-bg: #f3f4f6;
+            --shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        [data-theme="dark"] {
+            --bg: #1a1d23;
+            --bg-2: #15181d;
+            --card: #232830;
+            --text: #e5e7eb;
+            --text-2: #9ca3af;
+            --border: #2d3239;
+            --code-bg: #2d3239;
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #1a1d23;
+                --bg-2: #15181d;
+                --card: #232830;
+                --text: #e5e7eb;
+                --text-2: #9ca3af;
+                --border: #2d3239;
+                --code-bg: #2d3239;
+                --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 15px;
+            transition: background 0.25s, color 0.25s;
+        }
+        .container {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px 16px;
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 26px;
+            color: var(--accent);
+        }
+        header .subtitle {
+            color: var(--text-2);
+            font-size: 14px;
+            margin: 0;
+        }
+        header .meta {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-2);
+        }
+        .nav-links {
+            margin-top: 14px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .back-link {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .back-link:hover { opacity: 0.9; }
+        .back-link.plain {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .back-link.plain:hover { opacity: 0.8; }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: var(--shadow);
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.08); }
+        section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 18px;
+            box-shadow: var(--shadow);
+        }
+        section h2 {
+            margin: 0 0 14px;
+            font-size: 19px;
+            color: var(--accent);
+            border-left: 4px solid var(--accent);
+            padding-left: 10px;
+        }
+        section h3 {
+            margin: 18px 0 8px;
+            font-size: 16px;
+            color: var(--text);
+        }
+        section p {
+            margin: 8px 0;
+            color: var(--text);
+        }
+        section ul, section ol {
+            padding-left: 22px;
+            margin: 8px 0;
+        }
+        section li {
+            margin: 4px 0;
+        }
+        code {
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 13px;
+            color: var(--accent);
+        }
+        pre {
+            background: var(--code-bg);
+            padding: 14px 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: var(--text);
+            font-size: 13px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .badge-new { background: var(--accent-2); color: #fff; }
+        .badge-a { background: #6366f1; color: #fff; }
+        .badge-b { background: #8b5cf6; color: #fff; }
+        .badge-c { background: #d97706; color: #fff; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            text-align: left;
+        }
+        th {
+            background: var(--bg-2);
+            font-weight: 600;
+        }
+        .tip {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid var(--accent-2);
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+        .tip strong { color: var(--accent-2); }
+        .note {
+            background: rgba(99, 102, 241, 0.08);
+            border-left: 3px solid #6366f1;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .note strong { color: #6366f1; }
+        @media (max-width: 680px) {
+            .container { padding: 20px 12px 40px; }
+            section { padding: 16px; }
+            header { padding: 18px 12px; }
+            header h1 { font-size: 22px; }
+            table { font-size: 12px; }
+            th, td { padding: 6px 8px; }
+        }
+    </style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="切换主题" title="切换日间/夜间模式">☀</button>
+
+<div class="container">
+    <header>
+        <h1>📥 导入格式与手动修改说明</h1>
+        <p class="subtitle">字帖生成器 v3.0.1 · 导入增强格式（A/B/C）+ 手动编辑字帖 + 优先级矩阵</p>
+        <p class="meta">更新日期：2026-08-10 · 适用版本：v3.0.1 及以上</p>
+        <div class="nav-links">
+            <a href="/" class="back-link">← 返回字帖</a>
+            <a href="/api-key-guide.html" class="back-link plain">← 🔑 API Key 使用</a>
+        </div>
+    </header>
+
+    <section>
+        <h2>一、导入格式总览</h2>
+        <p>在纯汉字基础上，通过导入文件名约定可携带三类附加信息（拼音标注 / 组词补齐 / 多音字强制指定），实现导入即预处理，无需手动逐字编辑。</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>格式</th>
+                    <th>文件名命名规则</th>
+                    <th>用途</th>
+                    <th>优先级</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-c">C：多音字强制</span></td>
+                    <td><code>生字_多音.txt</code></td>
+                    <td>强制指定多音字读音（优先级最高）</td>
+                    <td>★★★★★</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-b">B：组词补齐</span></td>
+                    <td><code>生字_组词.txt</code></td>
+                    <td>补充 AI 未覆盖的二字组词</td>
+                    <td>★★★★</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-a">A：拼音标注</span></td>
+                    <td><code>生字_拼音.txt</code></td>
+                    <td>覆盖默认拼音（用于多音字指定读音）</td>
+                    <td>★★★</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="note">
+            <strong>向下兼容：</strong>不含上述格式标记的普通文件（如 <code>汉字.txt</code>）→ 纯汉字导入（现有行为不变，零破坏性）。
+        </div>
+    </section>
+
+    <section>
+        <h2>二、格式 A — 带拼音的导入文件</h2>
+        <p><span class="badge badge-a">格式 A</span> 在文件名包含 <code>_拼音</code> 时触发，内容以 <code>汉字[拼音]</code> 内嵌格式携带拼音信息。</p>
+
+        <h3>文件命名</h3>
+        <pre><code>生字_拼音.txt</code></pre>
+
+        <h3>文件内容</h3>
+        <pre><code>床[chuang2] 前[qian2] 明[ming2] 月[yue4]
+春[chun1] 风[feng1] 化[hua4] 雨[yu3]</code></pre>
+
+        <h3>规则</h3>
+        <ul>
+            <li>格式：<code>汉字[拼音]</code>（拼音以数字声调标注）</li>
+            <li>空格 / 换行均可，解析时自动合并为纯汉字串</li>
+            <li>优先级：<code>汉字[拼音]</code> 覆盖默认拼音（用于多音字指定，如「月[yue4]」而非默认「月[yue1]」）</li>
+            <li>拼音方括号内数字声调：1=阴平、2=阳平、3=上声、4=去声、5=轻声</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>三、格式 B — 带组词的导入文件</h2>
+        <p><span class="badge badge-b">格式 B</span> 在文件名包含 <code>_组词</code> 时触发，内容以每行 <code>汉字 + 空格 + 逗号分隔组词</code> 格式携带组词信息。</p>
+
+        <h3>文件命名</h3>
+        <pre><code>生字_组词.txt</code></pre>
+
+        <h3>文件内容</h3>
+        <pre><code>汉字 词语1,词语2,词语3
+长 长高,长短
+行 行走,行程,银行</code></pre>
+
+        <h3>规则</h3>
+        <ul>
+            <li>格式：<code>汉字 + 空格 + 逗号分隔的组词</code></li>
+            <li>每行一个汉字 + 对应组词（组词以 AI 结果为基础增量补充，不覆盖 AI 结果）</li>
+            <li>AI 组词补齐（<code>fillMissingZuci</code>）与格式 B 共同生效：AI 补一遍 → 格式 B 再追加</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>四、格式 C — 多音字强制指定</h2>
+        <p><span class="badge badge-c">格式 C</span> 在文件名包含 <code>_多音</code> 时触发，优先级最高，强占 AI 和默认读音。</p>
+
+        <h3>文件命名</h3>
+        <pre><code>生字_多音.txt</code></pre>
+
+        <h3>文件内容</h3>
+        <pre><code>长 chang2 长大,长城,长短
+行 xing2 行走,行程,银行
+调 tiao2 调换,调色</code></pre>
+
+        <h3>规则</h3>
+        <ul>
+            <li>格式：<code>汉字 + 空格 + 拼音 + 空格 + 逗号分隔的组词</code></li>
+            <li>拼音：数字声调标注（1=阴平、2=阳平、3=上声、4=去声）</li>
+            <li>优先级最高：强占 AI 和默认读音，强制写入 <code>ai_zuci_cache_v1</code> 的 <code>pinyinFixed:true</code> / <code>pinyinChecked:true</code> / <code>userSpecified:true</code> 标记</li>
+            <li>适用于：需要特定读音但 AI 给出其他读音的场景（如「行长[háng]」而非「行[xíng]政」）</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>五、格式检测与优先级</h2>
+        <p>当同一文件中出现多种格式时，按以下优先级处理（高优先级覆盖低优先级）：</p>
+        <pre><code>多音字强制（C）> 组词补齐（B）> 拼音标注（A）> 纯汉字（默认）</code></pre>
+        <div class="tip">
+            <strong>说明：</strong>导入时先解析文件名判断格式类型，再按对应规则解析内容；不同格式之间字形合并去重（如「长」在 C 中出现，则 A/B 中的「长」被覆盖）。
+        </div>
+
+        <h3>导入文件支持格式</h3>
+        <ul>
+            <li>支持扩展名：<code>.txt</code> / <code>.md</code> / <code>.csv</code> / <code>.xlsx</code> / <code>.docx</code></li>
+            <li><code>.xlsx</code>：使用 SheetJS 读取第一个 sheet，每行单元格用空格拼接后解析</li>
+            <li><code>.docx</code>：使用 mammoth.js 提取正文文本（解析 <code>word/document.xml</code>）</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>六、手动编辑字帖拼音与组词</h2>
+        <p><span class="badge badge-new">v3.0.1 新增</span>支持在字帖生成后，手动编辑单个汉字的拼音和组词，编辑结果以 <code>userEdited</code> 标记写入 <code>ai_zuci_cache_v1</code>，优先级高于 AI 缓存和默认值。</p>
+
+        <h3>6.1 使用方法</h3>
+        <ol>
+            <li>生成字帖后，点击某行右侧的拼音/组词区域（即显示词语的格子），弹出编辑对话框</li>
+            <li>在对话框中修改拼音和 / 或组词，点击「保存」</li>
+            <li>字帖刷新后，显示手动编辑的内容；PDF 打印时以只读文本形式渲染</li>
+        </ol>
+
+        <h3>6.2 编辑对话框内容</h3>
+        <ul>
+            <li>汉字展示（大字居中）</li>
+            <li>拼音输入框（默认为当前拼音，支持手动修改）</li>
+            <li>组词编辑区（显示当前组词，<code>词语1,词语2</code> 逗号分隔，支持增删）</li>
+            <li>保存 / 取消按钮；提供「清除手动修改」按钮，恢复 AI / 默认逻辑</li>
+        </ul>
+
+        <h3>6.3 优先级矩阵</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>来源</th>
+                    <th>优先级</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>用户手动修改</td>
+                    <td>★★★★★ 最高</td>
+                    <td><code>userEdited:true</code>，最高优先；清空组词 → 不回落 AI/默认</td>
+                </tr>
+                <tr>
+                    <td>导入格式 C（多音字强制）</td>
+                    <td>★★★★★</td>
+                    <td><code>userSpecified:true</code>，强占 AI 和默认读音</td>
+                </tr>
+                <tr>
+                    <td>AI 检查与补齐</td>
+                    <td>★★★★</td>
+                    <td><code>pinyinFixed:true</code> / <code>zuci:[]</code>，覆盖默认值</td>
+                </tr>
+                <tr>
+                    <td>导入格式 B（组词补齐）</td>
+                    <td>★★★★</td>
+                    <td>在 AI 结果基础上增量追加，不覆盖 AI 组词</td>
+                </tr>
+                <tr>
+                    <td>导入格式 A（拼音标注）</td>
+                    <td>★★★</td>
+                    <td>覆盖默认拼音（用于多音字指定读音）</td>
+                </tr>
+                <tr>
+                    <td>默认拼音/组词（cnchar 词典）</td>
+                    <td>★★</td>
+                    <td>最低优先级，AI / 手动 / 导入均可覆盖</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>6.4 注意事项</h3>
+        <ul>
+            <li>手动修改保存在浏览器 <code>localStorage</code>（<code>ai_zuci_cache_v1</code>），关闭浏览器后仍保留</li>
+            <li>修改仅影响当前汉字，不影响其他汉字</li>
+            <li>PDF 打印时手动修改内容以只读文本渲染（不支持在 PDF 中二次编辑）</li>
+            <li>清除 <code>localStorage</code>（浏览器设置 → 清除数据）后所有手动修改重置</li>
+            <li>手动编辑后，字帖生成/刷新时不会自动覆盖该字（<code>userEdited:true</code> 保护）</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>七、自检验证</h2>
+        <p>点击「AI 检查与补齐」时，应用自动执行以下检查：</p>
+        <ul>
+            <li>✅ 多音字检测：标记出所有多音字（pinyin-pro <code>multiple:true</code>）</li>
+            <li>✅ 拼音合规性：对比 cnchar 默认拼音与 AI 结果，检查多音字读音是否匹配组词语义</li>
+            <li>✅ 组词完整性：显示每个汉字的当前组词数量（<code>customZuCi</code> + cnchar + AI）</li>
+        </ul>
+    </section>
+</div>
+
+<script>
+    // 主题切换：localStorage 持久化 + 跟随系统
+    (function() {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggle');
+        const KEY = 'guide_theme';
+
+        function apply(t) {
+            root.setAttribute('data-theme', t);
+            btn.textContent = t === 'dark' ? '🌙' : '☀';
+        }
+
+        // 初始化：localStorage > system
+        let saved = null;
+        try { saved = localStorage.getItem(KEY); } catch(e) {}
+        if (saved === 'light' || saved === 'dark') {
+            apply(saved);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            apply('dark');
+        }
+
+        btn.addEventListener('click', () => {
+            const cur = root.getAttribute('data-theme') || 'light';
+            const next = cur === 'dark' ? 'light' : 'dark';
+            apply(next);
+            try { localStorage.setItem(KEY, next); } catch(e) {}
+        });
+    })();
+</script>
+</body>
+</html>

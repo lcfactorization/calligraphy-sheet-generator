@@ -93,8 +93,17 @@ function saveCache(map) {
 export function getAiZuci(char) {
     const cache = loadCache();
     const entry = cache[char];
-    if (entry && Array.isArray(entry.zuci) && entry.zuci.length > 0) {
-        return entry.zuci.slice(0, 2);
+    if (entry) {
+        // ★ v1.2.0：手动修改最高优先（userEdited 时 zuci 空则返回 null）
+        if (entry.userEdited === true) {
+            if (Array.isArray(entry.zuci) && entry.zuci.length > 0) {
+                return entry.zuci.slice(0, 2);
+            }
+            return null; // 手动清空组词 → 不回落 AI/默认
+        }
+        if (Array.isArray(entry.zuci) && entry.zuci.length > 0) {
+            return entry.zuci.slice(0, 2);
+        }
     }
     return null;
 }
@@ -102,10 +111,102 @@ export function getAiZuci(char) {
 export function getAiPinyin(char) {
     const cache = loadCache();
     const entry = cache[char];
-    if (entry && entry.pinyinFixed === true && typeof entry.pinyin === 'string' && entry.pinyin) {
-        return entry.pinyin;
+    if (entry) {
+        // ★ v1.2.0：userEdited 条目 pinyinFixed 恒为 true（updateAiZuciCache 已强制），天然满足原条件
+        if (entry.userEdited === true && typeof entry.pinyin === 'string' && entry.pinyin) {
+            return entry.pinyin;
+        }
+        if (entry.pinyinFixed === true && typeof entry.pinyin === 'string' && entry.pinyin) {
+            return entry.pinyin;
+        }
     }
     return null;
+}
+
+// ========== v1.2.0：手动修改模式（写缓存） ==========
+// loadCache / saveCache 为模块私有函数，本模块内直接调用
+
+/**
+ * 手动修改写入缓存（优先级最高：手动 > AI > 默认词库）
+ * 强制 pinyinFixed:true / pinyinChecked:true / userEdited:true，
+ * 否则 getAiPinyin() 只认 pinyinFixed===true 不返回手动拼音；
+ * 留空字段由旧值兜底（组词留空 = 保留旧值）。
+ * @param {string} char - 汉字
+ * @param {{zuci?:string[], pinyin?:string}} data - 手动输入
+ */
+export function updateAiZuciCache(char, data) {
+    if (!char) return;
+    const cache = loadCache();
+    const prev = cache[char] || {};
+    cache[char] = {
+        ...prev,
+        zuci: Array.isArray(data.zuci) && data.zuci.length > 0
+            ? data.zuci.slice(0, 2) : (prev.zuci || []),
+        pinyin: typeof data.pinyin === 'string' && data.pinyin.trim()
+            ? data.pinyin.trim() : (prev.pinyin || ''),
+        pinyinFixed: true,
+        pinyinChecked: true,
+        wordsDetail: prev.wordsDetail || [],
+        userEdited: true,
+        ts: Date.now()
+    };
+    saveCache(cache);
+}
+
+/**
+ * 清除手动修改标记（浮层"清除手动修改"按钮用），回到 AI/默认 逻辑
+ * @param {string} char - 汉字
+ */
+export function clearUserEdit(char) {
+    if (!char) return;
+    const cache = loadCache();
+    if (cache[char] && cache[char].userEdited) {
+        delete cache[char].userEdited;
+        // 若该字无 AI 结果（原本就是默认词库），可整体删除条目
+        if (!cache[char].zuci && !cache[char].pinyinFixed) {
+            delete cache[char];
+        }
+        saveCache(cache);
+    }
+}
+
+/**
+ * 判断该字是否处于手动修改状态
+ * @param {string} char - 汉字
+ * @returns {boolean}
+ */
+export function isUserEdited(char) {
+    const cache = loadCache();
+    return !!(cache[char] && cache[char].userEdited === true);
+}
+
+/**
+ * 批量预填充 ai_zuci_cache_v1（导入增强用）
+ * 用户指定即视为已纠音：pinyinFixed:true / pinyinChecked:true / userSpecified:true
+ * @param {Object} charMap { 字: {zuci:[], pinyin:'', pinyinVariants:[], wordsDetail:[], userSpecified:true} }
+ * @returns {number} 实际写入字数
+ */
+export function preloadAiZuciCache(charMap) {
+    if (!charMap || typeof charMap !== 'object') return 0;
+    const cache = loadCache();
+    let n = 0;
+    for (const [char, data] of Object.entries(charMap)) {
+        if (!char || !/[一-龥]/.test(char)) continue;
+        const prev = cache[char] || {};
+        cache[char] = {
+            zuci: Array.isArray(data.zuci) && data.zuci.length ? data.zuci : prev.zuci || [],
+            pinyin: data.pinyin || prev.pinyin || '',
+            pinyinFixed: true,                     // 用户指定即视为已纠音
+            pinyinChecked: true,
+            pinyinVariants: Array.isArray(data.pinyinVariants) ? data.pinyinVariants : [],
+            wordsDetail: Array.isArray(data.wordsDetail) ? data.wordsDetail : prev.wordsDetail || [],
+            userSpecified: true,
+            ts: Date.now()
+        };
+        n++;
+    }
+    saveCache(cache);
+    return n;
 }
 
 // ========== 工具函数：默认词库操作 ==========
@@ -276,7 +377,16 @@ export async function fillMissingZuci(chars, {
     fullCheck = false, fillMissing = false, fixPinyin = false, onProgress
 } = {}) {
     const start = Date.now();
-    const providerInfo = getAiProvider(apiKey, fullCheck);
+    // v1.2.0：apiKey 兜底——未传 key 时从 aiKeyStore 读取活跃 Key（动态 import 避免循环依赖）
+    let resolvedApiKey = apiKey;
+    if (!resolvedApiKey || typeof resolvedApiKey !== 'string' || !resolvedApiKey.trim()) {
+        try {
+            const { getActiveKeyValue } = await import('./aiKeyStore.js');
+            const kv = getActiveKeyValue();
+            if (kv && typeof kv === 'string' && kv.trim()) resolvedApiKey = kv;
+        } catch (e) { /* 无活跃 Key 时保持 undefined，走原有错误提示 */ }
+    }
+    const providerInfo = getAiProvider(resolvedApiKey, fullCheck);
     const needPinyinCheck = fullCheck || fixPinyin;
     const applyWords = fullCheck || fillMissing;
 
@@ -306,6 +416,11 @@ export async function fillMissingZuci(chars, {
     // 筛选待处理字（修复缓存穿透：needPinyinCheck 时要求 pinyinChecked 才能跳过）
     for (const c of uniqueChars) {
         const ent = cache[c];
+        // ★ v1.2.0：用户手动修改过的字不参与 AI 处理（手动 > AI），计入已处理避免误报缺失
+        if (ent && ent.userEdited === true) {
+            aiCachedChars.push(c);
+            continue;
+        }
         const hasZuci = ent && Array.isArray(ent.zuci) && ent.zuci.length > 0;
         const hasPinyin = ent && ent.pinyinFixed === true;
         const hasPinyinChecked = ent && ent.pinyinChecked === true;
@@ -376,7 +491,7 @@ export async function fillMissingZuci(chars, {
                     if (combinedSignal?.aborted) { timedOut = true; break; }
                     try {
                         const apiResult = await callDeepSeekDirect(pairs, {
-                            apiKey, signal: combinedSignal, model: useModel, mode,
+                            apiKey: resolvedApiKey, signal: combinedSignal, model: useModel, mode,
                             supportJsonMode: providerInfo.supportJsonMode
                         });
                         result = apiResult.data;
@@ -405,6 +520,10 @@ export async function fillMissingZuci(chars, {
                 for (const entry of charsArr) {
                     const c = entry.char;
                     if (!c || typeof c !== 'string') continue;
+                    // ★ v1.2.0：用户手动修改过的字，AI 结果不覆盖（手动 > AI）
+                    if (cache[c] && cache[c].userEdited === true) {
+                        continue;
+                    }
 
                     const validWords = validateWords(c, entry.words);
                     const hasWords = validWords.length > 0;
@@ -512,6 +631,9 @@ export async function fillMissingZuci(chars, {
     const elapsed = Date.now() - start;
 
     // 构建返回结果
+    // v1.1.0：新增 noWorkNeeded 标志——当所有字都无需 AI 处理（默认词库已足够 或 已有缓存）时置 true，
+    // 避免前端把"一切正常"误报为"未能处理任何字"
+    const noWorkNeeded = uniqueChars.length > 0 && toFetch.length === 0;
     const result = {
         total: uniqueChars.length,
         ai,
@@ -525,7 +647,8 @@ export async function fillMissingZuci(chars, {
         provider: providerInfo.type,
         providerLabel: providerInfo.label,
         timedOut,
-        partialSuccess: timedOut && fetchedCount > 0
+        partialSuccess: timedOut && fetchedCount > 0,
+        noWorkNeeded
     };
 
     // 超时且有错误时附加诊断信息

@@ -26,3 +26,33 @@ _commit_v287.txt
 视频自我介绍脚本_陈自强_Trae大赛.md
 # v2.9.8：排除本地下载的开源字体（CI 会自动下载，不提交到仓库避免体积膨胀）
 public/fonts/
+
+# v3.0.1 安全要求：API Key 和个人配置不得上传
+.env
+.env.*
+api-key-*.txt
+*api_key*
+*apikey*
+wrangler.toml
+.wrangler/
+vercel.json
+analytics/
+
+# 说明：src/modules/aiKeyImporter.js / aiKeyStore.js 为功能代码（不含密钥值），需随仓库发布；
+# 密钥值仅存 localStorage，不会写入代码/仓库。
+
+# v3.0.1：排除个人版专属文件（本地保留，不入仓库）
+使用说明.txt
+api/generate-pdf.js
+functions/
+
+# v3.0.1：排除本地视频制作产物与临时文件（不入仓库）
+video-demo/
+video-face-enhance/
+video-thumbs/
+_work_pwa/
+probe-vids.ps1
+thumbs.ps1
+preview*.log
+*Trae大赛*.mp4
+*.mp4

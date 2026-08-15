@@ -82,11 +82,22 @@
 - v2.9.7:引导增强(9 步 + "不再自动弹出"选项 + 智能推荐说明)+ Dark 模式范字 inverted color
 - v2.9.8:笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + 双图层 + 播放/暂停 + 速度持久化)+ 引导增强 16 步 + 笔顺演示介绍页 + Dark/触屏/移动端多项 Bug 修复(dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击)
 
-### 当前状态(v3.0.0)
-- **代码版本**:v3.0.0(package.json + index.html 徽章 + CHANGELOG)
+### 当前状态(v3.0.1)
+- **代码版本**:v3.0.1(package.json + CHANGELOG)
 - **构建模块**:846 模块(随迭代增长)
 - **源文件**:15 JS + 18 CSS + 3 数据 + 2 组件 + 1 契约 + 1 工具 + 1 入口 = 41 源文件
 - **备份机制**:每个版本有 backup 分支可回退（v3.0.0 AI 加固前备份分支：backup/pre_v300_final_20260807）
 - **部署**:GitHub Actions 自动部署到 GitHub Pages(触发分支:retake)
 - **在线访问**:https://lcfactorization.github.io/calligraphy-sheet-generator/
 - **v3.0.0 AI 加固**(2026-08-07):三模式分流(快速/单音字校验/多音字深度校验)+5分钟硬超时+3次重试+缓存穿透修复+级联开关+404/401/403/429错误诊断+AbortSignal.any兼容兜底+紧急逃生门+豆包JSON mode实测验证(90字组词测试通过)
+
+### v3.0.1 — 功能增强与安全加固(2026-08-15)
+- **手动修改模式**:点击字帖行右侧"拼音+组词"区域,弹出轻量编辑浮层,支持手动修改拼音和组词(优先级:手动 > AI > 默认词库)
+- **导入格式增强**:宽松输入支持(多音字、拼音数字声调、组词自由输入)+ 导入格式说明页面 import-guide.html
+- **多 API Key 管理**:支持保存多个 Key(DeepSeek sk-/火山引擎豆包 ark-),下拉切换即生效,眼睛/复制/删除按钮;从文件批量导入(txt/md/csv/docx);API Key 使用说明页 api-key-guide.html(密钥仅存 localStorage,不入库)
+- **macOS 启动脚本**:从个人版移植 启动Puppeteer.command,跨平台启动脚本补齐 macOS 支持
+- **安全加固**:.gitignore 追加 API Key 排除规则(.env/api-key-*/wrangler.toml/vercel.json 等)+ 个人版专属文件排除规则(使用说明.txt/api/functions/)
+- **样式优化**:onboarding/base/fab/print/grid-svg 样式微调
+- **代码质量**:zuci.js 手动修改优先级逻辑 + aiZuci.js userEdited 标记 + aiZuci.js 活跃 Key 兑底 + settingsCenter.js 多 Key UI + pinyin.js convert 导出 + main.js manualEdit 模块初始化
+- **CI/CD**:deploy.yml 触发分支新增 main(同时支持 main 和 retake 分支推送)
+- **不包含**:在线 PDF API/Cloudflare Pages 中间件/Analytics/商业字体(均为个人版专属功能)

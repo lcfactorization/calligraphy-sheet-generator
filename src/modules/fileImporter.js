@@ -2,6 +2,9 @@
 // 支持 txt/md/csv/xlsx/docx 文件导入到输入框
 // 纯原生 JS 实现，xlsx 和 docx 通过动态 import 第三方库解析
 
+// 导入增强——批量预填充缓存（ESM import 必须放在模块顶层）
+import { preloadAiZuciCache } from './aiZuci.js';
+
 // 文本文件大小上限：1MB（1048576 字节）— 用于 txt/md/csv
 const MAX_FILE_SIZE = 1048576;
 // 二进制文件大小上限：5MB（5242880 字节）— 用于 xlsx/docx
@@ -140,6 +143,280 @@ function parseCSV(text) {
         .join('\n');
 }
 
+// ============================================================
+// 导入增强（多音字/组词/拼音指定）
+// 用户输入宽松：一行一汉字条目 `汉字 [拼音] [组词列表]`，分隔符全宽容（全角→半角归一化）
+// 判定互斥：多音字指定 > 带组词 > 带拼音 > 纯汉字；增强行占比 >60% 才整体命中，否则回退纯汉字
+// ============================================================
+
+// 汉字范围（与 filterChineseChars 同范围：基本区 + 扩展A + 兼容区）
+const HAN = '\u4e00-\u9fa5';
+// 拼音字母：a-z + 带调符号 + ü/ǖǘǚǜ + ň/ɡ（ɡ 防 ng 误切）
+const PY = 'a-zA-Zāáǎàōóǎòēéěèīíǐìūúǔùüǖǘǚǜńňɡg';
+
+// 全角符号 → 半角映射（归一化用）
+const FULL2HALF = {
+    '：': ':', '，': ',', '、': ',', '．': '.', '。': '.',
+    '｜': '|', '／': '/', '（': '(', '）': ')', '；': ';',
+    '　': ' ', '·': ' ', '—': '-', '―': '-'
+};
+
+/**
+ * 全角→半角归一化：全角标点映射为半角，连续空白压缩为单空格，去除 NBSP
+ * @param {string} s - 原始行文本
+ * @returns {string} 归一化后的文本
+ */
+function normalizeLine(s) {
+    return String(s || '')
+        .replace(/[：，、．。｜／（）；　·—―]/g, ch => FULL2HALF[ch] || ch)
+        .replace(/[ \t]+/g, ' ')   // 连续空白压缩为单空格
+        .replace(/\u00a0/g, ' ');   // NBSP
+}
+
+// A. 多音字条目行：汉字 + 多个「拼音(可选组词)」分组（分组间以 | 或 / 或 空白+下一拼音 分隔）
+//    例：行: xíng(行走,行动) háng(银行,行业) / 行 xíng 行走 行动|háng 银行 行业
+const RE_POLY_ENTRY = new RegExp(
+    '^([' + HAN + '])' +                    // 组1：汉字
+    '\\s*[:：]?\\s*' +                     // 可选冒号
+    '(' +                                    // 组2：分组序列
+    '(?:' +
+    '[' + PY + ']+' +                        // 拼音（带调/无声调均可）
+    '(?:\\s*\\(([^()]*)\\))?' +          // 组3：该读音的组词（括号内，可省）
+    '(?:\\s*[|/]\\s*|\\s+(?=[' + PY + ']))' +  // 分组间分隔：| 或 / 或 空白+下一拼音
+    ')*' +
+    '[' + PY + ']+' +                        // 最后一个分组（无尾分隔符）
+    '(?:\\s*\\(([^()]*)\\))?' +          // 组4：末分组组词
+    ')' +
+    '\\s*$'
+);
+
+// B. 普通条目行：汉字 + 可选拼音 + 可选组词列表
+//    例：天 tiān 天空 天气 / 春 春天 春风 / 行 xing 行走
+const RE_ENTRY = new RegExp(
+    '^([' + HAN + '])' +                     // 组1：汉字
+    '(?:\\s*[:：,;/|]?\\s*([' + PY + ']+))?' + // 组2：可选拼音（分隔符宽容：空格/冒号/逗号/分号/斜杠/竖线）
+    '(?:[\\s,;:]+(.+)|\\s*\\(([^()]*)\\))?' + // 组3/组4：可选组词（空格/逗号/冒号分隔 或 括号包裹，如 天:tiān(天空,天气)）
+    '\\s*$'
+);
+
+// C. 多音字"换行缩进块"延续行（行首空白，无独立汉字）
+const RE_CONTINUE_LINE = new RegExp('^\\s+([' + PY + ']+)(?:\\s*[:：]?\\s*)?([^\\n]*)$');
+
+/**
+ * 组词 token 切分：宽容规则——按 [\s,;()|/]+ 切分，
+ * token 须含汉字且长度≥2（纯拼音 token 跳过，单字 token 丢弃）
+ * @param {string} text - 组词原始文本
+ * @returns {string[]}
+ */
+function splitZuci(text) {
+    return String(text || '').split(/[\s,;()|/]+/)
+        .map(s => s.trim())
+        .filter(t => /[\u4e00-\u9fa5]/.test(t) && t.length >= 2);
+}
+
+/**
+ * 多音字分组切分：把 "xíng 行走 行动|háng 银行" 切成 [{p:'xíng',zuci:[行走,行动]},...]
+ * 优先按 |/ 切分；无 |/ 时按"拼音 token 边界"切分（兼容 "xíng(行走,行动) háng(银行,行业)"）
+ * @param {string} body - 汉字之后的分组文本（可带冒号前缀）
+ * @returns {Array<{p:string, zuci:string[]}>}
+ */
+function splitPolyGroups(body) {
+    const groups = [];
+    const bodyStr = String(body);
+
+    // 1) 先按 | / 切分（最常见写法：xíng 行走 行动|háng 银行）
+    const parts = bodyStr.split(/[|/]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+        for (const part of parts) {
+            const m = part.match(new RegExp('^\\s*[:：]?\\s*(' + PY + '+)\\s*(?:\\(([^()]*)\\))?([\\s\\S]*)$'));
+            if (!m) continue;
+            groups.push({ p: m[1], zuci: splitZuci(m[2] || m[3]) });
+        }
+        if (groups.length >= 2) return groups;
+    }
+
+    // 2) 按拼音 token 边界切分（无 |/ 的写法：xíng(行走,行动) háng(银行,行业)）
+    const tokenRe = new RegExp('[' + PY + ']+', 'g');
+    const hits = [];
+    let mm;
+    while ((mm = tokenRe.exec(bodyStr)) !== null) {
+        hits.push({ start: mm.index, end: mm.index + mm[0].length, py: mm[0] });
+        if (mm.index === tokenRe.lastIndex) tokenRe.lastIndex++;  // 防死循环
+    }
+    if (hits.length >= 2) {
+        for (let i = 0; i < hits.length; i++) {
+            const start = hits[i].end;
+            const end = (i + 1 < hits.length) ? hits[i + 1].start : bodyStr.length;
+            groups.push({ p: hits[i].py, zuci: splitZuci(bodyStr.slice(start, end)) });
+        }
+        return groups;
+    }
+
+    return groups;
+}
+
+/**
+ * 把一个读音变体加入条目（去重拼音）
+ * @param {Map} entries - char -> { variants:[{p,zuci:[]}] }
+ * @param {string} char - 汉字
+ * @param {string} p - 拼音
+ * @param {string|string[]} zuci - 组词文本或数组
+ */
+function addVariant(entries, char, p, zuci) {
+    let e = entries.get(char);
+    if (!e) { e = { variants: [] }; entries.set(char, e); }
+    const pTrim = String(p || '').trim();
+    if (!pTrim) return;
+    const zuciArr = Array.isArray(zuci) ? zuci : splitZuci(zuci);
+    const hit = e.variants.find(v => v.p === pTrim);
+    if (!hit) {
+        e.variants.push({ p: pTrim, zuci: zuciArr });
+    } else {
+        hit.zuci = [...new Set([...hit.zuci, ...zuciArr])];
+    }
+}
+
+/**
+ * 普通条目：字 + 可选拼音 + 可选组词
+ */
+function addEntry(entries, char, py, zuciText) {
+    const zuci = splitZuci(zuciText);
+    if (py) {
+        addVariant(entries, char, py, zuci);
+    } else {
+        let e = entries.get(char);
+        if (!e) { e = { variants: [{ p: '', zuci: [] }] }; entries.set(char, e); }
+        if (zuci.length) {
+            e.variants[0].zuci = [...new Set([...e.variants[0].zuci, ...zuci])];
+        }
+    }
+}
+
+/**
+ * 判断一行是否为多音字行：行首单汉字 + 之后含 ≥2 个拼音 token（或 RE_POLY_ENTRY 命中）
+ */
+function isPolyLine(line) {
+    const head = line.match(new RegExp('^([' + HAN + '])\\s*[:：]?\\s*'));
+    if (!head) return false;
+    const body = line.slice(head[0].length);
+    // 判定多音字：行首汉字之后含 ≥2 个拼音 token（纯数字或纯汉字都不是 pinyin）
+    const tokens = body.match(new RegExp('[' + PY + ']+', 'g')) || [];
+    return tokens.length >= 2;
+}
+
+/**
+ * 逐行解析增强格式
+ * @param {string[]} lines - 原始行
+ * @returns {{entries:Map, enhancedLineCount:number, plainCount:number}}
+ */
+function parseEnhancedLines(lines) {
+    const entries = new Map();   // char -> { variants:[{p, zuci:[]}] }
+    let pendingChar = null;      // 多音字缩进块延续的归属字
+    let enhancedLineCount = 0;
+    let plainCount = 0;
+
+    for (const raw of lines) {
+        const norm = normalizeLine(raw);
+        const line = norm.trim();
+        if (!line) { pendingChar = null; continue; }
+
+        // 1) 缩进延续行 → 并入 pendingChar 的多音字分组（raw 保留行首空白用于判定）
+        if (pendingChar && /^\s+[A-Za-zā-ǜ]/.test(norm)) {
+            const m = norm.match(RE_CONTINUE_LINE);
+            if (m) { addVariant(entries, pendingChar, m[1], m[2]); enhancedLineCount++; continue; }
+        }
+
+        // 2) 多音字条目（互斥优先级最高）：行首单汉字 + 之后含 ≥2 个拼音分组
+        const polyHead = line.match(new RegExp('^([' + HAN + '])\\s*[:：]?\\s*'));
+        if (polyHead && isPolyLine(line)) {
+            pendingChar = polyHead[1];
+            const groups = splitPolyGroups(line.slice(polyHead[1].length));
+            let added = 0;
+            for (const g of groups) { addVariant(entries, polyHead[1], g.p, g.zuci); added++; }
+            if (added >= 1) { enhancedLineCount++; continue; }
+        }
+
+        // 3) 普通条目（字 + 可选拼音 + 可选组词）
+        const m2 = line.match(RE_ENTRY);
+        if (m2) {
+            pendingChar = m2[1];
+            addEntry(entries, m2[1], m2[2] || '', m2[3] || m2[4] || '');
+            enhancedLineCount++;
+            continue;
+        }
+
+        // 4) 纯汉字行 → 计入 plain 集合（回退候选）
+        const hans = line.match(new RegExp('[' + HAN + ']', 'g'));
+        if (hans) {
+            for (const c of hans) {
+                let e = entries.get(c);
+                if (!e) { e = { variants: [{ p: '', zuci: [] }] }; entries.set(c, e); }
+            }
+            pendingChar = null;
+            plainCount++;
+        }
+    }
+    return { entries, enhancedLineCount, plainCount };
+}
+
+/**
+ * 转换为 ai_zuci_cache_v1 兼容缓存 JSON
+ * @param {Map} entries
+ * @returns {Object} char -> 缓存条目
+ */
+function toCacheEntries(entries) {
+    const out = {};
+    for (const [char, e] of entries) {
+        if (!e.variants || e.variants.length === 0) continue;
+        const first = e.variants[0];
+        // zuci：全部读音的组词平铺去重（渲染 getZuCi 取前2）
+        const zuci = [...new Set(e.variants.flatMap(v => v.zuci))];
+        // 纯汉字行（无拼音且无组词）：不写缓存，让 AI/默认词库正常生效
+        const hasPinyin = first.p && first.p.trim();
+        if (!hasPinyin && zuci.length === 0) continue;
+        // wordsDetail：每个读音的词带各自拼音（多音字天然支持）
+        const wordsDetail = e.variants.flatMap(v =>
+            v.zuci.map(w => ({ w, p: (v.p ? v.p + ' ' : '') + (w.slice(1) || ''), pos: '', note: '' }))
+        );
+        out[char] = {
+            zuci,
+            pinyin: first.p,                    // 主读音（渲染单字拼音显示用）
+            pinyinFixed: true,                  // 必须 true，GridEngine 才会用缓存拼音
+            pinyinChecked: true,
+            pinyinVariants: e.variants.map(v => v.p),   // 全部读音（向后兼容增量字段）
+            wordsDetail,
+            userSpecified: true,                // 用户导入指定（区别于 AI 缓存）
+            ts: Date.now()
+        };
+    }
+    return out;
+}
+
+/**
+ * 增强解析入口：返回 { text, cache }；未命中增强格式时 cache 为 null
+ * 启发式：增强行占比 > 60% 才命中，否则回退纯汉字
+ * @param {string} content - 文本内容
+ * @returns {{text:string, cache:Object}|null}
+ */
+function tryParseEnhanced(content) {
+    if (!content || typeof content !== 'string') return null;
+    const lines = content.split(/\r?\n/);
+    const { entries, enhancedLineCount, plainCount } = parseEnhancedLines(lines);
+    if (!entries || entries.size === 0) return null;
+    const total = enhancedLineCount + plainCount;
+    if (total === 0) return null;
+    // 增强行占比 > 60% 才算命中（防止一篇普通文章被误判）
+    if (enhancedLineCount / total < 0.6) return null;
+    const cache = toCacheEntries(entries);
+    if (Object.keys(cache).length === 0) return null;
+    const text = [...entries.keys()].join('');
+    return { text, cache };
+}
+
+// ============================================================
+// 导入增强结束
+// ============================================================
+
 /**
  * 解析 XLSX 文件
  * 使用 SheetJS（动态 import）读取第一个 sheet
@@ -227,7 +504,8 @@ function showToast(message, type) {
 
 /**
  * 根据文件扩展名处理内容
- * txt/md/csv 统一在此走文本解析路径，最后过滤为纯汉字
+ * txt/md/csv 统一在此走文本解析路径
+ * 优先尝试增强解析（多音字/组词/拼音指定），未命中回退过滤纯汉字
  * @param {string} name - 文件名
  * @param {string} content - 文件文本内容
  * @returns {string} 处理后的纯汉字文本
@@ -245,7 +523,25 @@ function processFileContent(name, content) {
         parsed = content;
     }
 
-    // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
+    // ① 优先尝试增强解析（互斥：多音字>组词>拼音>纯汉字 由 parseEnhancedLines 内部分级实现）
+    const enhanced = tryParseEnhanced(parsed);
+    if (enhanced && enhanced.text) {
+        try {
+            // ② 写入缓存 + 派发事件
+            const written = preloadAiZuciCache(enhanced.cache);
+            document.dispatchEvent(new CustomEvent('calligraphy:import-enhanced', {
+                detail: { type: 'enhanced', count: written, chars: Object.keys(enhanced.cache) }
+            }));
+            // ③ 触发重渲染（main.js 已监听 settings-updated）
+            document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+            console.log('[FileImporter] 增强解析命中：' + written + ' 字（含拼音/组词指定）');
+        } catch (err) {
+            console.error('[FileImporter] 增强解析写入缓存失败，回退纯汉字:', err);
+        }
+        return enhanced.text;   // 纯汉字串填入 #inputText，与旧行为一致
+    }
+
+    // ④ 回退旧逻辑：过滤出纯汉字字符
     return filterChineseChars(parsed);
 }
 
@@ -360,8 +656,16 @@ class FileImporter {
                     processed = await parseDOCX(arrayBuffer);
                 }
 
-                // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
-                processed = filterChineseChars(processed);
+                // 优先尝试增强解析（xlsx 单列"字/拼音/组词"或双列"字,拼音,组词"经 parseXLSX 行拼接后自然落入增强解析）
+                const enhanced = tryParseEnhanced(processed);
+                if (enhanced && enhanced.text) {
+                    preloadAiZuciCache(enhanced.cache);
+                    document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+                    processed = enhanced.text;
+                } else {
+                    // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
+                    processed = filterChineseChars(processed);
+                }
 
                 // 处理后内容有效性检测（无汉字时提示用户）
                 if (!processed || processed.trim() === '') {
@@ -449,5 +753,5 @@ export function registerFileImporter() {
     fileImporter.init();
 }
 
-export { FileImporter, filterChineseChars };
+export { FileImporter, filterChineseChars, tryParseEnhanced };
 export default fileImporter;

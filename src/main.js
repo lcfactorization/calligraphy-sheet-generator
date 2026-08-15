@@ -19,6 +19,8 @@ import { initFabDrag } from './modules/fabDrag.js';
 // v2.9.8：离线汉字笔画数据 + 点选单字演示笔画笔顺弹窗
 import { initHanziData } from './modules/hanziDataStore.js';
 import { initStrokeDemoClick, initStrokeDemoToolbar } from './modules/strokeDemoModal.js';
+// 手动修改拼音与组词（点击字帖行右侧弹出编辑浮层）
+import { initManualEdit } from './modules/manualEdit.js';
 
 // 初始化
 applyTheme();
@@ -38,6 +40,8 @@ initFabDrag();
 initHanziData();
 initStrokeDemoClick();
 initStrokeDemoToolbar();
+// 手动修改拼音与组词初始化
+initManualEdit();
 
 // 读取当前渲染选项（合并侧栏状态 + 字体选择 + 契约默认值）
 // v2.4.4：新增 gridType 传递，描红透明度默认 0.1

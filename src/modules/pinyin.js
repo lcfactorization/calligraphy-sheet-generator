@@ -1,2 +1,2 @@
-import { pinyin } from 'pinyin-pro';
-export { pinyin };
+import { pinyin, convert } from 'pinyin-pro';
+export { pinyin, convert };
