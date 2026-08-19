@@ -2,7 +2,7 @@
 
 > TRAE AI 创造力大赛复赛作品 | 从"字帖生成工具"升级为"汉字学习闭环平台"
 > 双轨方案:浏览器直接打印(全平台) + Puppeteer 命令行批量生成(桌面端)
-> 在线体验:https://calligraphy-sheet-generator.pages.dev/
+> 在线体验:https://calligraphy-sheet-generator.pages.dev/  (如有密码，请用 666666 ）
 
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
