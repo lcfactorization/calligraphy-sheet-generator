@@ -12,7 +12,7 @@
 
 ## 部署状态
 
-- **在线访问**:https://calligraphy-sheet-generator.pages.dev/
+- **在线访问**:https://calligraphy-sheet-generator.pages.dev/ (如有密码，请用 666666 ）
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
 - **最新版本**:v3.0.3(访问统计系统:IP/设备/浏览器/访问时间统计 + 每日邮件报告 + 弹窗交互优化 + 多Key管理 + 手动修改模式)
