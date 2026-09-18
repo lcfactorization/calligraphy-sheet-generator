@@ -56,9 +56,11 @@ function makeDB() {
 }
 
 // Mock env
+// v3.0.5：测试用的密钥仅存在于本测试文件，不再复用任何曾写在生产代码里的默认值。
+const TEST_SECRET = 'test-only-secret-not-used-in-production';
 const env = {
   DB: makeDB(),
-  CRON_SECRET: 'calligraphy_cron_secret_x8k3n5q9w2r7',
+  CRON_SECRET: TEST_SECRET,
   RESEND_API_KEY: undefined,
 };
 
@@ -103,16 +105,34 @@ function makeContext(pathname, query = '') {
   // 3. 报告 API - 正确密钥应 200
   console.log('\n[3] /api/report 正确密钥');
   try {
-    const r = await mod.onRequest(makeContext('/api/report?secret=calligraphy_cron_secret_x8k3n5q9w2r7'));
+    const r = await mod.onRequest(makeContext('/api/report?secret=' + TEST_SECRET));
     check('返回 200', r.status === 200);
   } catch (e) { check(`不崩溃 (${e.message})`, false); }
 
   // 4. 统计 API - 正确密钥
   console.log('\n[4] /api/stats 正确密钥');
   try {
-    const r = await mod.onRequest(makeContext('/api/stats?secret=calligraphy_cron_secret_x8k3n5q9w2r7'));
+    const r = await mod.onRequest(makeContext('/api/stats?secret=' + TEST_SECRET));
     const j = await r.json();
     check('返回统计 JSON', typeof j.totalViews === 'number' && typeof j.todayViews === 'number');
+  } catch (e) { check(`不崩溃 (${e.message})`, false); }
+
+  // 4b. v3.0.5 安全回归：未配置 CRON_SECRET 时必须一律拒绝（不得回退到任何内置默认值）
+  console.log('\n[4b] /api/report 与 /api/stats 在未配置 CRON_SECRET 时应拒绝');
+  try {
+    const saved = env.CRON_SECRET;
+    delete env.CRON_SECRET;
+    // 用"曾经的内置默认值"去试 —— 这正是修复前可以绕过鉴权的路径。
+    // 注意：该字符串是**已废弃**的旧默认值，代码中已不存在任何对它的接受路径；
+    // 此处保留字面量是**刻意**的 —— 只有用它去访问才能真正证明"旧默认值已失效"。
+    // 它现在等同于一个随机的错误密钥。
+    const r1 = await mod.onRequest(makeContext('/api/report?secret=calligraphy_cron_secret_x8k3n5q9w2r7'));
+    check('未配置密钥时旧默认值不再有效（401）', r1.status === 401);
+    const r2 = await mod.onRequest(makeContext('/api/stats?secret=calligraphy_cron_secret_x8k3n5q9w2r7'));
+    check('统计接口同样拒绝（401）', r2.status === 401);
+    const r3 = await mod.onRequest(makeContext('/api/report'));
+    check('无密钥仍然 401', r3.status === 401);
+    env.CRON_SECRET = saved;
   } catch (e) { check(`不崩溃 (${e.message})`, false); }
 
   // 5. 页面访问 - 触发追踪（应走 trackVisit 然后 next()）

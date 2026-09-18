@@ -10,6 +10,14 @@ export default defineConfig({
         viteSingleFile(),
         VitePWA({
             registerType: 'autoUpdate',
+            // v3.0.5：改为自行注册 Service Worker（见 src/main.js）。
+            // 原因：插件自动注入的 registerSW.js 只判断 `'serviceWorker' in navigator`
+            // （该判断在 file:// 下为真），于是在双击打开的 file:// 场景下必然发起一次
+            // 注定失败的注册，并抛出未捕获的 Promise 拒绝（插件生成的脚本没有 .catch()）。
+            // 自行注册后可显式跳过 file:// 并捕获失败，同时保持 http(s) 下行为完全一致。
+            // autoUpdate 的更新逻辑位于生成的 sw.js 内（self.skipWaiting + clientsClaim），
+            // 不受本项影响。
+            injectRegister: false,
             manifest: {
                 name: '字帖生成器',
                 short_name: '字帖',

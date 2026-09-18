@@ -5,6 +5,415 @@
 
 ---
 
+## v3.0.5 (2026-09-18) — 隐私与合规加固 + 双击启动修复
+
+> 本版本**不新增功能**，只做「上线前的合规与可靠性收口」：
+> 消除隐私与知识产权风险、修复 `file://` 双击启动的误报，并补齐此前声明了却缺失的许可文件。
+> 全部结论均为实测（真实 Chromium + 逐项对照），未验证处一律标注。
+
+### 🔒 隐私加固
+
+- **移除硬编码的个人邮箱**（3 处代码 + 1 处文档）
+  - `functions/_middleware.js` 与 `analytics/cron-worker/src/index.js` 原以
+    `env.REPORT_EMAIL || '<作者个人 Gmail>'` 作为默认收件人 —— 等于把个人邮箱发布在公开仓库。
+  - 现改为 **fail closed**：未配置 `REPORT_EMAIL` 就不发送邮件（并记录一条服务端日志）。
+    cron-worker 的健康检查端点也改为在未配置时返回 `null`，不再回显任何默认地址。
+- **移除公开仓库中的默认密钥**（安全）
+  - 原 `env.CRON_SECRET || '<旧默认密钥，已废弃>'` —— 该字符串写在公开仓库里，
+    任何忘记配置该变量的部署，其 `/api/report` 与 `/api/stats` 都可被任何读过仓库的人直接调用。
+  - 现改为：未配置 `CRON_SECRET` **一律返回 401**（不回 503，避免对外泄露配置状态）。
+  - `analytics/setup.ps1` 改为每次部署生成 **32 字节随机强密钥**。
+  - `test-middleware.cjs` 不再复用旧的生产默认值，并新增回归断言：
+    **用"曾经的内置默认值"去访问必须被拒绝**。
+- **访问统计改为 IP 假名化**（`functions/_middleware.js`）
+  - 原实现把访客**原始 IP** 与精确时间、城市、完整 User-Agent 同表存入 D1。
+  - 现改为存储**带密钥的 SHA-256 哈希**（取前 128 位），独立访客计数能力不变。
+    ⚠ 必须带密钥：IPv4 仅 2³² 个取值，**无盐哈希可在秒级暴力反查**，等于没有脱敏。
+    密钥取 `IP_HASH_SALT`，未配置时回退 `CRON_SECRET`；两者都未配置则**不记录任何 IP 派生值**。
+  - 同时**不再存储完整 User-Agent**（指纹性强，且报表只用其解析结果）与**城市**
+    （最精确的地理标识，且报表从未使用）。原始 IP 仅在请求期用于机房/VPN 网段比对，不落库。
+  - 报表口径相应更名：`独立 IP 数` → `独立访客数（假名化）`。
+- **移除个人姓名与本地绝对路径**
+  - 公开的 `CHANGELOG.md` 与 `.gitignore` 中原含作者真实姓名，已改为 `<姓名>` / 通配符。
+  - 清除 **138 处** `file:///C:/.../` 本地文件链接（既泄露本机目录结构，又对任何读者都是死链）：
+    其中 119 处转为**仓库内相对链接**（现在可正常点击跳转），19 处指向被 `.gitignore` 排除的
+    `docs/`，改为纯文本标注。
+  - `matepad-simulate.cjs`、`analytics/README.md` 等处的本机绝对路径改为相对/占位写法。
+- **新增 [`PRIVACY.md`](./PRIVACY.md)**：说明本地运行时零上报、在线版本收集哪些字段（及 v3.0.5 起
+  不再收集哪些）、用途、保留期、退出方式与自托管提示。
+
+### ⚖️ 知识产权与许可合规
+
+- **补齐缺失的 `LICENSE`**：README 的徽章与「许可证」章节此前已声明 MIT 并链接到 `LICENSE`，
+  但**该文件根本不存在** —— 公开仓库无许可证即默认「保留所有权利」，任何人都无权使用。
+  现已补上 MIT 全文，并明确**第三方资产不适用 MIT**。
+- **补齐 `ARPHICPL.TXT`（关键的强制义务）**
+  - 本仓库分发的 `public/hanzi-data/hanzi-data.bin` / `hanzi-data-embedded.js`（9,574 个汉字的
+    笔画数据）来自 [`hanzi-writer-data`](https://github.com/chanind/hanzi-writer-data) →
+    [Make Me A Hanzi](https://github.com/skishore/makemeahanzi) → **Arphic Technology** 的字体，
+    其 `package.json` 声明 `"license": "SEE LICENSE IN ARPHICPL.TXT"`。
+  - **ARPHIC PUBLIC LICENSE §1 明文要求**：分发副本时*"must retain this license file (ARPHICPL.TXT)
+    unaltered in all copies"* —— 而此前仓库中**没有**该文件。
+  - 现已加入 Arphic 官方许可全文（6,900 字节，取自 npm 包的原始文件，**未作任何改动**）。
+  - 数据本身**未做内容改动**（无增删笔画/重排字形/改字表），仅做了 gzip + Base64 的无损重新封装；
+    仍在 `THIRD_PARTY_NOTICES.md` 中主动给出 §2(a) 变更声明，以覆盖更严格的解读。
+- **新增 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)**：列出全部随产物分发的数据、字体与
+  内联库及其许可（含 hanzi-writer / jsPDF / svg2pdf / cnchar / fflate / pinyin-pro / mammoth /
+  xlsx / lucide-static 等），并附合规自查清单。
+- **移除商业字体的默认引用**（`puppeteer-pdf.cjs`）
+  - 该公开 CLI 原本把 **姜浩硬笔楷书**作为**默认字体**，并在帮助文本中列出 方正仿宋GBK /
+    方正宋简大漆 / 方正宋简海豚 / 田英章楷书30Light 等需要单独商业授权的字体。
+  - 现仅保留**开源或系统自带**字体（文鼎楷体 = 随仓库分发；华文楷体 = 系统自带），
+    默认字体改为文鼎楷体；新增**本地私有映射** `puppeteer-fonts.local.json`
+    （已加入 `.gitignore`），让已获授权的使用者能在不污染公开仓库的前提下继续扩展。
+  - README 新增「商业字体声明」与「隐私」章节，致谢补全 hanzi-writer-data / Make Me A Hanzi /
+    Arphic Technology / fflate / jsPDF / svg2pdf.js。
+
+### 🖱️ 修复：双击打开（file://）误报「无法加载字帖生成器」
+
+> 现象：双击 `字帖生成器.html` 弹出「⚠️ 无法加载字帖生成器 / 请确认 dist/index.html 文件存在」，
+> 但 `dist/index.html` 确实存在且完好。
+
+**先证明「应用本身没问题」**（避免修错地方）：把 `dist/index.html` 用 `file://` 直接打开，与用
+静态服务器打开做逐项对比，结果**完全一致** —— 离线笔画数据 9,574 字、字格 18 格、4 个字体、
+笔顺弹窗均正常。**问题只在启动器。**
+
+**根因（三处，均已实测）**：
+1. **超时值过短**：启动器只等 `1500ms`，而实测 `dist/index.html` 在 file:// 下需约 **6009ms**
+   才触发 `load`（`domcontentloaded` 仅 806ms）—— 因为 `hanzi-data-embedded.js` 单文件就有 **16.4 MB**。
+   → 在几乎所有机器上都会误报。
+2. **监听注册过晚（竞态）**：`load` 监听在 iframe 标签之后才注册，若 iframe 已加载完，标记永远为 `false`。
+3. **错误提示无法恢复**：一旦显示，iframe 被设为 `display:none` 且不再恢复 ——「慢但成功」被永久掩盖。
+
+**为什么不能简单延长超时**：实测 file:// 下目标文件**不存在**时 `load` 事件**同样会触发**
+（Chrome 会为失败的导航加载自己的错误页）。因此 `load` **无法区分**「加载成功」与「文件缺失」。
+
+**修复**：
+- `src/main.js` 在同步初始化完成后向父窗口 `postMessage({type:'calligraphy:ready'})`；
+  启动器以该**显式就绪信标**判定成功，30s 超时仅作兜底，且**超时后仍保持监听**（应用稍后就绪会自动切换）。
+  实测应用在 **~0.6 秒**即可显示（信标早于 16.4 MB 数据的加载完成），比原先的白屏等待体验更好。
+- 启动器新增**加载中指示**（含已等待秒数）与**「🔄 重新加载」按钮**及诊断文案。
+- 顺带修复三处真实缺陷：
+  - **补上 favicon**：源码从未声明任何 icon，浏览器会自动请求 `/favicon.ico`，
+    在**每个**部署环境（含本地静态服务器）都留下一条 404。
+  - **指南链接改为相对路径**：`/stroke-demo-guide.html` 等三个链接原为绝对路径，
+    在 file:// 下会解析到文件系统根而失效；在 **GitHub Pages 的 `/仓库名/` 子路径部署下同样会 404**。
+  - **Service Worker 改为自行注册**（`vite.config.js` 设 `injectRegister: false`）：
+    插件自动注入的 `registerSW.js` 只判断 `'serviceWorker' in navigator`（该判断在 file:// 下为真），
+    于是必然发起一次注定失败的注册，且**生成的脚本没有 `.catch()`**，产生未捕获的 Promise 拒绝。
+    现由 `main.js` 注册，前置条件为 `import.meta.env.PROD`（插件 `devOptions.enabled` 默认 false，
+    **开发模式下根本没有 sw.js**，不加此判断会在 dev 下报 `The script has an unsupported MIME type`）
+    `&& location.protocol !== 'file:'`，并捕获失败。已验证 http:// 下 SW 仍正常注册（scope 正确、active）。
+
+### ✅ 验证
+
+新增 **`verify-v304-file-protocol.cjs`（19 项全通过）**，覆盖：
+file:// 下启动器显示应用而非错误、无空白页、**缺失文件仍能被检出（无假阴性）**、
+指南链接为相对路径且文件存在、http:// 下应用与 PWA 均无退化。
+
+全部 8 个套件通过：
+
+| 套件 | 结果 |
+|---|---|
+| `verify-v304-aikeys.cjs` | 231 / 0 |
+| `verify-v304-acceptance.cjs` | 116 / 0 |
+| `verify-v304-copybtn.cjs` | 14 / 0 |
+| `verify-v304-file-protocol.cjs` | 19 / 0 |
+| `verify-v304-touch.cjs` | PASS=178 FAIL=0 WARN=0 |
+| `verify-v301.cjs` / `verify-window-controls.cjs` / `test-middleware.cjs` | 16/16 · 23/23 · 13/0 |
+
+### 与个人版差异（公开发布版适配）
+
+- ✅ 无密码保护、无调试/测试端点
+- ✅ 在线 PDF API（个人版功能）不包含
+- ✅ 商业字体（方正 / 姜浩 / 田英章 / 我逸清晨体）不包含、不默认引用
+- ✅ 无硬编码默认密钥、无个人邮箱、无原始 IP 落库
+
+### 已知限制
+
+- 访问统计的**历史数据**中可能仍存在 v3.0.5 之前写入的原始 IP；新版本不再写入，
+  但既有记录需由部署者自行清理。
+- `IP_HASH_SALT` 变更会导致独立访客计数「重置」（同一访客哈希不同），这是密钥轮换的预期行为。
+
+---
+
+## v3.0.4 (2026-09-18) — 多引擎 AI 自动优选 + 触屏/平板笔顺弹窗自适应
+
+> 本版本由 4 路并行深度审查 → 多方案选型 → 冻结接口契约 → 多 Agent 分工实现 → 独立测试与验收 的流程产出。
+> 备份：`backup_v304_pre_upgrade_20260918_165658/`（完整源码快照）；基线提交 `ade6283`。
+
+### 新增 — AI 引擎注册表与「自动检测 + 自动优选」
+
+- 🌐 **多引擎支持（16 家）**：新增 `src/modules/aiProviders.js` 作为唯一引擎注册表
+  - DeepSeek、火山引擎豆包（原有）；智谱 GLM、月之暗面 Kimi、硅基流动、阿里云百炼（兼容模式）、
+    OpenRouter、MiniMax、阶跃星辰、百度千帆 v2、腾讯混元（新增）；
+    Agnes AI、ModelScope 魔搭、APINEX（**用户实测数据接入**，见下文专节）
+  - Google Gemini、Groq 收录但标记 `cors: 'unverified'`（本机网络受限无法实测，不谎报为可用）
+  - **不收录讯飞星火**：实测 OPTIONS 403、POST 401 且响应无 `Access-Control-Allow-Origin`，浏览器直连不可用
+- 🔍 **两阶段可用性探测**（新增 `src/modules/aiKeyHealth.js`）
+  - 阶段 1：零 token 的 `GET /models` 鉴权快路径（仅对实测会校验鉴权且带 CORS 头的引擎启用）
+  - 阶段 2：`max_tokens: 3` 的 chat 能力探测，校验**应用真正要发送的那个模型 ID**；
+    若引擎不支持 `response_format: json_object` 会自动去掉该字段重试一次并降级记录
+  - 错误分类细化：401 Key 无效 / 402·403 额度耗尽（歧义，不判 Key 无效）/ 404 模型不存在 /
+    429 限流（**不**标记为不可用）/ 网络或 CORS 不可达（文案明确提示"可能是跨域限制"）
+- 🤖 **自动消歧 + 自动优选（无需用户选择引擎）**
+  - 由于 `sk-` 被 DeepSeek / Kimi / 硅基流动 / 阿里百炼 共用，前缀识别无法判定路由：
+    新增候选列表机制，按候选逐个探测，**命中即止**并回写 `providerId`，用户无需手动选择
+  - 形状完全未知的 Key 会用「零 token 且校验鉴权的 `/models`」做免费扫描
+  - 权重：`0.30×免费度 + 0.20×速度 + 0.25×JSON稳定性 + 0.25×历史成功率 − 额度风险`
+    （免费度已归一化到 0..1：free=1 / cheap=1/3 / paid=0），
+    决胜顺序为延迟升序 → 引擎优先级降序 → 创建时间升序
+  - **诚实说明权重取舍**：当 JSON 与历史成功率**同时**变差时，两项合计可差 0.50 > 0.30，
+    「免费」的加成会被抵消；但若只有 JSON 降级，最多只差 0.25×0.5 = 0.125 < 0.30，
+    即「免费但 JSON 降级」仍高于「付费但 JSON 完好」。
+    实际排序：`free+jsonOk 1.000 > free+json降级 0.875 > cheap+jsonOk 0.800 > paid+jsonOk 0.700`
+    （这是 0.30/0.25 权重组合的固有取舍，非实现缺陷）
+- ⚙️ **设置中心 UI**
+  - 下拉框首位新增「**自动选择（推荐）**」，显示当前最优引擎、健康徽章与是否免费
+  - 新增「🔍 检测全部 Key 可用性」按钮，逐 Key 显示 `✓免费 / ✓可用 / ⚠限流 / ⚠不可达 / ✗Key无效 / ✗额度耗尽 / ✗模型不存在` 徽章
+  - **添加 Key 后自动探测**（自动识别引擎 + 判定可用性 + 免费与否），并自动纳入优选
+  - 从文件导入 Key 后自动批量探测并优选
+  - 手动在下拉中选中某个 Key → 固定为手动模式；选「自动选择」→ 回到自动模式
+- 🔒 **修复「全局模型覆盖」污染**：`ai_model_override` 改为按引擎作用域（`ai_model_override_<providerId>`），
+  旧全局键仅对 DeepSeek / 火山引擎生效，避免把 A 引擎的模型 ID 发给 B 引擎导致 404
+- 🩺 **缓存来源标记**：`ai_zuci_cache_v1` 条目新增 `src: "<providerId>:<modelId>"`，
+  返回结果新增 `degradedChars` / `freeChars` / `cheapChars` / `paidChars`（按来源档位分桶的已缓存字数）；
+  仅当 `paidChars > 0`（高价档产出）才追加提示，**不自动清缓存**（保护 `userEdited` 语义）。
+  注：`degradedChars` 为 `paidChars` 的别名 —— 早期实现把「非 free」一律视为降级，
+  会对 DeepSeek / doubao-lite 这类**低价档**用户在每次运行后都产生噪音提示，已收窄语义
+- ♻️ **消除重复实现**：删除 `aiZuci.js` 内与 `aiKeyStore.js` 重复的 `detectApiKeyType`，统一由注册表提供
+- 🛡️ **向后兼容**：既有 `ai_api_keys` / `ai_active_key_id` / `deepseek_api_key` 结构与迁移逻辑原样保留；
+  新字段（`providerId` / `modelId`）全部为可选，老用户零操作可用
+
+### 优化 — 触屏 / 平板笔顺演示弹窗
+
+- 📐 **自动排列 + 自动放缩**：`.sd-overlay` 改为 CSS Grid，新增 `solveLayout(n, availW, availH, sMax)` 纯函数求解器
+  - 对 `cols = 1..n` 计算 `s = min(sMax, availW/(cols·340+(cols−1)·12), availH/(rows·440+(rows−1)·12))`，取 `s` 最大者，并列取列数最大
+  - 采用「冻结 340×440 布局盒 + `transform: scale(var(--sd-s))`」方案：`s = 1` 时与旧版**字节级等价**
+  - `sMax = 粗略指针 ? 1.6 : 1.0` → **桌面端 `s` 恒为 1，行为零退化**；平板单弹窗可放大到 1.6 充分利用屏幕
+- 📱 **修复弹窗飞出屏幕且不可恢复**（原缺陷：iPad 竖屏 3-4 窗溢出 264–616px、1280×800 四窗溢出 156px、
+  手机两窗溢出 386px、手机横屏上下各切 45px，最外层窗口的 ✕ 在屏幕外，只能刷新页面）
+  - 新增 `src/utils/deviceEnv.js`：`isCoarsePointer` / `isTouchDevice` / `getViewport` / `onViewportChange`
+    （聚合 `resize` + `orientationchange` + `visualViewport.resize` 并去抖）
+  - 手机等极小视口：当最优 `s < 0.72` 时自动把最旧窗口收为最小化药丸（复用既有状态机），按 LRU 恢复
+- 🖐️ **触屏可用性**
+  - 拖拽增加视口边界约束，并在视口/方向变化时重新约束；双击标题栏复位到自动排列
+  - 粗略指针下触摸目标放大：窗口按钮 26→34px、播放按钮 36→44px、滑块拇指 14→22px
+  - 补齐缺失的 `.sd-flash`（聚焦反馈）与 `.dragging` 样式 —— 原代码只加类名、CSS 中根本不存在，
+    导致触摸端点已打开的字符毫无反馈
+- ⚡ **消除"拖沓"**
+  - 关闭不再死等 160ms：`.closing` 立即脱离布局（`position: fixed`，残影 appendChild 到 `<body>`），网格即时重排，幽灵层淡出
+  - 聚焦改用**内联 z-index**，不再 `appendChild` 重排（原实现会把聚焦窗口弹到手机列布局底部，
+    且在 Chromium 中重播入场动画）
+  - 修复拖拽监听器泄漏（原每个窗口向 `document` 注册 4 个监听且永不移除）
+  - 新窗口打开时重置其它窗口的 `maximized`（原来手机上两个最大化 = 190vw × 180vh）
+- 🧩 新增 769–1280px 平板断点（原先该区间完全无规则），并显式声明沿用本文件既有的 768px 边界
+- 🖨️ 打印隐藏、`prefers-reduced-motion`、主题 token、ESC 关最上层等既有行为全部保留
+
+### 修复 / 工程
+
+- 🔧 修复 `fillMissingZuci` 无法接收 `providerId` 的问题（原仅接受字符串 Key，
+  导致歧义 `sk-` Key 仍被旧前缀语义误判为 DeepSeek 并返回误导性 401）
+- 🔧 修复 `settingsCenter` 总是在调用处显式传入 `apiKey`，使 store 侧兜底路径成为死代码、
+  自动优选静默失效的接线缺陷
+- 🔧 修复 `.sd-window` 入场动画 `fill-mode: both` 会以 `transform: scale(1)` 覆盖缩放，
+  导致 `scale(var(--sd-s))` 永不生效的问题（动画改挂在 `.sd-slot` 上）
+- 🔧 修复求解公式把 12px 间距视为已缩放导致的实际溢出（实测 1280×800 四窗溢出 4.02px、
+  844×390 四窗溢出 15.27px），间距改为 `calc(12px * var(--sd-s))` 使公式精确
+- 🔤 **字体全部转 woff2** 适配 Cloudflare Pages 25MiB 单文件限制（承接 `ade6283` 的字体工作，
+  本版本补齐版本号与变更记录）
+
+### 独立验收后的修复（验收报告缺陷 #1–#9）
+
+> 由独立验收 Agent 在真实浏览器中复现并逐条确认；#1 被判定为 **no-ship 阻断项**。
+
+- 🚫 **[阻断] 修复「自动选择」默认态下 📋 复制按钮必然失败**：`settingsCenter.js` 的复制处理器
+  用 `find(k => k.id === id)` 解析选中项，而自动模式下 `value === '__auto__'` 永远匹配不到 →
+  每次点击都报「⚠ 未找到该 Key」。眼睛（`:752`）与删除（`:1002`）早已为 `__auto__` 做过回落，
+  唯独复制漏改；由于自动选择已是**默认模式**，等于对所有用户失效。
+  现与删除保持一致：非 `__auto__` 时按 id 查找，否则回落到 `getEffectiveKeyEntry()`，
+  并在状态栏标注「（自动选择当前生效）」
+- 🔇 **修复「非免费模型」噪音提示**：`degradedChars` 原定义为「非 free 档生成的缓存字数」，
+  使 DeepSeek / doubao-lite 这类 **低价档（cheap）** —— 也就是绝大多数用户唯一可用的引擎 ——
+  **每次运行后**都被追加"由非免费模型生成，建议切换 Key 后重跑"。
+  现新增 `srcTier()` 精确区分 free / cheap / paid，只有真正 **paid（高价档）** 才提示；
+  同时导出 `freeChars` / `cheapChars` / `paidChars` 三个分桶计数便于诊断
+- 🔓 **修复探测按钮可能永久禁用**：`getHealthApi()` 原在 `try` 之外 `await`，
+  一旦健康模块动态 `import` 失败，异常冒泡使 `finally` 不执行 → 按钮永久停在 disabled。
+  已移入 `try` 内
+- 🏷️ **修复「⚠限流」徽章永不可达**：429 的裁决是 `ok:true + kind:'ratelimit'`（限流≠Key 不可用），
+  而 `verdictBadge` 把 `if (v.ok) return '✓可用'` 放在 `switch` 之前，
+  使 CHANGELOG 承诺的「⚠限流」徽章永远显示不出来。已改为 `kind` 优先判定
+- 🧟 **移除死代码**：`quotaRiskOf` 中 `kind === 'quota'` 分支永不可达
+  （402/403 被 `classify()` 标为 `ok:false`，而 `scoreEntry` 的硬门 `ok !== true → 0` 会先行返回），
+  已删除并加注说明，避免读者误以为"额度耗尽仍可能得正分"
+- 🏷️ **修复导入失败提示误导**：原硬编码「支持 … `github_pat_` …」，但注册表中**没有任何引擎**
+  匹配该前缀（GitHub PAT 不是受支持引擎的 Key）。现改为从 `PROVIDERS[].keyShape.hint` 动态派生，
+  新增引擎会自动出现在提示中，不再漂移
+- ⏱️ **修复「并行二次运行」竞态**：`aiAbortCtrl` 原本在 4 个 `await`
+  （`getKeyStoreApi` / 动态 `import` ×2 / `getHealthApi` + `probeKey`）**之后**才赋值，
+  这段可达数秒的窗口内 `aiAbortCtrl` 仍为 `null`，第二次点击会绕过中断检查启动**并行**的第二次运行，
+  造成重复请求与状态互相覆盖。现改为「入口先占位、后解析」，
+  准备阶段整段包在 `try` 内保证任何异常都归还运行位，并把 `signal` 下传使中断能取消探测
+- 📄 **修正 CHANGELOG 中失实的权重理由**：原文称"权重刻意让 JSON+成功率（0.50）高于免费（0.30）"，
+  实际只在两项**同时**变差时成立（单独 JSON 降级最多差 0.125 < 0.30）。已改写为诚实说明并附实际排序
+- 🎨 **修正 CSS 与 JS 矛盾**：`strokeDemoModal.css` 的 `.sd-window.closing` 写 `position: absolute`，
+  而 `closeWindow()` 内联设置 `position: fixed`（残影被 `appendChild` 到 `<body>`，
+  用的是 `getBoundingClientRect` 的视口坐标，必须 `fixed`）。`absolute` 在 `<body>` 下语义错误，
+  只是被内联样式掩盖。CSS 已改为 `fixed` 并加注
+- 🧹 **`.gitignore`** 新增 `vite.config.js.timestamp-*.mjs`（Vite 加载配置时生成的临时 bundle，
+  进程被强制结束时可能残留）
+
+### 修复：双击打开（file://）误报「无法加载字帖生成器」
+
+> 报告现象：直接双击启动器 → 显示「⚠️ 无法加载字帖生成器 / 请确认 dist/index.html 文件存在」，
+> 但 `dist/index.html` 确实存在且完好。全部结论均为真实浏览器实测。
+
+**先确认「应用本身没问题」**（避免修错地方）：
+把 `dist/index.html` 用 `file://` 直接打开，与用静态服务器打开做逐项对比，结果**完全一致**：
+
+| 检查项 | file:// | http:// |
+|---|---|---|
+| 离线笔画数据 | ✅ `embedded.js 数据加载完成，共 9574 字` | ✅ 同 |
+| 字格渲染 | ✅ 18 个 `.grid-svg-cell` | ✅ 18 个 |
+| 字体 | ✅ 4 个 @font-face，3 个字族可用 | ✅ 同 |
+| 笔顺弹窗 | ✅ 正常弹出 | ✅ 正常弹出 |
+| 页面错误 | ❌ Service Worker 注册报错 | — |
+
+→ **应用在 file:// 下功能完整，问题只在启动器。**
+
+**根因（三处，均已实测）**：
+1. **超时值过短**：启动器只等 `1500ms`，而实测 `dist/index.html` 在 file:// 下需约
+   **6009ms** 才触发 `load`（`domcontentloaded` 为 806ms）——因为
+   `hanzi-data-embedded.js` 单文件就有 **16.4 MB**。→ 在几乎所有机器上都会误报。
+2. **监听注册过晚（竞态）**：`load` 监听在 iframe 标签之后才注册，若 iframe 已加载完，
+   标记永远为 `false`。
+3. **错误提示无法恢复**：一旦显示，iframe 被设为 `display:none` 且不再恢复 ——
+   「慢但成功」的加载会被永久掩盖。
+
+**为什么不能简单延长超时**：实测 file:// 下目标文件**不存在**时 `load` 事件**同样会触发**
+（Chrome 会为失败的导航加载自己的错误页）。因此 `load` 事件**无法区分**「加载成功」与「文件缺失」。
+
+**修复方案**：
+- `src/main.js` 在同步初始化完成后向父窗口 `postMessage({type:'calligraphy:ready'})`；
+  启动器以该**显式就绪信标**判定成功，超时（30s）仅作兜底，且**超时后仍保持监听**，
+  应用若稍后就绪会自动切换过去（恢复能力）。
+- 启动器新增**加载中指示**（含已等待秒数）—— 原先双击后有约 6 秒纯白屏，用户无法判断是加载还是坏了。
+- 新增**「🔄 重新加载」按钮**与诊断文案。
+
+**顺带修复的三处真实缺陷**：
+- 🖼️ **补上 favicon**：源码从未声明任何 icon，浏览器会自动请求 `/favicon.ico`，
+  在**每个**部署环境（含本地静态服务器）都留下一条 404。已加
+  `<link rel="icon" href="./icon-192.svg" type="image/svg+xml">`。
+- 🔗 **指南链接改为相对路径**：`/stroke-demo-guide.html` 等三个链接原为**绝对路径**，
+  在 file:// 下会解析到 `file:///stroke-demo-guide.html`（文件系统根）而失效；
+  在 GitHub Pages 的 `/仓库名/` 子路径部署下同样会 404。改为 `./xxx-guide.html` 后两种场景都正确。
+- ⚙️ **Service Worker 注册改为自行注册**（`vite.config.js` 设 `injectRegister: false`）：
+  插件自动注入的 `registerSW.js` 只判断 `'serviceWorker' in navigator`（该判断在 file:// 下为真），
+  于是双击打开时必然发起一次注定失败的注册，且**生成的脚本没有 `.catch()`**，
+  产生未捕获的 Promise 拒绝。现由 `main.js` 注册，前置条件为
+  `import.meta.env.PROD`（插件 `devOptions.enabled` 默认 false，**开发模式下根本没有 sw.js**，
+  不加此判断会在 dev 下报 `The script has an unsupported MIME type ('text/html')`）
+  `&& location.protocol !== 'file:'`，并捕获失败。
+  已验证 http:// 下 SW 仍正常注册（scope 正确、active），`autoUpdate` 逻辑位于生成的 `sw.js` 内不受影响。
+
+**新增验证套件 `verify-v304-file-protocol.cjs`（19 项全通过）**：覆盖
+「file:// 下启动器显示应用而非错误」「无空白页」「缺失文件仍能被检出（无假阴性）」
+「指南链接为相对路径且文件存在」「http:// 下应用与 PWA 均无退化」。
+
+
+> 本节全部结论均为 **2026-09-18 实测**：curl 直连（含 `--noproxy '*'` 排除本地代理干扰）
+> + **真实 Chromium 跨域 `fetch`**（CORS 只能由浏览器判定）+ 走应用自身的 `probeAll`
+> 与 `fillMissingZuci` 端到端验证。未验证的一律标注，不臆造。
+
+- ✅ **新增 Agnes AI（`agnes`）**：`https://apihub.agnes-ai.com/v1`
+  - **实测可跨域直连**：`/models` 与 `/chat/completions` 均返回 `Access-Control-Allow-Origin: *`
+  - **实测 `/models` 校验鉴权**（错 Key / 无 Key 均 401）→ 因此可用**零 token** 快路径探测
+  - 默认模型 `agnes-3.0-flash`（`tier: free`，面向开发者免费）：实测 200 + 合法 chat completion，
+    且 `response_format: json_object` 被接受并返回可解析 JSON
+  - 端到端实测（4 字全量检查）：**12.9 秒**，组词结果正确（觥→觥筹/觥飞，缱→缱绻/缱缠，氤→氤氲/氤郁，蠡→蠡湖/蠡县）
+  - Key 为 `sk-` 开头 → 与 DeepSeek / Kimi / 硅基流动 / 百炼**共用前缀**，靠候选逐个探测消歧；
+    实测从「无 providerId 的裸 Key」出发，应用自动识别为 agnes 并回写
+  - `agnes-2.5-pro` / `-alpha` / `-beta` 对免费 Key 返回 **403**，故**不收录**（不虚报可用）
+- ✅ **新增 ModelScope 魔搭（`modelscope`）**：`https://api-inference.modelscope.cn/v1`
+  - **实测可跨域直连**（`Access-Control-Allow-Origin: *`）；每日 **2000 次免费额度**
+  - Key 形状 `ms-…` **唯一可识别**，无需消歧
+  - `/models` 实测为公开模型库（错 Key 甚至无 Key 也 200）→ **不校验鉴权**，
+    故 `modelsPath: null`，不提供零 token 快路径（遵守既有不变量）
+  - 默认模型 `Qwen/Qwen3.8-Flash-Next`：实测 200、支持 `response_format`、
+    max_tokens:3 下仍返回非空 `content`
+  - ⚠ **实测明显偏慢**：4 字全量检查 **102–122 秒**（对比 agnes 12.9 秒，约 8–9 倍）。
+    现有可用模型均为推理型，故标记 `slow: true`（见下方评分修订），定位为**备用引擎**
+- ❌ **新增 APINEX（`apinex`）但标记为不可用**：`https://api.apinex.bond/v1`
+  - **实测浏览器直连不可用**：`OPTIONS` 预检返回 204，带 `allow-methods` / `allow-headers` /
+    `allow-credentials`，但**不含 `Access-Control-Allow-Origin`**（对 `localhost` / `example.com` / `null`
+    均如此）；`POST` 同样只回 `allow-credentials`。真实 Chromium 中 `fetch` 直接抛 `Failed to fetch`
+  - 另外账户侧返回 `402 {"message":"Insufficient balance"}`
+  - 因此 `cors: 'failed'`，**不参与自动优选**。保留条目的唯一目的是让 `sk-apx` 形状被**唯一识别**，
+    从而立刻给出准确诊断，而不是被旧 `sk-` 前缀语义误判为 DeepSeek 并浪费一串注定 401 的探测
+  - `sk-apx` 已从通用 `sk-` 形状判定中排除（与 `sk-or-v1-` 同样处理），
+    但文件导入用的宽松 `pattern` 仍覆盖整族 `sk-`
+
+### 联网实测发现并修复的两处探测缺陷
+
+- 🔧 **修复「HTTP 200 但响应体退化」被误判为不可用（重要）**
+  - 原探测只在 `400/422` 且错误文本提到 `response_format` 时才降级重试。
+  - 实测 ModelScope 的 `Qwen/Qwen3.8-Flash-Next` 在 `max_tokens:3` + `response_format` 下返回
+    **HTTP 200 + `{"choices":null}`** —— 既非规范拒绝，也非真正的代理故障。
+  - 后果：一个**真实可用**的引擎被判为「端点有响应但响应体不是 chat completion
+    （通常意味着走了代理或 baseUrl 配置错误）」，并因 `ok:false` 无法被自动优选。
+  - 修复：新增「降级信号 2」—— 200 但响应体不是 chat completion 且本次仍带着 `response_format` 时，
+    去掉该字段重试一次再判定；两种信号都**只降级一次**，不会无限重试。
+    修复后该 Key 实测由 `ok:false` 变为 `ok:true`。
+- 🏷️ **修复自动消歧成功后不更新 label / type**
+  - 原 `writeBackProvider` 只回写 `providerId` / `modelId`。以「未识别」形状加入的 Key 即使探测成功，
+    下拉框仍显示「未识别」，用户看不出到底识别成了哪家。
+  - 实测复现：agnes 探测成功后 `label` 仍是「未识别」。现同步回写 `type` 与 `label`（取自注册表）。
+- 🏷️ **修复新增 Key 时按旧前缀语义给出「主动错误」的引擎名**
+  - `addKey` 原本只用 `detectKeyType`（旧前缀语义）：`sk-apx…`（APINEX）被判成 `deepseek`
+    并在下拉框显示 **「DeepSeek」** —— 这不是"未识别"，而是**声称了一个错误的引擎**。
+    且该 Key 因 CORS 探测必然失败，`writeBackProvider` 永远不会纠正它，用户会一直以为在用 DeepSeek。
+    同理 `ms-…`（ModelScope）旧语义为 `unknown` → 显示「未知引擎」。
+  - 修复：`addKey` 改为「形状**唯一**可判定时优先采用注册表结论 → 否则落回旧前缀语义」。
+    实测：`sk-apx` → **APINEX**、`ms-` → **ModelScope 魔搭**、`ark-` 不变、
+    歧义 `sk-` 仍回落 DeepSeek 且**不写 providerId**（留给探测消歧）。
+  - `detectKeyType` 导出**保持旧语义不变**（其它调用方依赖），仅 `addKey` 改用注册表。
+
+### 评分修订：`slow` 标记（探测延迟对推理模型失真）
+
+- `speedScore = 1 - latencyMs/3000` 中的 `latencyMs` 是**探测延迟**（max_tokens:3），
+  对推理型模型毫无代表性：3 token 下秒回，真实负载下先生成大量 reasoning token。
+- 实测同一任务（4 字全量检查）：Agnes **12.9s** vs ModelScope **102–122s**，
+  而探测延迟反而是 ModelScope 更快（1528ms vs 3849ms）→ 会导致「更慢的引擎得分更高」。
+- 注册表新增可选字段 `model.slow`（**仅对实测过的模型设置**，不凭猜测标注）；
+  标记后 `scoreEntry` 该项直接记 0，不再由失真的探测延迟给分。
+- 实测效果：agnes `0.800` vs ModelScope `0.675`（修复前为 `0.800` vs `0.700`，差距仅 0.10 且可被翻转），
+  自动优选稳定选中 agnes。
+
+### 与个人版差异（公开发布版适配）
+
+- ✅ 无密码保护、无调试/测试端点
+- ✅ 在线 PDF API（个人版功能）不包含
+- ✅ 商业字体（方正/姜浩/田英章/我逸清晨体）不包含
+
+### 已知限制
+
+- Gemini / Groq 的浏览器 CORS 可行性未能在本机验证（网络受限），已标记 `unverified` 并在探测失败时
+  明确提示"可能是跨域限制"，不谎报为可用
+- 阶跃星辰 / 腾讯混元的 Key 形状无法可靠识别，需先由探测消歧（其 `/models` 端点不校验鉴权时无法免费扫描）
+- 各新增引擎的模型 ID 未经在线核实，依赖运行时探测校验；探测失败会提示"模型不存在，请在注册表中更换模型"
+- **ModelScope 魔搭实测偏慢**：现有可用模型均为推理型，4 字全量检查实测 100–120 秒
+  （agnes-3.0-flash 同任务 12.9 秒）。已标记 `slow: true` 使其不会被自动优选误选，
+  但若用户**只**有 ModelScope 一个 Key，长文本仍可能触发 5 分钟硬超时，建议减少单次字数或改用其它引擎
+- **APINEX 浏览器直连不可用**：实测响应缺少 `Access-Control-Allow-Origin`（预检 204 亦无），
+  真实 Chromium 中 `fetch` 直接失败，且账户提示余额不足。条目仅为形状识别而保留，不参与优选
+- **`slow` 标记覆盖不全**：仅对**实测过**的模型设置。其它推理型模型（如 ModelScope 的
+  `deepseek-ai/DeepSeek-V4.1-Flash`）端到端耗时未单独实测，故未标注，仍会按失真的探测延迟给速度分
+- **探测延迟 ≠ 真实吞吐**：这是探测设计（3 token，零成本）的固有局限。`slow` 标记是对已知情形的
+  定点修正，而非通用解法
+
+---
+
 ## v3.0.3 (2026-08-16) — 访问统计系统
 
 ### 新增
@@ -20,7 +429,7 @@
 ### 与个人版差异（公开发布版适配）
 - ✅ **无密码保护**：公开发布版中间件不包含密码登录页（自用版 _middleware.js 含密码保护）
 - ✅ **无调试/测试端点**：移除 /api/debug（会暴露环境变量前缀）与 /api/test-email（公开发送测试邮件）
-- ✅ **默认密钥更换**：CRON_SECRET 默认值已更换为 calligraphy_cron_secret_x8k3n5q9w2r7（部署时请改为强随机值）
+- ✅ **默认密钥更换**：CRON_SECRET 默认值已更换为 <旧默认密钥，已废弃>（部署时请改为强随机值）
 - ✅ **名称合规**：报告/邮件中均使用“字帖生成器”，无个人版名称
 
 ### 安全说明
@@ -280,13 +689,13 @@
 # v2.9.7 文档同步:策略性文件(本地保留作为迭代记录,禁止上传 GitHub)
 docs/
 _commit_v287.txt
-视频自我介绍脚本_陈自强_Trae大赛.md
+视频自我介绍脚本_<姓名>_Trae大赛.md
 ```
 
 #### 从 GitHub 跟踪移除(本地保留)
 - `docs/` 目录下 40 个策略文件(深度审查报告/根因分析/修复方案/发布说明/测试清单/多Agent简报/patch/飞书问卷数据/PWA安装指南等)
 - `_commit_v287.txt`(临时提交说明文件)
-- `视频自我介绍脚本_陈自强_Trae大赛.md`(个人文件)
+- `视频自我介绍脚本_<姓名>_Trae大赛.md`(个人文件)
 
 > [!NOTE]
 > 策略性文件定义为项目迭代过程中产生的内部文档,包括审查报告/根因分析/修复方案/发布说明/测试清单/多Agent简报等。这些文件本地保留作为迭代历史记录,但不再推送到 GitHub,避免污染公开仓库。
@@ -303,7 +712,7 @@ _commit_v287.txt
 | `.gitignore` | 修改 | 新增 docs/ + _commit_v287.txt + 视频脚本 忽略规则 |
 | `docs/*` | git rm --cached | 40 个策略文件从 GitHub 跟踪移除(本地保留) |
 | `_commit_v287.txt` | git rm --cached | 临时文件从 GitHub 跟踪移除(本地保留) |
-| `视频自我介绍脚本_陈自强_Trae大赛.md` | git rm --cached | 个人文件从 GitHub 跟踪移除(本地保留) |
+| `视频自我介绍脚本_<姓名>_Trae大赛.md` | git rm --cached | 个人文件从 GitHub 跟踪移除(本地保留) |
 
 ### 🚫 不变项
 - `package.json`:版本号保持 2.9.7(不 bump)
@@ -795,8 +1204,8 @@ _commit_v287.txt
 
 ### 📋 多 Agent 协同审查
 
-- **审查报告**：`C:\poem2pdf\字帖项目_移动端打印页眉页脚缺失_深度审查报告v2_20260725.md`
-- **修复方案**：`C:\poem2pdf\TraeCN_v2.9.0_iframe打印架构_一次性修复提示词_20260725.md`
+- **审查报告**：`字帖项目_移动端打印页眉页脚缺失_深度审查报告v2_20260725.md`
+- **修复方案**：`TraeCN_v2.9.0_iframe打印架构_一次性修复提示词_20260725.md`
 - **审查范围**：4 个 agent 并行分析（前端开发 / 网页打印 CSS / 移动端系统 / 代码取证）+ 4 视角审查方案（高级前端 / 移动端 / 全栈 / 架构师）
 - **审查结论**：
   - ✅ 架构方向正确（iframe 静态打印文档是根治路径，与 print.js 等成熟库策略一致）
@@ -885,7 +1294,7 @@ _commit_v287.txt
 
 - 备份 tag：`backup/pre_v289_header_footer/20260725_203328`
 - 回退命令：`git reset --hard backup/pre_v289_header_footer/20260725_203328`
-- 线下备份：`C:\poem2pdf\distribution_backups\v2.8.7_pre_v289_20260725_203328\`
+- 线下备份：`distribution_backups\v2.8.7_pre_v289_20260725_203328\`
 
 ---
 
@@ -1118,21 +1527,21 @@ _commit_v287.txt
 #### 修复 1 — MatePad 移动端断点未触发（14 行/页 → 11 行/页）
 
 - **用户反馈**：v2.8.3 修复后 MatePad 上仍然是 14 行/页，198 字生成 16 页（应为 18 页）
-- **根因**：[print.css:128](file:///c:/poem2pdf/distribution/src/styles/print.css#L128) 移动端断点为 `@media print and (max-width: 900px)`，但 MatePad 视口 768×1024 DPR=2 实际渲染宽度 1536px > 900px，导致移动端分页规则未触发，回退到桌面默认 `min-height: auto`
-- **修复**：[print.css:128](file:///c:/poem2pdf/distribution/src/styles/print.css#L128) 断点从 `900px` 扩展到 `1200px`，覆盖所有移动设备视口
+- **根因**：[print.css:128](src/styles/print.css#L128) 移动端断点为 `@media print and (max-width: 900px)`，但 MatePad 视口 768×1024 DPR=2 实际渲染宽度 1536px > 900px，导致移动端分页规则未触发，回退到桌面默认 `min-height: auto`
+- **修复**：[print.css:128](src/styles/print.css#L128) 断点从 `900px` 扩展到 `1200px`，覆盖所有移动设备视口
 - **验证**：dist/index.html 包含 `max-width:1200px`；MatePad 模拟测试 3 用例全部 PASS；printDirect 路径验证 22 字 = 2 页（11 行/页）
 
 #### 修复 2 — CSS 压缩潜在风险（防御性配置）
 
 - **风险**：Vite 默认 esbuild CSS 压缩可能合并/简化 `@media print` 关键规则
-- **修复**：[vite.config.js:43-48](file:///c:/poem2pdf/distribution/vite.config.js#L43) 添加 `cssMinify: false` + `target: 'es2020'` + `cssTarget: 'chrome89'` + `preview.port: 4173`
+- **修复**：[vite.config.js:43-48](vite.config.js#L43) 添加 `cssMinify: false` + `target: 'es2020'` + `cssTarget: 'chrome89'` + `preview.port: 4173`
 - **验证**：dist/index.html 关键 CSS 规则 10/10 PASS（`min-height:295mm` / `page-break-after:always` / `break-after:page` / `max-width:1200px` / `page-break-inside:avoid` / `var(--grid-primary-color)` 全部保留）
 
 ### 🔧 工程化
 
 #### 增强 1 — pdfExport.js 日志增强（38 处日志节点）
 
-- **新增**：[pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js) 新增 `detectPlatform()` 函数，统一检测 HarmonyOS / iOS Safari / Android Chrome / Mobile
+- **新增**：[pdfExport.js](src/utils/pdfExport.js) 新增 `detectPlatform()` 函数，统一检测 HarmonyOS / iOS Safari / Android Chrome / Mobile
 - **exportVectorPDF**：11 处日志（入口/字体/grid-container/页眉页脚/总页数/每页循环/SVG写入/绘制/保存/异常）
 - **printDirect**：8 处日志（入口/页眉页脚/分页段/section创建/注入/异常）
 - **UA 检测**：`isHarmonyOS` / `isIOSSafari` / `isAndroidChrome` / `isMobile` 四维检测
@@ -1148,40 +1557,40 @@ _commit_v287.txt
 
 #### 文档 1 — 深度审查报告 v2.8.4
 
-- 新增 [docs/深度审查报告_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.4.md)
+- 新增 `docs/深度审查报告_v2.8.4.md`
 - 涵盖：5 个问题根因分析、各模块审查结果、跨平台一致性保障策略、HarmonyOS 打印配置指南、备份与回退机制、多 Agent 协作机制、验收清单
 
 #### 文档 2 — 跨平台兼容性分析 v2.8.4
 
-- 新增 [docs/跨平台兼容性分析_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/跨平台兼容性分析_v2.8.4.md)
+- 新增 `docs/跨平台兼容性分析_v2.8.4.md`
 - 涵盖：MatePad HarmonyOS / MacOS Safari / iPad Safari / Android Chrome / Desktop Chrome 五平台分析 + 一致性保障策略 + HarmonyOS 打印配置指南
 
 #### 文档 3 — 飞书问卷提交数据 v2.8.4
 
-- 新增 [docs/飞书问卷提交数据_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.4.md)
+- 新增 `docs/飞书问卷提交数据_v2.8.4.md`
 - 5 套测试数据 + Session ID `sess-20260725-XXXX` + 演示视频占位符
 
 #### 文档 4 — 移动端功能测试清单 v2.8.4
 
-- 新增 [docs/移动端功能测试清单_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.4.md)
+- 新增 `docs/移动端功能测试清单_v2.8.4.md`
 - 32 项可勾选测试项（6 大类：MatePad 专项 / 字数过滤 / PDF 性能 / PWA / 跨平台 / UI）
 
 #### 文档 5 — PWA 安装指南 v2.8.4
 
-- 新增 [docs/PWA安装指南_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.4.md)
+- 新增 `docs/PWA安装指南_v2.8.4.md`
 - 二维码（240×240 + 480×480）+ 5 平台安装步骤 + HarmonyOS 特殊说明 + PWA 验证清单 + FAQ
 
 #### 文档 6 — 复赛发布帖 v2.8.4
 
-- 新增 [docs/复赛发布_v2.8.4.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.4.md)
+- 新增 `docs/复赛发布_v2.8.4.md`
 - 完整发布帖草稿 + GitHub Pages 部署说明 + HarmonyOS MatePad 打印 PDF 步骤
 
 ### 🔒 备份与回退
 
 - 创建备份文件：
-  - [vite.config.js.v2.8.3.bak](file:///c:/poem2pdf/distribution/vite.config.js.v2.8.3.bak)
-  - [src/styles/print.css.v2.8.3.bak](file:///c:/poem2pdf/distribution/src/styles/print.css.v2.8.3.bak)
-  - [src/utils/pdfExport.js.v2.8.3.bak](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js.v2.8.3.bak)
+  - [vite.config.js.v2.8.3.bak](vite.config.js.v2.8.3.bak)
+  - [src/styles/print.css.v2.8.3.bak](src/styles/print.css.v2.8.3.bak)
+  - [src/utils/pdfExport.js.v2.8.3.bak](src/utils/pdfExport.js.v2.8.3.bak)
 - 回退方法：覆盖原文件后 `npm run build`（详见深度审查报告第六章）
 
 ### ✅ 验证清单
@@ -1206,23 +1615,23 @@ _commit_v287.txt
 #### 修复 1 — MatePad 分页错误（14 行/页 → 11 行/页，18 页恢复）
 
 - **用户反馈**：华为 MatePad 打印 PDF 时，本来每页 11 行，实际分成 14 行/页，198 字从 18 页变成 16 页
-- **根因**：v2.8.1 修复时在 [print.css:140-144](file:///c:/poem2pdf/distribution/src/styles/print.css#L140) 移动端断点中写了 `min-height: auto !important`，取消了 295mm 最小高度，导致：
+- **根因**：v2.8.1 修复时在 [print.css:140-144](src/styles/print.css#L140) 移动端断点中写了 `min-height: auto !important`，取消了 295mm 最小高度，导致：
   - flex column 的 `margin-top: auto`（页脚）失效
   - 多个 section 在一页内紧凑排列 → 14 行/页
 - **修复**：
-  - [print.css:143-150](file:///c:/poem2pdf/distribution/src/styles/print.css#L143) 移动端断点恢复 `min-height: 295mm !important` + `padding: 8mm 15.9mm 5mm 15.9mm`（与桌面端完全一致）
-  - [print.css:148-149](file:///c:/poem2pdf/distribution/src/styles/print.css#L148) 新增 `page-break-after: always !important`（段后强制分页）
-  - [print.css:225-233](file:///c:/poem2pdf/distribution/src/styles/print.css#L225) 桌面端也新增 `page-break-after: always`（统一分页策略）
+  - [print.css:143-150](src/styles/print.css#L143) 移动端断点恢复 `min-height: 295mm !important` + `padding: 8mm 15.9mm 5mm 15.9mm`（与桌面端完全一致）
+  - [print.css:148-149](src/styles/print.css#L148) 新增 `page-break-after: always !important`（段后强制分页）
+  - [print.css:225-233](src/styles/print.css#L225) 桌面端也新增 `page-break-after: always`（统一分页策略）
 - **验证**：构建通过 + MatePad 模拟测试 3 用例全部 ✅（9 字 × 11 格 = 99 SVG 字格，9 行）
 
 #### 修复 2 — 笔画 SVG 位置偏移（MatePad 打印 PDF 中向下移出四线格拼音行）
 
 - **用户反馈**：笔画/笔顺分解 SVG 在 HTML 显示正常，但 MatePad 打印 PDF 中被向下移出四线格拼音所在行，偏移严重
-- **根因**：[grid-svg.css:114-120](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L114) `.grid-svg-stroke-box svg` 缺少 `vertical-align: middle` 和 `display: block`。移动端浏览器（HarmonyOS）对 flex 内异步插入 SVG 的默认 `vertical-align: baseline` 处理不同，导致 SVG 被推到行基线以下
+- **根因**：[grid-svg.css:114-120](src/styles/grid-svg.css#L114) `.grid-svg-stroke-box svg` 缺少 `vertical-align: middle` 和 `display: block`。移动端浏览器（HarmonyOS）对 flex 内异步插入 SVG 的默认 `vertical-align: baseline` 处理不同，导致 SVG 被推到行基线以下
 - **修复**：
-  - [grid-svg.css:114-125](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L114) 新增 `vertical-align: middle` + `display: block`
-  - [grid-svg.css:189-199](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L189) @media print 中新增 `.grid-svg-stroke-box { align-items: center !important; }` + SVG 强制 `vertical-align: middle !important; display: block !important;`
-  - [print.css:178-187](file:///c:/poem2pdf/distribution/src/styles/print.css#L178) 移动端断点也同步加固
+  - [grid-svg.css:114-125](src/styles/grid-svg.css#L114) 新增 `vertical-align: middle` + `display: block`
+  - [grid-svg.css:189-199](src/styles/grid-svg.css#L189) @media print 中新增 `.grid-svg-stroke-box { align-items: center !important; }` + SVG 强制 `vertical-align: middle !important; display: block !important;`
+  - [print.css:178-187](src/styles/print.css#L178) 移动端断点也同步加固
 
 #### 修复 3 — 页眉页脚丢失 + 颜色不同步
 
@@ -1230,19 +1639,19 @@ _commit_v287.txt
   1. MatePad 打印 PDF 中没有页眉页脚
   2. 切换网格颜色后，页眉页脚颜色仍是绿色（不跟随）
 - **根因 1（页眉页脚丢失）**：与修复 1 同源，`min-height: auto` 导致 flex column 的 `margin-top: auto`（页脚）失效，页脚无法推到页面底部
-- **根因 2（颜色不同步）**：[print.css:223,244](file:///c:/poem2pdf/distribution/src/styles/print.css#L223) 硬编码 `color: #2E7D32`（传统绿），切换朱砂红/靛青蓝/墨黑时不跟随
+- **根因 2（颜色不同步）**：[print.css:223,244](src/styles/print.css#L223) 硬编码 `color: #2E7D32`（传统绿），切换朱砂红/靛青蓝/墨黑时不跟随
 - **修复**：
   - 页眉页脚丢失：同修复 1，恢复 `min-height: 295mm`
   - 颜色不同步：
-    - [print.css:250,272](file:///c:/poem2pdf/distribution/src/styles/print.css#L250) 页眉页脚颜色改为 `var(--grid-primary-color, #2E7D32)`
-    - [GridEngine.js:603-607](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L603) renderSheet 时设置 `--grid-primary-color` CSS 变量
-    - [settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js) applySettings 时同步设置 CSS 变量（颜色预设切换立即生效）
+    - [print.css:250,272](src/styles/print.css#L250) 页眉页脚颜色改为 `var(--grid-primary-color, #2E7D32)`
+    - [GridEngine.js:603-607](src/components/GridEngine.js#L603) renderSheet 时设置 `--grid-primary-color` CSS 变量
+    - [settingsCenter.js](src/modules/settingsCenter.js) applySettings 时同步设置 CSS 变量（颜色预设切换立即生效）
 
 ### 📝 文档
 
 #### 文档 1 — 深度审查报告 v2.8.3（改动前）
 
-- 新增 [docs/深度审查报告_v2.8.3_pre_change.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.3_pre_change.md)
+- 新增 `docs/深度审查报告_v2.8.3_pre_change.md`
 - 涵盖：3 个问题根因分析、字数与页数契约、分页机制对比、笔画 SVG 布局结构、页眉页脚颜色同步方案、回归检测、改动影响评估
 
 ### 🔧 工程化
@@ -1280,14 +1689,14 @@ _commit_v287.txt
 
 - **用户原则**："请务必只保留汉字字符，繁体简体都可以，但其它符号都务必过滤掉，哪怕是中文的标点符号，也必须过滤掉，因为练字的时候字帖里永不上，这是一个基本原则"
 - **多 Agent 调查结论**：
-  - 根因 1：[fileImporter.js:26](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js#L26) `filterChineseChars` 正则 `/[\u4e00-\u9fa5]/g` 仅覆盖 CJK 基本区，缺扩展 A 区（U+3400–U+4DBF）、基本区扩展（U+9FA6–U+9FFF）、兼容汉字（U+F900–U+FAFF）
-  - 根因 2：[GridEngine.js:604](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L604) `renderSheet` 入口仅过滤空白换行，textarea 直接粘贴的中文标点/字母/数字被当作字符渲染进字格
-  - 根因 3：[settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 基于 `textarea.value.length` 统计，含标点，与实际渲染字数不一致
+  - 根因 1：[fileImporter.js:26](src/modules/fileImporter.js#L26) `filterChineseChars` 正则 `/[\u4e00-\u9fa5]/g` 仅覆盖 CJK 基本区，缺扩展 A 区（U+3400–U+4DBF）、基本区扩展（U+9FA6–U+9FFF）、兼容汉字（U+F900–U+FAFF）
+  - 根因 2：[GridEngine.js:604](src/components/GridEngine.js#L604) `renderSheet` 入口仅过滤空白换行，textarea 直接粘贴的中文标点/字母/数字被当作字符渲染进字格
+  - 根因 3：[settings.js](src/modules/settings.js) `updateCharCounter` 基于 `textarea.value.length` 统计，含标点，与实际渲染字数不一致
 - **修复**：
-  - [fileImporter.js:26](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js#L26) 正则扩展为 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g`，覆盖基本区+扩展 A+兼容汉字
-  - [fileImporter.js](file:///c:/poem2pdf/distribution/src/modules/fileImporter.js) export 新增 `filterChineseChars`，供其他模块复用
-  - [GridEngine.js:603-611](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L603) `renderSheet` 入口加预过滤 IIFE，渲染前已是纯汉字
-  - [settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 改为基于过滤后字数，与实际渲染一致
+  - [fileImporter.js:26](src/modules/fileImporter.js#L26) 正则扩展为 `/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g`，覆盖基本区+扩展 A+兼容汉字
+  - [fileImporter.js](src/modules/fileImporter.js) export 新增 `filterChineseChars`，供其他模块复用
+  - [GridEngine.js:603-611](src/components/GridEngine.js#L603) `renderSheet` 入口加预过滤 IIFE，渲染前已是纯汉字
+  - [settings.js](src/modules/settings.js) `updateCharCounter` 改为基于过滤后字数，与实际渲染一致
 - **验证**：构建通过（839 模块，0 错误），IDE 诊断 0 错误
 
 ### ✨ 新增
@@ -1298,27 +1707,27 @@ _commit_v287.txt
 - **字数验证**：
   - 原文本 200 字 → ⌈200/11⌉ = 19 页（11 字/页，多 1 页）
   - 删末尾 "替骂" 2 字 → 198 字 → 18 页正好
-- **修复**：[index.html:74](file:///c:/poem2pdf/distribution/index.html#L74) textarea 默认值改为 198 字版本
+- **修复**：[index.html:74](index.html#L74) textarea 默认值改为 198 字版本
 - **验证**：PowerShell 实测 `Default text length: 198` / `Pages (11 chars/page): 18`
 
 #### 新增 2 — pdfExport.js 关键节点日志（移动端调试增强）
 
 - **背景**：MatePad 移动端无法直接查看 console.log，排查空白问题困难
 - **新增日志节点**（8 个，全部 `[pdfExport]` 前缀）：
-  - [pdfExport.js:254](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L254) printDirect 入口（UA + 字数 + 字体）
-  - [pdfExport.js:395](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L395) 移动端检测（isMobileUA + isHarmonyOS）
-  - [pdfExport.js:312](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L312) 分页段创建（页数 + 字数）
-  - [pdfExport.js:409-411](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L409) 字体等待开始/完成
-  - [pdfExport.js:413-415](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L413) waitForStrokes 开始/完成
-  - [pdfExport.js:428-431](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L428) window.print() 调用
-  - [pdfExport.js:375,385](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L375) cleanup 开始/完成
-  - [pdfExport.js:112](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L112) exportVectorPDF 入口
+  - [pdfExport.js:254](src/utils/pdfExport.js#L254) printDirect 入口（UA + 字数 + 字体）
+  - [pdfExport.js:395](src/utils/pdfExport.js#L395) 移动端检测（isMobileUA + isHarmonyOS）
+  - [pdfExport.js:312](src/utils/pdfExport.js#L312) 分页段创建（页数 + 字数）
+  - [pdfExport.js:409-411](src/utils/pdfExport.js#L409) 字体等待开始/完成
+  - [pdfExport.js:413-415](src/utils/pdfExport.js#L413) waitForStrokes 开始/完成
+  - [pdfExport.js:428-431](src/utils/pdfExport.js#L428) window.print() 调用
+  - [pdfExport.js:375,385](src/utils/pdfExport.js#L375) cleanup 开始/完成
+  - [pdfExport.js:112](src/utils/pdfExport.js#L112) exportVectorPDF 入口
 - **使用方法**：移动端 Chrome 远程调试（USB）或 vConsole 注入后，按 `[pdfExport]` 过滤日志
 
 #### 新增 3 — MatePad 模拟测试脚本（本地验证网格颜色）
 
 - **背景**：用户要求"帮我构造一个模拟的 MatePad 环境数据，在本地运行一下导出 PDF 的测试，验证网格颜色是否正常"
-- **新增**：[matepad-simulate.cjs](file:///c:/poem2pdf/distribution/matepad-simulate.cjs)
+- **新增**：[matepad-simulate.cjs](matepad-simulate.cjs)
 - **特性**：
   - MatePad UA：`Mozilla/5.0 (Linux; Android 10; HARMONYOS; MatePad Pro) AppleWebKit/537.36 Chrome/114.0.0.0 Safari/537.36`
   - 视口 768×1024 DPR=2（MatePad 横屏）
@@ -1332,7 +1741,7 @@ _commit_v287.txt
 
 #### 文档 1 — 深度审查报告（改动前）
 
-- 新增 [docs/深度审查报告_v2.8.2_pre_change.md](file:///c:/poem2pdf/distribution/docs/深度审查报告_v2.8.2_pre_change.md)
+- 新增 `docs/深度审查报告_v2.8.2_pre_change.md`
 - 涵盖：字数与页数关系、过滤器缺陷、pdfExport 日志节点、MatePad 模拟方案、回归检测、改动影响评估、多 Agent 任务分配
 
 ### 🔧 工程化
@@ -1346,11 +1755,11 @@ _commit_v287.txt
 
 > [!NOTE]
 > 用户任务 4-7（MatePad 适配 / HarmonyOS 说明 / 飞书问卷数据 / 测试清单 / PWA 二维码）已在 v2.8.1 完成，本轮引用：
-> - [docs/移动端打印替代方案_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端打印替代方案_v2.8.1.md)
-> - [docs/飞书问卷提交数据_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.1.md)
-> - [docs/PWA安装指南_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.1.md)
-> - [docs/移动端功能测试清单_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.1.md)
-> - [docs/复赛发布_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.1.md)
+> - `docs/移动端打印替代方案_v2.8.1.md`
+> - `docs/飞书问卷提交数据_v2.8.1.md`
+> - `docs/PWA安装指南_v2.8.1.md`
+> - `docs/移动端功能测试清单_v2.8.1.md`
+> - `docs/复赛发布_v2.8.1.md`
 
 ### ✅ GitHub Pages 部署状态
 
@@ -1373,37 +1782,37 @@ _commit_v287.txt
   - 根因 1：print.css 使用 `body * { visibility: hidden; }` + `.a4-page * { visibility: visible; }` 方案，HarmonyOS 浏览器与移动 Chrome 在 @media print 下 visibility 继承机制不可靠
   - 根因 2：pdfExport.js 用 async/await 链触发 window.print()，移动端浏览器严格要求 window.print() 在用户手势上下文内调用，async 链脱离手势上下文导致调用被吞
 - **修复**：
-  - [print.css](file:///c:/poem2pdf/distribution/src/styles/print.css#L77-L103) 废弃 visibility:hidden/visible 方案，改用 display:none 显式隐藏 UI 元素
-  - [print.css](file:///c:/poem2pdf/distribution/src/styles/print.css#L124-L169) 新增 `@media print and (max-width: 900px)` 移动端断点规则，显式声明容器宽度 210mm + 保留 SVG 字格可见性
-  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L380-L385) 新增移动端 UA 检测（HarmonyOS/Android/iOS）
-  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L391-L397) 移动端显示用户引导 toast（HarmonyOS 专用提示「建议点击浏览器底部 ∷ 菜单 → 保存 PDF / WPS 网页转 PDF」）
-  - [pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L409-L423) 用 requestAnimationFrame 双层同步触发 window.print()，保持用户手势上下文
+  - [print.css](src/styles/print.css#L77-L103) 废弃 visibility:hidden/visible 方案，改用 display:none 显式隐藏 UI 元素
+  - [print.css](src/styles/print.css#L124-L169) 新增 `@media print and (max-width: 900px)` 移动端断点规则，显式声明容器宽度 210mm + 保留 SVG 字格可见性
+  - [pdfExport.js](src/utils/pdfExport.js#L380-L385) 新增移动端 UA 检测（HarmonyOS/Android/iOS）
+  - [pdfExport.js](src/utils/pdfExport.js#L391-L397) 移动端显示用户引导 toast（HarmonyOS 专用提示「建议点击浏览器底部 ∷ 菜单 → 保存 PDF / WPS 网页转 PDF」）
+  - [pdfExport.js](src/utils/pdfExport.js#L409-L423) 用 requestAnimationFrame 双层同步触发 window.print()，保持用户手势上下文
 - **验证**：构建通过（839 模块，0 错误，0 警告）
 
 ### 📝 文档
 
 #### 文档 1 — 移动端打印替代方案研究
 
-- 新增 [docs/移动端打印替代方案_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端打印替代方案_v2.8.1.md)
+- 新增 `docs/移动端打印替代方案_v2.8.1.md`
 - 5 方案对比：A 用户引导 / B svg2pdf.js 矢量 / C html2canvas 光栅 / D dom-to-image / E Web Share
 - 推荐路线：v2.8.1 止血（修复 print.css + 用户引导）→ v2.9.0 主推（svg2pdf.js）→ v3.0.0 统一架构
 - 包含 HarmonyOS 浏览器"网页转 PDF"操作路径（3 个版本差异）
 
 #### 文档 2 — 飞书问卷模拟提交数据
 
-- 新增 [docs/飞书问卷提交数据_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/飞书问卷提交数据_v2.8.1.md)
+- 新增 `docs/飞书问卷提交数据_v2.8.1.md`
 - 3 套模拟数据（MatePad/Android/Windows）+ Session ID + 演示视频占位符
 - 含 Markdown 表格版本 + 纯文本版本 + 统计汇总表
 
 #### 文档 3 — PWA 安装二维码 + 多平台指南
 
-- 新增 [docs/PWA安装指南_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/PWA安装指南_v2.8.1.md)
+- 新增 `docs/PWA安装指南_v2.8.1.md`
 - 5 平台安装步骤：HarmonyOS / Android / iOS / Windows / macOS
 - PWA 验证清单（8 项）+ FAQ（8 条）+ 二维码（api.qrserver.com 生成）
 
 #### 文档 4 — 移动端功能测试清单更新
 
-- 更新 [docs/移动端功能测试清单_v2.8.1.md](file:///c:/poem2pdf/distribution/docs/移动端功能测试清单_v2.8.1.md)
+- 更新 `docs/移动端功能测试清单_v2.8.1.md`
 - 第四章"打印 PDF"从"待修复"改为"已修复"
 - 新增 TC-04-06 移动端用户引导 toast 测试项
 - 新增 TC-04-07 HarmonyOS 网页转 PDF 替代路径测试项
@@ -1428,10 +1837,10 @@ _commit_v287.txt
 - **用户反馈**：华为 MatePad（HarmonyOS）通过 GitHub Pages 访问时，设置中心切换网格类型/颜色后看似不生效
 - **多 Agent 调查结论**：不是性能滞后，也不是功能失效。根因是 `settingsCenter.css` 移动端断点（max-width:680px）让 `.sc-modal` 全屏覆盖（100vh），重渲染发生在被遮挡的背景中
 - **修复**：
-  - [settingsCenter.css](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L277-L282) 移动端模态改为底部抽屉（65vh，留 35vh 预览区）+ 减淡遮罩（0.5 → 0.25）
-  - [main.js](file:///c:/poem2pdf/distribution/src/main.js#L98-L106) 字格容器添加视觉反馈（设置更新后紫色外框闪烁 400ms）
-  - [grid-svg.css](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L208-L213) 新增 `#grid-container.just-updated` 样式
-  - [main.js](file:///c:/poem2pdf/distribution/src/main.js#L114-L124) 末尾追加 PWA 更新提示（避免旧访客持续运行老代码）
+  - [settingsCenter.css](src/styles/settingsCenter.css#L277-L282) 移动端模态改为底部抽屉（65vh，留 35vh 预览区）+ 减淡遮罩（0.5 → 0.25）
+  - [main.js](src/main.js#L98-L106) 字格容器添加视觉反馈（设置更新后紫色外框闪烁 400ms）
+  - [grid-svg.css](src/styles/grid-svg.css#L208-L213) 新增 `#grid-container.just-updated` 样式
+  - [main.js](src/main.js#L114-L124) 末尾追加 PWA 更新提示（避免旧访客持续运行老代码）
 - **验证**：构建通过（839 模块，0 错误），IDE 诊断 0 错误 0 警告
 
 #### 修复 2 — 打印 PDF 性能优化（GitHub Pages 慢）
@@ -1441,9 +1850,9 @@ _commit_v287.txt
   - 首次访问慢主因：字体串行加载（40MB 跨境下载 30-60 秒）+ alert 阻塞 + waitForStrokes 10s 超时
   - 二次访问慢主因：笔画串行加载 + SVG DOM 规模（30 页 7590 SVG / 3 万节点）
 - **修复（短期优化，预计性能提升 60-80%）**：
-  - [fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L14-L55) `loadFonts()` 改并行（`Promise.all`）+ `display:swap` + 按需加载（仅加载当前选中字体，其余延迟加载）
-  - [utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L60-L77) 新增 `showToast` 辅助函数
-  - [utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L380-L396) `printDirect()` 中的 `alert()` 改为非阻塞 toast（复用 `.puppeteer-toast` 样式）
+  - [fontManager.js](src/modules/fontManager.js#L14-L55) `loadFonts()` 改并行（`Promise.all`）+ `display:swap` + 按需加载（仅加载当前选中字体，其余延迟加载）
+  - [utils/pdfExport.js](src/utils/pdfExport.js#L60-L77) 新增 `showToast` 辅助函数
+  - [utils/pdfExport.js](src/utils/pdfExport.js#L380-L396) `printDirect()` 中的 `alert()` 改为非阻塞 toast（复用 `.puppeteer-toast` 样式）
   - `waitForStrokes` 超时从 10s 缩短为 2s（未加载的笔画自然缺失，不阻塞打印）
 
 ### ✨ 新增
@@ -1452,10 +1861,10 @@ _commit_v287.txt
 
 - **用户反馈**：200 字上限太少，希望增加到 330 字（30 页）
 - **实现**：
-  - [index.html](file:///c:/poem2pdf/distribution/index.html#L74) textarea `maxlength` 从 200 改为 1000
-  - [settings.js](file:///c:/poem2pdf/distribution/src/modules/settings.js) `updateCharCounter` 重写为三级样式（正常/警告/错误）+ 越限 toast 提示
-  - [recommender.js](file:///c:/poem2pdf/distribution/src/modules/recommender.js) 三处 `maxLength || 200` 改为 `|| 1000`
-  - [components.css](file:///c:/poem2pdf/distribution/src/styles/components.css) 新增 `.char-counter.warn` 警告样式 + `.char-limit-toast` toast 样式
+  - [index.html](index.html#L74) textarea `maxlength` 从 200 改为 1000
+  - [settings.js](src/modules/settings.js) `updateCharCounter` 重写为三级样式（正常/警告/错误）+ 越限 toast 提示
+  - [recommender.js](src/modules/recommender.js) 三处 `maxLength || 200` 改为 `|| 1000`
+  - [components.css](src/styles/components.css) 新增 `.char-counter.warn` 警告样式 + `.char-limit-toast` toast 样式
 - **行为**：
   - 0-330 字：正常（灰色）
   - 331-1000 字：黄色警告 + 跨过 330 时弹一次 toast「超过 30 页推荐上限（330 字），将生成更多页」
@@ -1466,7 +1875,7 @@ _commit_v287.txt
 
 #### 文档 1 — 项目定位重新说明
 
-- 早期文档中"纯前端 PWA 离线应用"的描述不准确，已在 [docs/复赛发布_v2.8.0.md](file:///c:/poem2pdf/distribution/docs/复赛发布_v2.8.0.md) 开头添加详细的项目定位说明
+- 早期文档中"纯前端 PWA 离线应用"的描述不准确，已在 `docs/复赛发布_v2.8.0.md` 开头添加详细的项目定位说明
 - 准确描述："以前端为主、本地 Node.js 服务为辅的混合架构字帖生成工具"
 - GitHub Pages 部署说明：是为了节省服务器成本的临时方案，并非唯一发布路径
 
@@ -1495,7 +1904,7 @@ _commit_v287.txt
 #### 修复 1 — 主题切换不记忆（fab-theme 按钮不保存到 localStorage）
 
 - **用户反馈**：切换 light/dark 模式后，主题没有记忆，刷新页面后恢复默认
-- **根因**：[settings.js:16](file:///c:/poem2pdf/distribution/src/modules/settings.js#L16) `toggleTheme()` 只切换 `data-theme` 属性，不写入 localStorage。`settingsCenter` 的 `settings.theme` 字段保持旧值
+- **根因**：[settings.js:16](src/modules/settings.js#L16) `toggleTheme()` 只切换 `data-theme` 属性，不写入 localStorage。`settingsCenter` 的 `settings.theme` 字段保持旧值
 - **修复**：`toggleTheme()` 现在同步写入 `calligraphy_settings.theme` 到 localStorage
 - **验证**：浏览器测试确认 — 切换主题后 localStorage 更新，刷新页面后主题保持
 
@@ -1512,7 +1921,7 @@ _commit_v287.txt
 #### 修复 3 — CSS 压缩器丢失 .fab-settings 定位属性
 
 - **问题**：Vite 的 CSS 压缩器（Lightning CSS）在合并公共属性时，丢失了 `.fab-settings` 的 `position:fixed/top/right`
-- **修复**：在 [fab.css:22](file:///c:/poem2pdf/distribution/src/styles/fab.css#L22) 添加独立定位规则 `.fab-settings{position:fixed;top:20px;right:20px;z-index:9999}`
+- **修复**：在 [fab.css:22](src/styles/fab.css#L22) 添加独立定位规则 `.fab-settings{position:fixed;top:20px;right:20px;z-index:9999}`
 - **验证**：构建产物确认规则存在
 
 ### 🔧 技术说明
@@ -1531,13 +1940,13 @@ _commit_v287.txt
 - **用户反馈**：切换田字格/回字格/九宫格以及网格颜色时，对 Puppeteer 方式导出的 PDF 矢量图没有任何影响
 - **根因**：Puppeteer 加载全新 dist/index.html 页面，localStorage 为空，GridEngine.js 读取到默认值（米字格+绿色）。客户端 `puppeteerClient.js` 未将用户的网格设置传递给服务端
 - **修复方案**：三文件协同修复
-  1. [puppeteerClient.js:57-70](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L57) — 新增读取 localStorage `calligraphy_settings`，提取 `gridType`/`gridColorPreset`/`traceOpacity`
-  2. [puppeteerClient.js:90-102](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L90) — 请求体新增 3 个字段
-  3. [puppeteer-server.cjs:62](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L62) — `generatePDF` 函数签名新增 3 个参数
-  4. [puppeteer-server.cjs:73-92](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L73) — 在点击 generate-btn 前，将设置写入 Puppeteer 页面的 localStorage
-  5. [puppeteer-server.cjs:312](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L312) — 从请求体提取 3 个新字段
-  6. [puppeteer-server.cjs:336](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L336) — 调用 generatePDF 时传递新参数
-- **同步修复**：[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs) CLI 工具新增 `--grid-type`/`--grid-color`/`--trace-opacity` 参数
+  1. [puppeteerClient.js:57-70](src/modules/puppeteerClient.js#L57) — 新增读取 localStorage `calligraphy_settings`，提取 `gridType`/`gridColorPreset`/`traceOpacity`
+  2. [puppeteerClient.js:90-102](src/modules/puppeteerClient.js#L90) — 请求体新增 3 个字段
+  3. [puppeteer-server.cjs:62](puppeteer-server.cjs#L62) — `generatePDF` 函数签名新增 3 个参数
+  4. [puppeteer-server.cjs:73-92](puppeteer-server.cjs#L73) — 在点击 generate-btn 前，将设置写入 Puppeteer 页面的 localStorage
+  5. [puppeteer-server.cjs:312](puppeteer-server.cjs#L312) — 从请求体提取 3 个新字段
+  6. [puppeteer-server.cjs:336](puppeteer-server.cjs#L336) — 调用 generatePDF 时传递新参数
+- **同步修复**：[puppeteer-pdf.cjs](puppeteer-pdf.cjs) CLI 工具新增 `--grid-type`/`--grid-color`/`--trace-opacity` 参数
 - **验证**：
   - CLI 测试：`--grid-type jiugong --grid-color red` ✅ 生成 79.3KB PDF
   - CLI 测试：`--grid-type tian --grid-color blue` ✅ 生成 78.1KB PDF
@@ -1563,12 +1972,12 @@ _commit_v287.txt
 #### 修复 1 — 学习报告按钮样式丢失（v2.3.0 遗留退化）
 
 - **根因**：v2.3.0 删除 demoMode.css 时，reportPanel.js 仍引用 `.demo-btn` 类（已无 CSS 定义），导致按钮呈现浏览器默认样式
-- **修复**：[reportPanel.js:361](file:///c:/poem2pdf/distribution/src/modules/reportPanel.js#L361) `btn.className = 'demo-btn'` → `'btn btn-secondary'`
+- **修复**：[reportPanel.js:361](src/modules/reportPanel.js#L361) `btn.className = 'demo-btn'` → `'btn btn-secondary'`
 - **验证**：构建版本浏览器测试通过，按钮样式与其他次要按钮统一
 
 #### 修复 2 — 默认输入文本超过 maxlength 限制
 
-- **根因**：[index.html:74](file:///c:/poem2pdf/distribution/index.html#L74) 默认文本超过 `maxlength="200"` 限制，控制台出现截断警告
+- **根因**：[index.html:74](index.html#L74) 默认文本超过 `maxlength="200"` 限制，控制台出现截断警告
 - **修复**：缩短默认文本至 200 字以内，移除末尾约 30 字重复内容
 - **验证**：文本长度计数器初始显示正确，无截断警告
 
@@ -1588,31 +1997,31 @@ _commit_v287.txt
 
 - **用户反馈**："评分：☆☆☆☆☆　___年___月___日" 中"年"前面空间太少
 - **修复**：`___年` → `______年`（3个下划线 → 6个下划线），统一修改 6 处：
-  - [index.html:117](file:///c:/poem2pdf/distribution/index.html#L117) — footerText 输入框默认值
-  - [settings.js:33](file:///c:/poem2pdf/distribution/src/modules/settings.js#L33) — hfDefaults.footerText
-  - [pdfExport.js:143,268](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L143) — 2处兜底默认值
-  - [modules/pdfExport.js:45](file:///c:/poem2pdf/distribution/src/modules/pdfExport.js#L45) — 兜底默认值
-  - [puppeteer-pdf.cjs:416](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L416) — Puppeteer 兜底默认值
-  - [puppeteer-server.cjs:181](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L181) — Puppeteer Server 兜底默认值
+  - [index.html:117](index.html#L117) — footerText 输入框默认值
+  - [settings.js:33](src/modules/settings.js#L33) — hfDefaults.footerText
+  - [pdfExport.js:143,268](src/utils/pdfExport.js#L143) — 2处兜底默认值
+  - [modules/pdfExport.js:45](src/modules/pdfExport.js#L45) — 兜底默认值
+  - [puppeteer-pdf.cjs:416](puppeteer-pdf.cjs#L416) — Puppeteer 兜底默认值
+  - [puppeteer-server.cjs:181](puppeteer-server.cjs#L181) — Puppeteer Server 兜底默认值
 
 #### 优化 2 — 顶部标题区压缩
 
 - **用户反馈**：标题区空白太大，可放到左上角边缘、高度适当压缩
-- **修复**：[base.css:30-39](file:///c:/poem2pdf/distribution/src/styles/base.css#L30)
+- **修复**：[base.css:30-39](src/styles/base.css#L30)
   - 改为 flex 左对齐布局（原居中）
   - h1 + 副标题同一行（原上下两行）
   - padding 从 `8px 0 24px` → `4px 0 6px`
   - margin-bottom 从 `24px` → `8px`
   - h1 字号从 24px → 18px，副标题从 13px → 11px
-- [index.html:26-32](file:///c:/poem2pdf/distribution/index.html#L26)：添加 `.header-title` 和 `.app-header-actions` 容器
+- [index.html:26-32](index.html#L26)：添加 `.header-title` 和 `.app-header-actions` 容器
 
 #### 优化 3 — Puppeteer 按钮移至右侧主列最下面
 
 - **用户反馈**：Puppeteer 按钮应与右侧控件同列、放最下面不显眼位置
-- **修复**：[fab.css:24-34](file:///c:/poem2pdf/distribution/src/styles/fab.css#L24)
+- **修复**：[fab.css:24-34](src/styles/fab.css#L24)
   - 位置从 `top:90px right:84px`（偏离主列）→ `top:148px right:20px`（与主列同列）
   - 右侧控件列从上到下：☀主题(20px) → ⚙设置(84px) → Puppeteer(148px,40px灰) → [间隔] → 🖨打印(右下角)
-- [settingsCenter.css:6](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L6)：设置按钮从 `top:212px` → `top:84px`（紧跟主题按钮）
+- [settingsCenter.css:6](src/styles/settingsCenter.css#L6)：设置按钮从 `top:212px` → `top:84px`（紧跟主题按钮）
 - 移动端定位同步调整
 
 ### 🐛 回归修复（5项）
@@ -1620,13 +2029,13 @@ _commit_v287.txt
 #### 修复 4 — 移除3个失效设置控件
 
 - **问题**：设置面板的"格子大小/每行字数/每页行数"滑块 UI 有反应但实际不影响字帖渲染（SVG引擎用静态值）
-- **修复**：[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js) createPanel 移除3个滑块 HTML + sliders 数组移除对应条目
+- **修复**：[settingsCenter.js](src/modules/settingsCenter.js) createPanel 移除3个滑块 HTML + sliders 数组移除对应条目
 - 保留 DEFAULT_SETTINGS 字段作为兼容
 
 #### 修复 5 — 修复4个显示开关CSS选择器
 
 - **问题**：showPinyin/showZuci/showStrokes/showStrokeOrder 的 CSS 选择器不匹配实际 SVG 类名
-- **修复**：[settingsCenter.css:268-271](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L268)
+- **修复**：[settingsCenter.css:268-271](src/styles/settingsCenter.css#L268)
   - `.pinyin-row` → `.grid-svg-pinyin-box`
   - `.tianzi-cell` → `.grid-svg-cell[data-grid-type="pinyin-zuci"]`
   - `.stroke-container` → `.grid-svg-stroke-box`
@@ -1636,22 +2045,22 @@ _commit_v287.txt
 
 - **问题**：reportPanel.js 期望 `.app-header-actions` 容器但不存在，降级到 `top:16px right:16px` 与 fab-theme 重叠
 - **修复**：
-  - [index.html:31](file:///c:/poem2pdf/distribution/index.html#L31)：添加 `.app-header-actions` 容器
-  - [reportPanel.js:372](file:///c:/poem2pdf/distribution/src/modules/reportPanel.js#L372)：降级位置从 `right:16px` → `left:16px`（避免冲突）
+  - [index.html:31](index.html#L31)：添加 `.app-header-actions` 容器
+  - [reportPanel.js:372](src/modules/reportPanel.js#L372)：降级位置从 `right:16px` → `left:16px`（避免冲突）
 
 #### 修复 7 — PWA theme_color 不一致
 
 - **问题**：manifest theme_color `#667eea`（紫蓝）与 meta theme-color `#9E2A2B`（印泥红）不一致
-- **修复**：[vite.config.js:18](file:///c:/poem2pdf/distribution/vite.config.js#L18) 统一为 `#9E2A2B`
+- **修复**：[vite.config.js:18](vite.config.js#L18) 统一为 `#9E2A2B`
 
 #### 修复 8 — print.css 遗漏 .fab-settings
 
 - **问题**：print.css 的隐藏列表缺少 .fab-settings 和 #settingsPanel
-- **修复**：[print.css:30-31](file:///c:/poem2pdf/distribution/src/styles/print.css#L30) 补充
+- **修复**：[print.css:30-31](src/styles/print.css#L30) 补充
 
 ### 📚 文档
 
-- 新增 [docs/INDEX_HTML_说明.md](file:///c:/poem2pdf/distribution/docs/INDEX_HTML_说明.md) — 详细解释 index.html 的作用、为什么不能双击打开、三者关系（源文件→构建→外壳）
+- 新增 `docs/INDEX_HTML_说明.md` — 详细解释 index.html 的作用、为什么不能双击打开、三者关系（源文件→构建→外壳）
 
 ### 📦 备份与回退
 
@@ -1676,23 +2085,23 @@ _commit_v287.txt
 
 #### 新增 1 — 九宫格（jiugong）类型
 
-- **[interfaces.js](file:///c:/poem2pdf/distribution/src/contracts/interfaces.js#L18-L24)**：GridType 枚举新增 `'jiugong'`，外框 + 三等分虚线 3×3 布局
-- **[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L153-L180)**：新增 `drawJiugongGrid()` 函数，绘制两条垂直 + 两条水平三等分虚线
-- **[Sidebar.js](file:///c:/poem2pdf/distribution/src/components/Sidebar.js#L32-L38)**：GRID_TYPES 数组新增九宫格选项
-- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L136-L148)**：设置面板网格类型选择器新增九宫格按钮
+- **[interfaces.js](src/contracts/interfaces.js#L18-L24)**：GridType 枚举新增 `'jiugong'`，外框 + 三等分虚线 3×3 布局
+- **[GridEngine.js](src/components/GridEngine.js#L153-L180)**：新增 `drawJiugongGrid()` 函数，绘制两条垂直 + 两条水平三等分虚线
+- **[Sidebar.js](src/components/Sidebar.js#L32-L38)**：GRID_TYPES 数组新增九宫格选项
+- **[settingsCenter.js](src/modules/settingsCenter.js#L136-L148)**：设置面板网格类型选择器新增九宫格按钮
 
 #### 新增 2 — 线框颜色快切（4 色预设）
 
-- **[interfaces.js](file:///c:/poem2pdf/distribution/src/contracts/interfaces.js#L86-L111)**：新增 `GRID_COLOR_PRESETS` 数组，含 4 套配色：
+- **[interfaces.js](src/contracts/interfaces.js#L86-L111)**：新增 `GRID_COLOR_PRESETS` 数组，含 4 套配色：
   - 传统绿（默认）：#2E7D32 深绿主色
   - 朱砂红：#9E2A2B 印泥红
   - 靛青蓝：#1565C0
   - 墨黑：#1F2937
-- **[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L27-L44)**：新增 `getActiveGridColors()` 动态读取 settingsCenter 的颜色预设，回退到默认 GRID_COLORS；所有 `draw*Grid()` 和 `createRowBorderSVG()`、`createAuxRow()`、`renderSheet()` 均支持动态颜色
-- **[Sidebar.js](file:///c:/poem2pdf/distribution/src/components/Sidebar.js#L165-L206)**：新增 `createColorPresetSection()` 4 色圆形快切按钮组
-- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L154-L173)**：设置面板新增"🎨 线框颜色"分节
-- **[theme.css](file:///c:/poem2pdf/distribution/src/styles/theme.css#L180-L215)**：新增 `.color-preset-btn` 圆形色块按钮样式（32px，hover 放大，active 加粗边框）
-- **[settingsCenter.css](file:///c:/poem2pdf/distribution/src/styles/settingsCenter.css#L193-L219)**：新增 `.sc-color-preset-btn` 样式（与侧栏按钮等效，独立类名避免冲突）
+- **[GridEngine.js](src/components/GridEngine.js#L27-L44)**：新增 `getActiveGridColors()` 动态读取 settingsCenter 的颜色预设，回退到默认 GRID_COLORS；所有 `draw*Grid()` 和 `createRowBorderSVG()`、`createAuxRow()`、`renderSheet()` 均支持动态颜色
+- **[Sidebar.js](src/components/Sidebar.js#L165-L206)**：新增 `createColorPresetSection()` 4 色圆形快切按钮组
+- **[settingsCenter.js](src/modules/settingsCenter.js#L154-L173)**：设置面板新增"🎨 线框颜色"分节
+- **[theme.css](src/styles/theme.css#L180-L215)**：新增 `.color-preset-btn` 圆形色块按钮样式（32px，hover 放大，active 加粗边框）
+- **[settingsCenter.css](src/styles/settingsCenter.css#L193-L219)**：新增 `.sc-color-preset-btn` 样式（与侧栏按钮等效，独立类名避免冲突）
 
 ### 🎨 UI 控件重排与界面优化（参考 design-proposals.html 建议）
 
@@ -1701,19 +2110,19 @@ _commit_v287.txt
 #### 优化 1 — "生成"按钮简化为刷新图标
 
 - **用户反馈**："生成"按钮与"生成字帖"是同一功能，可用"刷新"SVG 图标替代则更加简洁
-- **[index.html](file:///c:/poem2pdf/distribution/index.html#L59-L67)**：快捷工具栏的"生成"按钮改为 refresh SVG 图标（icon-only），title="刷新字帖（按当前输入与设置重新生成预览）"
+- **[index.html](index.html#L59-L67)**：快捷工具栏的"生成"按钮改为 refresh SVG 图标（icon-only），title="刷新字帖（按当前输入与设置重新生成预览）"
 - 主按钮"生成字帖"保留文字+图标（明确主操作）
-- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L96-L109)**：新增 `.btn-quick.icon-only` 样式（36×36px 方形，图标居中）
+- **[fab.css](src/styles/fab.css#L96-L109)**：新增 `.btn-quick.icon-only` 样式（36×36px 方形，图标居中）
 
 #### 优化 2 — "打印"按钮简化为图标-only
 
 - **用户反馈**："打印"按钮与右下角打印机 FAB 是同一功能，只用图标即可简洁明了
-- **[index.html](file:///c:/poem2pdf/distribution/index.html#L64-L66)**：快捷工具栏的"打印"按钮改为 icon-only，title="打印 / 导出PDF（矢量PDF，调用浏览器原生打印）"
+- **[index.html](index.html#L64-L66)**：快捷工具栏的"打印"按钮改为 icon-only，title="打印 / 导出PDF（矢量PDF，调用浏览器原生打印）"
 
 #### 优化 3 — Puppeteer 按钮移至低调位置
 
 - **用户反馈**："Puppeteer 打印在没有 Node.js 或后端服务的情况下仅仅演示，大概率评委会无法使用，可放到低调位置"
-- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L24-L37)**：
+- **[fab.css](src/styles/fab.css#L24-L37)**：
   - 位置从 `bottom:88px right:24px`（紧邻主打印按钮）→ `top:90px right:84px`（右上角设置按钮左侧）
   - 尺寸从 52px → 40px（缩小）
   - 配色从紫色渐变 `#8b5cf6/#7c3aed` → 低调灰 `rgba(100,116,139,0.85)`
@@ -1722,19 +2131,19 @@ _commit_v287.txt
 #### 优化 4 — "添加字体"按钮改为图标+悬停 tooltip
 
 - **用户反馈**："添加字体"四字在界面中显得格格不入，可用 icon 替代但悬停显示详细功能解释
-- **[index.html](file:///c:/poem2pdf/distribution/index.html#L50-L54)**：移除"添加字体"文字，保留上传图标，title 改为详细说明"添加自己的字体文件（支持 ttf/otf/woff/woff2 格式，加载后可在字体下拉框中选择）"
-- **[fab.css](file:///c:/poem2pdf/distribution/src/styles/fab.css#L104-L109)**：新增 `.font-upload-btn.icon-only` 样式（34×34px 方形）
+- **[index.html](index.html#L50-L54)**：移除"添加字体"文字，保留上传图标，title 改为详细说明"添加自己的字体文件（支持 ttf/otf/woff/woff2 格式，加载后可在字体下拉框中选择）"
+- **[fab.css](src/styles/fab.css#L104-L109)**：新增 `.font-upload-btn.icon-only` 样式（34×34px 方形）
 
 #### 优化 5 — "难度评估"改为状态栏样式
 
 - **用户反馈**："难度评估只是辅助次要功能，以状态栏之类不起眼方式显示即可，不需要占据 UI 正中心最显眼位置"
-- **[index.html](file:///c:/poem2pdf/distribution/index.html#L89-L92)**：难度评估从输入区中部移至底部，class 从 `.diff-area` 改为 `.diff-status-bar`，新增 `role="status" aria-live="polite"`
-- **[difficulty.css](file:///c:/poem2pdf/distribution/src/styles/difficulty.css)**：整体尺寸缩小（padding 5px、font-size 11px、星级 11px、标签 10px），去除粗边框改为透明边框，视觉上不抢眼
+- **[index.html](index.html#L89-L92)**：难度评估从输入区中部移至底部，class 从 `.diff-area` 改为 `.diff-status-bar`，新增 `role="status" aria-live="polite"`
+- **[difficulty.css](src/styles/difficulty.css)**：整体尺寸缩小（padding 5px、font-size 11px、星级 11px、标签 10px），去除粗边框改为透明边框，视觉上不抢眼
 
 #### 优化 6 — 移除字号控件
 
 - **用户反馈**："字号修改意味着整个网格和 SVG 图片也要相应修改，每行网格数、分页行数都要大幅度调整，意义不大且工作量巨大，不建议有这个功能"
-- **[settingsCenter.js](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L100-L102)**：createPanel 函数移除字号滑块 UI
+- **[settingsCenter.js](src/modules/settingsCenter.js#L100-L102)**：createPanel 函数移除字号滑块 UI
 - **DEFAULT_SETTINGS 保留 `fontSize: 43`** 作为向后兼容（applySettings 仍设置 `--sc-font-size` CSS 变量），但 UI 不再暴露
 
 ### 🐛 修复回归 bug（2 项）
@@ -1748,7 +2157,7 @@ _commit_v287.txt
   - **v2.5.3 新增的颜色预设按钮无响应** ← 核心新功能失效
   - 显示开关、主题单选、重置/完成按钮全部无响应
   - 面板成为"死面板"无法关闭
-- **修复**：[settingsCenter.js:253-271](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L253-L271)
+- **修复**：[settingsCenter.js:253-271](src/modules/settingsCenter.js#L253-L271)
   - 删除 sliders 数组中的 scFontSize 条目
   - 新增防御性 null 检查 `if (!input || !valEl) return;` 防止未来类似回归
 
@@ -1756,7 +2165,7 @@ _commit_v287.txt
 
 - **根因**：createPanel 生成了 `.sc-color-preset-btn` 按钮 HTML，但 bindPanelEvents 遗漏了对应的事件绑定
 - **影响**：点击设置面板内的颜色预设按钮无反应（侧栏的颜色快切按钮不受影响，独立工作）
-- **修复**：[settingsCenter.js:286-297](file:///c:/poem2pdf/distribution/src/modules/settingsCenter.js#L286-L297) 新增 `.sc-color-preset-btn` 点击事件绑定，逻辑与侧栏等效
+- **修复**：[settingsCenter.js:286-297](src/modules/settingsCenter.js#L286-L297) 新增 `.sc-color-preset-btn` 点击事件绑定，逻辑与侧栏等效
 
 ### 📦 备份与回退
 
@@ -1790,20 +2199,20 @@ _commit_v287.txt
   4. 服务器仅收到字体显示名（如 "★ 姜浩硬笔楷书"），但下拉框中没有该选项
   5. 字体选择失败，回退到默认 "文鼎楷体"
 - **修复方案**：
-  - **[fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L40-L42)**：
+  - **[fontManager.js](src/modules/fontManager.js#L40-L42)**：
     - `handleFontUpload` 中将 data URL 存储到 `opt.dataset.fontDataUrl`
     - 同时存储显示名到 `opt.dataset.fontDisplayName`
-  - **[puppeteerClient.js](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L53-L55)**：
+  - **[puppeteerClient.js](src/modules/puppeteerClient.js#L53-L55)**：
     - 读取选中字体的 `fontValue`（内部名称）和 `fontDataUrl`（base64 数据）
     - 将两者随请求发送给服务器
-  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L73-L96)**：
+  - **[puppeteer-server.cjs](puppeteer-server.cjs#L73-L96)**：
     - 接收 `fontDataUrl` 和 `fontValue`
     - 将 base64 数据写入临时文件 `dist/temp-custom-font.ttf`
     - 在 Puppeteer 页面中通过 `FontFace API` 注册字体（URL 加载）
     - 添加到下拉框并设为选中
     - 请求体大小限制从 1MB 提升到 50MB
     - PDF 生成完成后自动清理临时字体文件
-  - **[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L97-L99)**：
+  - **[puppeteer-pdf.cjs](puppeteer-pdf.cjs#L97-L99)**：
     - 新增 `--font-file <路径>` 命令行选项
     - 使用 `file:///` 协议直接加载本地字体文件
     - `--font` 参数作为显示名，注册为 `CustomFont1`
@@ -1813,13 +2222,13 @@ _commit_v287.txt
 
 - **用户反馈**："用户在使用的时候，可能希望电脑上已经有的各种楷体都可以自动作为备选加载项"
 - **方案**：Canvas 文本测量法（性能开销 < 10ms，不影响启动速度）
-  - **[fontManager.js](file:///c:/poem2pdf/distribution/src/modules/fontManager.js#L52-L97)**：
+  - **[fontManager.js](src/modules/fontManager.js#L52-L97)**：
     - 新增 `detectSystemFonts()` 函数
     - 维护跨平台楷体字体名称列表（Windows/macOS/Linux/HarmonyOS）
     - 使用 canvas `measureText()` 对比目标字体与 monospace 的宽度差异
     - 检测到字体自动添加到下拉框（☆ 前缀区分）
     - 最多添加 2 种非默认楷体
-  - **[main.js](file:///c:/poem2pdf/distribution/src/main.js#L57-L58)**：
+  - **[main.js](src/main.js#L57-L58)**：
     - `loadFonts().then()` 中调用 `detectSystemFonts()`
 - **覆盖的操作系统字体**：
   - Windows: 楷体, KaiTi, 华文楷体, STKaiti, 方正楷体_GBK, 方正楷体, KaiTi_GB2312, SimKai
@@ -1831,10 +2240,10 @@ _commit_v287.txt
 
 - **用户反馈**："页眉中最右侧默认的文本'字体练习'切换为不超过6个汉字字符的对实际加载字体的名字的描述、后加'练习'"
 - **修复**：在 4 个文件中统一修改页眉右侧逻辑：
-  - **[puppeteer-pdf.cjs](file:///c:/poem2pdf/distribution/puppeteer-pdf.cjs#L391-L412)**
-  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L149-L172)**
-  - **[src/modules/pdfExport.js](file:///c:/poem2pdf/distribution/src/modules/pdfExport.js#L22-L44)**（window.print() 路径）
-  - **[src/utils/pdfExport.js](file:///c:/poem2pdf/distribution/src/utils/pdfExport.js#L128-L141)**（jsPDF 路径）
+  - **[puppeteer-pdf.cjs](puppeteer-pdf.cjs#L391-L412)**
+  - **[puppeteer-server.cjs](puppeteer-server.cjs#L149-L172)**
+  - **[src/modules/pdfExport.js](src/modules/pdfExport.js#L22-L44)**（window.print() 路径）
+  - **[src/utils/pdfExport.js](src/utils/pdfExport.js#L128-L141)**（jsPDF 路径）
 - **逻辑**：
   1. 如果用户自定义了页眉右侧（值 ≠ "字体练习"），使用用户自定义值
   2. 否则，取字体显示名，去掉 ★/☆ 前缀和文件扩展名
@@ -1866,12 +2275,12 @@ _commit_v287.txt
   2. SVG `stroke-width=2.0`（用户单位）在 PDF 中渲染为 **0 宽度**（PyMuPDF 分析确认：66 条边框线 width=0.0pt）
   3. 根因：Chrome PDF 引擎对 SVG stroke + `preserveAspectRatio: none` + `crispEdges` 的组合处理有 bug，stroke 被转为 0 宽度填充路径
 - **v2.5.1 修复方案 — 改用填充矩形代替 stroke**：
-  - **[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L306-L331)**：
+  - **[GridEngine.js](src/components/GridEngine.js#L306-L331)**：
     - `createRowBorderSVG` 中的 stroke rect/line 全部改为 **fill rect**（填充矩形）
     - 4 个填充矩形绘制外框（上/下/左/右），N-1 个填充矩形绘制内部竖线
     - 填充矩形在 PDF 中始终按精确尺寸渲染，不受 shape-rendering 和 preserveAspectRatio 影响
     - 与页顶 `border-top` 的 PDF 渲染机制完全一致（CSS border 在 PDF 中也是填充矩形）
-  - **[grid-svg.css](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L166-L175)**：
+  - **[grid-svg.css](src/styles/grid-svg.css#L166-L175)**：
     - `@media print` 中 `shape-rendering: crispEdges !important` → `geometricPrecision !important`
     - 新增 `.grid-svg-row-border rect` 的 `print-color-adjust: exact !important`
 - **验证结果**（PyMuPDF 分析）：
@@ -1885,12 +2294,12 @@ _commit_v287.txt
 - **用户反馈**："为了解决跟这个IDM插件的冲突，导致puppeteer生成矢量格式PDF文件的功能彻底不能用了；如果解决跟IDM插件的冲突问题太难，就这个方面的修复回退到2418版，确保至少能用"
 - **v2.5.0 失败原因**：base64 JSON 响应模式（`X-Response-Type: json`）导致 PDF 生成彻底不能用
 - **v2.5.1 修复方案 — 回退到 v2.4.18 直接 PDF 响应模式**：
-  - **[puppeteerClient.js](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L80-L131)**：
+  - **[puppeteerClient.js](src/modules/puppeteerClient.js#L80-L131)**：
     - 移除 `X-Response-Type: json` 请求头
     - 移除 base64 JSON 解码逻辑（`atob` → `Uint8Array` → `Blob`）
     - 恢复直接 `response.blob()` 下载方式
     - 保留友好提示：当 `Failed to fetch` 时显示绿色成功提示（非红色错误），引导用户检查 IDM 下载列表
-  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs)**：
+  - **[puppeteer-server.cjs](puppeteer-server.cjs)**：
     - 保留 base64 JSON 响应代码（向后兼容旧客户端），但默认使用直接 PDF 响应
 - **效果**：Puppeteer PDF 生成恢复正常，IDM 用户看到绿色提示而非红色错误
 
@@ -1937,16 +2346,16 @@ _commit_v287.txt
   - **验证**：PyMuPDF 分析 v2.4.18 PDF，绿色填充路径 = 0，页顶区域无贯穿整行的绿色线条
 
 - **修复方案**：
-  - **页顶实线改回实体边框实现**（[grid-svg.css](file:///c:/poem2pdf/distribution/src/styles/grid-svg.css#L72-L81)）：
+  - **页顶实线改回实体边框实现**（[grid-svg.css](src/styles/grid-svg.css#L72-L81)）：
     - 从 `background-image: linear-gradient` 改为 `border-top: 0.324mm solid #2E7D32`
     - border 是元素固有属性，打印/PDF 中自然渲染，不受 print-color-adjust 限制
     - 天然撑满整行宽度，无分页孤立问题
-  - **边框线宽校准**（[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L306-L330)）：
+  - **边框线宽校准**（[GridEngine.js](src/components/GridEngine.js#L306-L330)）：
     - `BORDER_SW` 从 1.6 调整为 **2.0 SVG 单位 ≈ 0.324mm**
     - 与页顶实线 `border-top: 0.324mm` 完全一致
     - 是 1.6（过细）和 3.6（过粗）之间的合理中间值
     - 换算：每格 16.2mm = 100 SVG 单位 → 2.0 / 100 × 16.2 = 0.324mm
-  - **渲染精度优化**（[GridEngine.js](file:///c:/poem2pdf/distribution/src/components/GridEngine.js#L302-L304)）：
+  - **渲染精度优化**（[GridEngine.js](src/components/GridEngine.js#L302-L304)）：
     - `shape-rendering` 从 `crispEdges` 改为 **`geometricPrecision`**
     - crispEdges 将细线对齐到整像素，导致 0.3mm 级别的线在打印/PDF 中视觉上过细
     - geometricPrecision 确保矢量 PDF 中 stroke 宽度精确渲染
@@ -1967,13 +2376,13 @@ _commit_v287.txt
   - fetch API 无法读取被拦截的响应，抛出 "Fetch failed" 错误并显示红色 toast
   - 但 IDM 已成功下载 PDF，所以用户能在 IDM 中找到文件
 - **修复方案 — base64 JSON 响应模式**：
-  - **[puppeteerClient.js](file:///c:/poem2pdf/distribution/src/modules/puppeteerClient.js#L80-L144)**：
+  - **[puppeteerClient.js](src/modules/puppeteerClient.js#L80-L144)**：
     - 请求添加 `X-Response-Type: json` 自定义头部
     - 响应格式从直接 PDF 改为 `{ success: true, data: base64PDF }`
     - 客户端用 `atob()` 解码 base64 → `Uint8Array` → `Blob` → 创建下载链接
     - `Content-Type: application/json` 不会被下载管理器拦截，彻底解决 "Fetch failed"
     - 兜底：即使 fetch 仍失败（极端情况），提示 "PDF已生成，请检查下载列表"（绿色成功提示，而非红色错误）
-  - **[puppeteer-server.cjs](file:///c:/poem2pdf/distribution/puppeteer-server.cjs#L258-L282)**：
+  - **[puppeteer-server.cjs](puppeteer-server.cjs#L258-L282)**：
     - 检测 `X-Response-Type: json` 头部，返回 base64 JSON 响应
     - 无此头部时保持直接 PDF 响应（向后兼容）
     - CORS 允许 `X-Response-Type` 头部

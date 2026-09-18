@@ -2,7 +2,10 @@
  * Cloudflare Pages Functions - 访问统计中间件
  *
  * 功能：
- * 1. 记录每次访问的详细信息（IP、设备、浏览器、操作系统、地理位置、时间等）
+ * 1. 记录每次访问的统计信息（设备、浏览器、操作系统、国家、时间等）
+ *    ⚠ v3.0.5 隐私变更：不再存储访客**原始 IP**、完整 User-Agent 与城市。
+ *      访客标识改为「带密钥的 SHA-256 哈希」（见 hashIp），独立访客计数能力不变；
+ *      原始 IP 仅在请求期用于机房/VPN 网段比对，不落库。
  * 2. 提供 /api/report 端点供 Cron Worker 调用生成每日报告
  * 3. 智能统计优化：
  *    - Cookie 排除机制（?admin=1 种植 Cookie，后续访问不计入统计）
@@ -335,10 +338,38 @@ function detectProxy(cf, ip) {
 }
 
 // ============================================================
+// 隐私（v3.0.5）：IP 假名化
+// ============================================================
+// 原实现把访客的**原始 IP** 直接写入 D1，并与精确时间、城市、完整 User-Agent 同表存储。
+// 这在 GDPR 与中国《个人信息保护法》下都属于处理个人数据，且需要合法依据与告知。
+//
+// 本项目的实际用途只需要两件事：① 独立访客计数（COUNT(DISTINCT …)）；
+// ② 机房/VPN 段识别（该判断在请求时完成，**不需要**把 IP 落库）。
+// 两者都可以用「带密钥的哈希」满足，因此不再存储原始 IP。
+//
+// ⚠ 必须带密钥：IPv4 只有 2^32 个取值，**无盐哈希可在秒级暴力反查**，
+//   等于没有脱敏。密钥取 IP_HASH_SALT，未配置时退回 CRON_SECRET（同样是强密钥）。
+//   两者都未配置时不写入任何 IP 派生值（fail closed），只记录一条服务端警告。
+async function hashIp(ip, env) {
+  const salt = env.IP_HASH_SALT || env.CRON_SECRET;
+  if (!salt) {
+    console.warn('[analytics] IP_HASH_SALT / CRON_SECRET 均未配置，已跳过 IP 记录（隐私优先）');
+    return '';
+  }
+  if (!ip || ip === 'unknown') return '';
+  const data = new TextEncoder().encode(salt + '|' + ip);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 32);   // 128 bit 足够避免碰撞，且不保留任何可逆信息
+}
+
+// ============================================================
 // 会话 ID 生成
 // ============================================================
-function generateSessionId(ip, ua, date) {
-  const str = `${ip}|${ua}|${date}`;
+function generateSessionId(ipId, ua, date) {
+  const str = `${ipId}|${ua}|${date}`;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -423,14 +454,14 @@ async function trackVisit(request, env) {
   const parsed = parseDeviceInfo(request);
   const cf = request.cf || {};
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  // detectProxy 只在请求期使用原始 IP 做网段比对，结果是一个布尔标记 + 机房名称，
+  // 原始 IP 不会因此进入数据库。
   const proxyInfo = detectProxy(cf, clientIp);
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const sessionId = generateSessionId(
-    request.headers.get('CF-Connecting-IP') || 'unknown',
-    request.headers.get('User-Agent') || '',
-    today
-  );
+  // 隐私（v3.0.5）：落库的是带密钥哈希，而非原始 IP
+  const ipId = await hashIp(clientIp, env);
+  const sessionId = generateSessionId(ipId, request.headers.get('User-Agent') || '', today);
 
   const params = {};
   url.searchParams.forEach((v, k) => {
@@ -452,8 +483,8 @@ async function trackVisit(request, env) {
     now.toISOString(),
     url.pathname,
     request.method,
-    request.headers.get('CF-Connecting-IP') || 'unknown',
-    request.headers.get('User-Agent') || '',
+    ipId,                       // v3.0.5：假名化后的访客标识（不再是原始 IP）
+    '',                         // v3.0.5：不再存储完整 User-Agent（报表只用下面的解析结果；UA 指纹性强且此前从未被读取）
     parsed.device_type,
     parsed.os_name,
     parsed.os_version,
@@ -461,7 +492,7 @@ async function trackVisit(request, env) {
     parsed.browser_version,
     cf.country || 'unknown',
     cf.region || '',
-    cf.city || '',
+    '',                         // v3.0.5：不再存储城市（最精确的地理标识，且报表从未使用）
     cf.timezone || '',
     cf.asn ? `AS${cf.asn}` : '',
     proxyInfo.as_organization,
@@ -561,7 +592,15 @@ async function updateDailyStats(db, date) {
 async function handleReportAPI(request, env) {
   const secret = request.headers.get('X-Cron-Secret') ||
                  new URL(request.url).searchParams.get('secret');
-  const expectedSecret = env.CRON_SECRET || 'calligraphy_cron_secret_x8k3n5q9w2r7';
+  // 安全（v3.0.5）：不再提供内置默认密钥。
+  // 原实现在 env.CRON_SECRET 缺失时回退到仓库里公开可见的固定字符串，
+  // 意味着任何未配置该变量的部署，其 /api/report 与 /api/stats 都可被公开仓库的读者直接调用。
+  // 现在未配置即一律拒绝（返回 401 而非 503，避免对外泄露配置状态）。
+  const expectedSecret = env.CRON_SECRET;
+  if (!expectedSecret) {
+    console.error('[analytics] CRON_SECRET 未配置，已拒绝访问（v3.0.5 起不再使用内置默认密钥）');
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   if (secret !== expectedSecret) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -606,7 +645,15 @@ async function handleReportAPI(request, env) {
 async function handleStatsAPI(request, env) {
   const secret = request.headers.get('X-Cron-Secret') ||
                  new URL(request.url).searchParams.get('secret');
-  const expectedSecret = env.CRON_SECRET || 'calligraphy_cron_secret_x8k3n5q9w2r7';
+  // 安全（v3.0.5）：不再提供内置默认密钥。
+  // 原实现在 env.CRON_SECRET 缺失时回退到仓库里公开可见的固定字符串，
+  // 意味着任何未配置该变量的部署，其 /api/report 与 /api/stats 都可被公开仓库的读者直接调用。
+  // 现在未配置即一律拒绝（返回 401 而非 503，避免对外泄露配置状态）。
+  const expectedSecret = env.CRON_SECRET;
+  if (!expectedSecret) {
+    console.error('[analytics] CRON_SECRET 未配置，已拒绝访问（v3.0.5 起不再使用内置默认密钥）');
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   if (secret !== expectedSecret) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -758,7 +805,7 @@ async function generateDailyReport(db, date) {
   report += `| 指标 | 数值 |\n`;
   report += `|------|------|\n`;
   report += `| 总访问次数 | ${stats.total_views} |\n`;
-  report += `| 独立 IP 数 | ${stats.unique_ips} |\n`;
+  report += `| 独立访客数（假名化） | ${stats.unique_ips} |\n`;
   report += `| 独立会话数 | ${stats.unique_sessions} |\n`;
   report += `| 涉及国家/地区 | ${stats.unique_countries} |\n`;
   report += `| 浏览器类型 | ${stats.browser_types} |\n`;
@@ -770,7 +817,7 @@ async function generateDailyReport(db, date) {
 
   if (hourlyData?.results?.length > 0) {
     report += `## 按小时访问分布\n\n`;
-    report += `| 时段 | 访问次数 | 独立IP |\n`;
+    report += `| 时段 | 访问次数 | 独立访客 |\n`;
     report += `|------|----------|--------|\n`;
     for (const row of hourlyData.results) {
       report += `| ${String(row.hour).padStart(2, '0')}:00 - ${String(row.hour).padStart(2, '0')}:59 | ${row.views} | ${row.ips} |\n`;
@@ -882,7 +929,14 @@ async function sendReportEmail(content, date, env) {
   }
 
   const senderEmail = env.SENDER_EMAIL || 'onboarding@resend.dev';
-  const recipientEmail = env.REPORT_EMAIL || 'lcfactorization@gmail.com';
+  // 隐私（v3.0.5）：不再回退到任何硬编码的个人邮箱。
+  // 原实现把作者的个人 Gmail 作为默认收件人写进了公开仓库。
+  // 现在未配置 REPORT_EMAIL 就不发送（fail closed）。
+  const recipientEmail = env.REPORT_EMAIL;
+  if (!recipientEmail) {
+    console.log('[analytics] REPORT_EMAIL 未配置，跳过邮件发送');
+    return false;
+  }
 
   try {
     const response = await fetch('https://api.resend.com/emails', {

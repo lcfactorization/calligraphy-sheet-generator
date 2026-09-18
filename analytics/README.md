@@ -35,8 +35,9 @@
 - 免费额度：每天 100 封邮件，足够每日报告使用
 - 默认发件地址 `onboarding@resend.dev` 已验证可用
 
-### 3. 接收邮箱（可选）
-- 默认发送到 `lcfactorization@gmail.com`，可在 `analytics/cron-worker/wrangler.toml` 中修改 `REPORT_EMAIL`
+### 3. 接收邮箱（必填才会发信）
+- **没有默认收件人**：未配置 `REPORT_EMAIL` 时不会发送任何邮件（v3.0.5 起移除内置默认邮箱）。
+- 在 `analytics/cron-worker/wrangler.toml` 中设置 `REPORT_EMAIL` 为您自己的邮箱。
 
 ---
 
@@ -45,7 +46,7 @@
 ### 方式 A：一键脚本（推荐，需 Node.js）
 
 ```powershell
-cd C:\poem2pdf\distribution\analytics
+cd analytics
 .\setup.ps1 -ApiToken "cfut_xxxxx" -ResendApiKey "re_xxxxx"
 ```
 
@@ -71,7 +72,8 @@ cd C:\poem2pdf\distribution\analytics
 #### 第 3 步：设置 Pages 环境变量
 1. 同上项目 → **设置** → **环境变量**
 2. 添加：
-   - `CRON_SECRET` = 一个随机字符串（如 `calligraphy_cron_secret_x8k3n5q9w2r7`，请改成自己的强随机值）
+   - `CRON_SECRET` = **您自己的**随机强密钥（例如 `openssl rand -hex 32`）。
+     ⚠ v3.0.5 起代码中**不再有默认密钥**：未配置该变量时 `/api/report` 与 `/api/stats` 一律返回 401。
    - `SENDER_EMAIL` = `onboarding@resend.dev`（可选）
    - `REPORT_EMAIL` = 您的邮箱（可选）
 
@@ -81,7 +83,7 @@ cd C:\poem2pdf\distribution\analytics
 
 #### 第 5 步：部署 Cron Worker（每日报告 + 邮件）
 ```powershell
-cd C:\poem2pdf\distribution\analytics\cron-worker
+cd analytics\cron-worker
 npm install
 npx wrangler deploy
 # 设置密钥

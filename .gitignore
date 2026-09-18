@@ -23,7 +23,7 @@ v2.8.5-verify-*.pdf
 # 含审查报告/修复方案/发布说明/测试清单/根因分析/多Agent简报/patch/策略总结等
 docs/
 _commit_v287.txt
-视频自我介绍脚本_陈自强_Trae大赛.md
+视频自我介绍脚本_*.md
 # v3.0.4：排除本地开源字体（CI 会通过 scripts/download-fonts.sh 下载并转 woff2，不提交到仓库避免体积膨胀）
 public/fonts/
 
@@ -45,6 +45,18 @@ convert_one_font.py
 # 仅排除 analytics 内的 node_modules 与本地生成物
 analytics/cron-worker/node_modules/
 analytics/*.log
+
+# v3.0.4：Vite 每次加载 vite.config.js 会生成带时间戳的临时 bundle，
+# 进程被强制结束时可能残留（如 vite.config.js.timestamp-1789727837968-5c39b7e821111.mjs）
+vite.config.js.timestamp-*.mjs
+# v3.0.5：本地私有字体映射（可能包含商业字体的本地授权信息，绝不提交）
+puppeteer-fonts.local.json
+# v3.0.5：本地环境变量（若使用 .env 风格配置）
+.env.local
+
+# v3.0.5：AI 助手在本仓库的本地工作记忆（属个人工作数据，不随代码发布）
+.workbuddy-ai/
+
 
 # 说明：src/modules/aiKeyImporter.js / aiKeyStore.js 为功能代码（不含密钥值），需随仓库发布；
 # 密钥值仅存 localStorage，不会写入代码/仓库。

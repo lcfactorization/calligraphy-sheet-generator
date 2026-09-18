@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # 字帖生成器 访问统计系统 - 一键安装脚本
 # ============================================================
 # 前置条件：
@@ -139,7 +139,15 @@ try {
 
     # 设置 Cron Worker 的 secrets
     if ([string]::IsNullOrEmpty($CronSecret)) {
-        $CronSecret = "calligraphy_cron_secret_x8k3n5q9w2r7"
+        # v3.0.5 安全修复：不再使用硬编码默认值。
+        # 旧默认值是写在公开仓库里的固定字符串 —— 任何忘记配置该变量的部署，
+        # 其 /api/report 与 /api/stats 都可被任何读过仓库的人直接调用，等同于无保护。
+        # 现在改为每次部署生成 32 字节随机强密钥。
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $bytes = New-Object 'System.Byte[]' 32
+        $rng.GetBytes($bytes)
+        $CronSecret = ($bytes | ForEach-Object { $_.ToString('x2') }) -join ''
+        Write-Host "  INFO - 已生成随机 CRON_SECRET（请妥善保存：调用报告/统计接口需要它）" -ForegroundColor Cyan
     }
 
     $secretBody = @{ name = "CRON_SECRET"; text = $CronSecret } | ConvertTo-Json

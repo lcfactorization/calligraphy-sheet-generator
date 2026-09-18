@@ -43,6 +43,37 @@ initStrokeDemoToolbar();
 // 手动修改拼音与组词初始化
 initManualEdit();
 
+// v3.0.5：自行注册 Service Worker（vite.config.js 已设 injectRegister: false）。
+// 为什么不用插件自动注入：自动注入的 registerSW.js 只判断 `'serviceWorker' in navigator`，
+// 而该判断在 file:// 下为真 —— 双击打开时会发起一次注定失败的注册
+// （"The URL protocol of the current origin ('file://') is not supported"），
+// 且生成的脚本没有 .catch()，于是抛出未捕获的 Promise 拒绝。
+//
+// 两个必须的前置条件：
+//   · `import.meta.env.PROD` —— vite-plugin-pwa 的 devOptions.enabled 默认 false，
+//     即**开发模式下根本没有 sw.js**（dev server 会回退返回 index.html，MIME 为 text/html）。
+//     不加此判断会在 dev 下报 "The script has an unsupported MIME type ('text/html')"。
+//   · `location.protocol !== 'file:'` —— file:// 不支持 Service Worker。
+if (import.meta.env.PROD && location.protocol !== 'file:' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function (err) {
+            // 注册失败不影响离线数据与全部核心功能（离线数据走 embedded.js，不依赖 SW）
+            console.warn('[PWA] Service Worker 注册失败（不影响功能）:', err && err.message);
+        });
+    });
+}
+
+// v3.0.5：向父窗口（字帖生成器.html 启动器）报告「应用已就绪」。
+// 为什么需要显式信标：在 file:// 协议下，iframe 的 load 事件**即使目标文件不存在也会触发**
+// （Chrome 会为失败的导航加载自己的错误页），因此启动器无法用 load 事件区分
+// 「应用加载成功」与「dist/index.html 缺失」。一个显式的就绪消息才能准确判定。
+// 同步初始化到此已完成，界面骨架已存在，此时切换显示不会出现空白帧。
+try {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'calligraphy:ready', version: 'v3.0.5' }, '*');
+    }
+} catch (e) { /* 跨源限制下忽略：启动器会走超时兜底 */ }
+
 // 读取当前渲染选项（合并侧栏状态 + 字体选择 + 契约默认值）
 // v2.4.4：新增 gridType 传递，描红透明度默认 0.1
 function getRenderOptions() {

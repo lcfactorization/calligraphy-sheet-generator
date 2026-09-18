@@ -28,15 +28,35 @@ const path = require('path');
 const fs = require('fs');
 
 // ════════ 字体名称映射表 ════════
+// v3.0.5 知识产权修复：仅收录「开源」或「系统自带」字体。
+//   此前本表把多款**需要单独商业授权**的字体（姜浩硬笔楷书 / 方正仿宋GBK /
+//   方正宋简大漆 / 方正宋简海豚 / 田英章楷书30Light）写进了公开仓库，
+//   且以其中一款作为**默认字体** —— 等于把一个默认依赖商业字体授权的工具公开发布。
+//   这些字体既没有随仓库分发（合法），也未被声明为需要授权（不清晰），
+//   公开版本因此不再引用它们。
+//
+//   若您本地已合法获得授权并需要继续使用，请创建 puppeteer-fonts.local.json
+//   （已在 .gitignore 中排除，不会被提交），格式：
+//     { "我的商业字体": "MyCommercialFontPostScriptName" }
+//   其中的条目会在启动时合并进本表。
 const FONT_MAP = {
-    '姜浩硬笔楷书':       'JiangHaoYingBiKaiShu',
-    '华文楷体':           'STKaiti',
-    '方正仿宋GBK':        'FZFSGBK',
-    '方正宋简大漆':       'FZSJ-DQYBKSJW',
-    '方正宋简海豚':       'FZSJ-HAITWY',
-    '文鼎楷体':           'TW-Kai',
-    '田英章楷书30Light':  'TianYingZhangKaiShuLight',
+    '文鼎楷体':  'TW-Kai',      // 随仓库分发（ARPH 公共许可证，见 ARPHICPL.TXT）
+    '华文楷体':  'STKaiti',     // 系统自带（macOS / Windows），不随仓库分发
 };
+
+// 本地私有字体映射（可选，gitignored）：让作者/用户在不污染公开仓库的前提下扩展字体
+const LOCAL_FONT_MAP_PATH = path.join(__dirname, 'puppeteer-fonts.local.json');
+try {
+    if (fs.existsSync(LOCAL_FONT_MAP_PATH)) {
+        const localMap = JSON.parse(fs.readFileSync(LOCAL_FONT_MAP_PATH, 'utf8'));
+        if (localMap && typeof localMap === 'object') {
+            Object.assign(FONT_MAP, localMap);
+            console.log(`[字体] 已合并本地映射 ${Object.keys(localMap).length} 项（puppeteer-fonts.local.json）`);
+        }
+    }
+} catch (e) {
+    console.warn('[字体] 读取 puppeteer-fonts.local.json 失败，已忽略:', e.message);
+}
 
 // ════════ 命令行参数解析 ════════
 function parseArgs() {
@@ -45,7 +65,7 @@ function parseArgs() {
         text: '',
         input: '',
         output: '字帖.pdf',
-        font: '姜浩硬笔楷书',
+        font: '文鼎楷体',   // v3.0.5：默认改为随仓库分发的开源字体
         format: 'a4',
         header: '',
         footer: '',
@@ -76,7 +96,7 @@ function parseArgs() {
                 break;
             case '-f':
             case '--font':
-                options.font = args[++i] || '姜浩硬笔楷书';
+                options.font = args[++i] || '文鼎楷体';
                 break;
             case '--format':
                 options.format = args[++i] || 'a4';
@@ -126,11 +146,13 @@ function parseArgs() {
   -t, --text <文本>       直接指定要生成字帖的文本内容
   -i, --input <文件>      从文本文件读取内容（UTF-8编码）
   -o, --output <文件>     输出PDF文件路径 (默认: 字帖.pdf)
-  -f, --font <字体名>     汉字字体 (默认: 姜浩硬笔楷书)
-      可选字体:
-        姜浩硬笔楷书        华文楷体            方正仿宋GBK
-        方正宋简大漆        方正宋简海豚        文鼎楷体
-        田英章楷书30Light
+  -f, --font <字体名>     汉字字体 (默认: 文鼎楷体)
+      内置可选字体（均为开源或系统自带）:
+        文鼎楷体            华文楷体
+      需要其它字体时：
+        1) 用 --font-file 直接指定字体文件；或
+        2) 创建 puppeteer-fonts.local.json 添加自定义映射（不会被提交到仓库）。
+      ⚠ 使用商业字体前请自行确认已获得相应授权。
       --font-file <路径>   自定义字体文件路径(.ttf/.otf/.woff)
                           使用此选项时可配合 --font 指定显示名
   --format <格式>         页面格式: a4, a3, a5, letter, legal (默认: a4)

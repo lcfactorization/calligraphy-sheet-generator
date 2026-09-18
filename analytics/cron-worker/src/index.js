@@ -69,7 +69,8 @@ export default {
         status: 'active',
         cron: '0 0 * * * (UTC) = 每天北京时间 08:00',
         site_url: env.SITE_URL,
-        report_email: env.REPORT_EMAIL || 'lcfactorization@gmail.com',
+        // 隐私（v3.0.5）：不再回退到硬编码的个人邮箱；未配置即显式暴露为 null
+        report_email: env.REPORT_EMAIL || null,
         resend_configured: !!env.RESEND_API_KEY,
         current_time: new Date().toISOString(),
         bj_time: new Date(Date.now() + 8 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' (UTC+8)'
@@ -121,7 +122,12 @@ async function sendErrorNotification(date, errorMsg, env) {
   if (!env.RESEND_API_KEY) return false;
 
   const senderEmail = env.SENDER_EMAIL || 'onboarding@resend.dev';
-  const recipientEmail = env.REPORT_EMAIL || 'lcfactorization@gmail.com';
+  // 隐私（v3.0.5）：不再回退到硬编码的个人邮箱（fail closed）
+  const recipientEmail = env.REPORT_EMAIL;
+  if (!recipientEmail) {
+    console.log('[cron] REPORT_EMAIL 未配置，跳过错误通知邮件');
+    return false;
+  }
 
   const content = `# 报告生成失败通知
 

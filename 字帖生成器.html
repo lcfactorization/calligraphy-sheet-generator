@@ -12,21 +12,46 @@
             height: 100vh;
             overflow: hidden;
             background: #f6f7fb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
         }
         #app-frame {
-            display: block;
+            display: none;              /* 就绪后才显示，避免用户看到半成品 */
             width: 100vw;
             height: 100vh;
             border: 0;
         }
-        /* 加载失败时的提示 */
+
+        /* ── 加载中提示（v3.0.5 新增）──
+           此前双击打开后会有约 6 秒纯白屏，用户无法判断是"在加载"还是"坏了"。 */
+        #loading-tip {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #475569;
+            max-width: 90vw;
+        }
+        #loading-tip .spinner {
+            width: 34px;
+            height: 34px;
+            margin: 0 auto 16px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #9e2a2b;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-tip p { margin: 4px 0; font-size: 14px; line-height: 1.7; }
+        #loading-tip .hint { font-size: 12px; color: #94a3b8; }
+
+        /* ── 加载失败提示 ── */
         #fallback-tip {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
             color: #475569;
             text-align: center;
             padding: 24px 32px;
@@ -52,31 +77,119 @@
             font-size: 13px;
             color: #6366f1;
         }
+        #fallback-tip button {
+            margin-top: 14px;
+            padding: 8px 18px;
+            font-size: 14px;
+            color: #fff;
+            background: #9e2a2b;
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        #fallback-tip button:hover { background: #832224; }
+        #fallback-tip .diag { margin-top: 10px; font-size: 12px; color: #94a3b8; }
     </style>
 </head>
 <body>
     <iframe id="app-frame" src="dist/index.html" title="字帖生成器"></iframe>
+
+    <div id="loading-tip">
+        <div class="spinner"></div>
+        <p>正在加载字帖生成器…已等待 <span id="loading-elapsed">0.0</span> 秒</p>
+        <p class="hint">需读取约 16 MB 离线笔画数据，首次打开请稍候</p>
+    </div>
+
     <div id="fallback-tip">
         <h2>⚠️ 无法加载字帖生成器</h2>
         <p>请确认 <code>dist/index.html</code> 文件存在。</p>
         <p>如果尚未构建，请先在项目目录运行：<code>npm run build</code></p>
         <p>或者使用开发模式：<code>npm run dev</code></p>
+        <button id="retry-btn" type="button">🔄 重新加载</button>
+        <p class="diag" id="diag"></p>
     </div>
+
     <script>
-        // 检测 iframe 是否加载失败（file:// 协议下可能因路径错误失败）
-        (function() {
-            var frame = document.getElementById('app-frame');
-            var tip = document.getElementById('fallback-tip');
-            var loaded = false;
-            frame.addEventListener('load', function() { loaded = true; });
-            // 若 1.5 秒后仍未触发 load，显示提示
-            setTimeout(function() {
-                if (!loaded) {
-                    frame.style.display = 'none';
-                    tip.style.display = 'block';
-                }
-            }, 1500);
-        })();
+    /*
+     * v3.0.5 修复：启动器在 file:// 下会误报"无法加载"。
+     *
+     * 根因（已实测）：
+     *  1. 原实现在 iframe 之后才注册 load 监听，若 iframe 已加载完则标记永远为 false（竞态）；
+     *  2. 原实现只等 1500ms，而实测 dist/index.html 在 file:// 下需约 6000ms 才触发 load
+     *     （其中 hanzi-data-embedded.js 就有 16.4 MB）→ 在几乎所有机器上都会误报；
+     *  3. 一旦显示错误提示，原实现把 iframe 设为 display:none 且不再恢复，
+     *     因此"慢但成功"的加载会被永久掩盖。
+     *
+     * 为什么不能只看 load 事件：实测 file:// 下目标文件**不存在**时 load 事件同样会触发
+     * （Chrome 为失败的导航加载自己的错误页），所以 load 无法区分"成功"与"文件缺失"。
+     * 因此改为等待应用主动发来的就绪信标（见 src/main.js 的 postMessage），
+     * 超时仅作为兜底，且超时后仍保持监听以便自动恢复。
+     */
+    (function () {
+        var READY_TIMEOUT_MS = 30000;   // 实测约 6 秒；留足余量给慢盘 / 杀毒扫描 / 首次解压
+
+        var frame   = document.getElementById('app-frame');
+        var loading = document.getElementById('loading-tip');
+        var tip     = document.getElementById('fallback-tip');
+        var elapsed = document.getElementById('loading-elapsed');
+        var retry   = document.getElementById('retry-btn');
+        var diag    = document.getElementById('diag');
+
+        var timer = null, ticker = null, startedAt = 0, ready = false;
+
+        function stopTimers() {
+            if (timer)  { clearTimeout(timer);  timer = null; }
+            if (ticker) { clearInterval(ticker); ticker = null; }
+        }
+
+        function showApp() {
+            ready = true;
+            stopTimers();
+            loading.style.display = 'none';
+            tip.style.display = 'none';
+            frame.style.display = 'block';
+        }
+
+        function startWaiting() {
+            ready = false;
+            stopTimers();
+            startedAt = Date.now();
+            loading.style.display = 'block';
+            tip.style.display = 'none';
+            frame.style.display = 'none';
+            elapsed.textContent = '0.0';
+            ticker = setInterval(function () {
+                elapsed.textContent = ((Date.now() - startedAt) / 1000).toFixed(1);
+            }, 100);
+            timer = setTimeout(function () {
+                if (ready) return;
+                stopTimers();
+                loading.style.display = 'none';
+                tip.style.display = 'block';
+                diag.textContent = '已等待 ' + (READY_TIMEOUT_MS / 1000) + ' 秒仍未收到应用就绪信号。';
+                // 不停止监听：应用若稍后就绪，下面的 message 处理会立即切换到它
+            }, READY_TIMEOUT_MS);
+        }
+
+        // 应用就绪信标（来自 src/main.js）。用 '*' 是因为 file:// 下双方 origin 均为 'null'。
+        window.addEventListener('message', function (e) {
+            var d = e && e.data;
+            if (d && typeof d === 'object' && d.type === 'calligraphy:ready') {
+                showApp();
+            }
+        });
+
+        retry.addEventListener('click', function () {
+            // 先把 src 置空，强制一次真正的重新导航（直接赋同值不会触发导航）
+            frame.src = 'about:blank';
+            setTimeout(function () {
+                frame.src = 'dist/index.html';
+                startWaiting();
+            }, 60);
+        });
+
+        startWaiting();
+    })();
     </script>
 </body>
 </html>

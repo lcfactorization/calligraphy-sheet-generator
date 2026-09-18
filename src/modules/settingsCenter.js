@@ -133,6 +133,38 @@ function getKeyStoreApi() {
 // 模块内共享的 store API 引用（首次 getKeyStoreApi() resolve 后注入；未就绪时 UI 刷新显示空态）
 let aiKeyStoreApiRef = null;
 
+// v3.0.4：懒加载 aiKeyHealth（探测 / 评分 / 自动优选），同样避免循环依赖与首屏负担
+let _healthPromise = null;
+function getHealthApi() {
+    if (!_healthPromise) {
+        _healthPromise = import('./aiKeyHealth.js').then(m => {
+            aiKeyHealthApiRef = m;
+            return m;
+        });
+    }
+    return _healthPromise;
+}
+let aiKeyHealthApiRef = null;
+
+// v3.0.4：把探测裁决转成下拉框里的短徽章（无裁决返回空串，不干扰旧 UI）
+function verdictBadge(v) {
+    if (!v) return '';
+    // v3.0.4 修复：429 的裁决是 ok:true + kind:'ratelimit'（限流 ≠ Key 不可用），
+    //   原实现把 `if (v.ok) return '✓可用'` 放在 switch 之前，使「⚠限流」分支
+    //   永远不可达，与 CHANGELOG 中"限流会被标为 ⚠限流"的说明自相矛盾。
+    //   现在改为 kind 优先判定，只有真正的 ok 才显示 ✓。
+    if (v.kind === 'ratelimit') return '⚠限流';
+    if (v.ok) return v.free ? '✓免费' : '✓可用';
+    switch (v.kind) {
+        case 'unreachable': return '⚠不可达';
+        case 'auth': return '✗Key无效';
+        case 'quota': return '✗额度耗尽';
+        case 'model': return '✗模型不存在';
+        case 'unsupported': return '⚠需手动指定引擎';
+        default: return '✗不可用';
+    }
+}
+
 // v1.2.1（问题6）：刷新 AI Key 区 UI —— 单下拉菜单结构
 //   - 下拉始终显示（不隐藏）
 //   - 0 Key：仅一个 disabled 占位 option「尚未添加 API Key」
@@ -142,6 +174,7 @@ let aiKeyStoreApiRef = null;
 function refreshKeyUI(overlay) {
     const keys = aiKeyStoreApiRef ? aiKeyStoreApiRef.getAllKeys() : [];
     const active = aiKeyStoreApiRef ? aiKeyStoreApiRef.getActiveKey() : null;
+    const mode = aiKeyStoreApiRef ? aiKeyStoreApiRef.getKeyMode() : 'auto';
     const select = overlay.querySelector('#scAiKeySelect');
     if (select) {
         const opts = [];
@@ -149,9 +182,20 @@ function refreshKeyUI(overlay) {
             // 0 Key：禁用占位
             opts.push('<option value="" disabled selected>尚未添加 API Key</option>');
         } else {
+            // v3.0.4：首位固定「自动选择（推荐）」——由探测裁决自动挑最优引擎，用户无需手动选
+            const best = aiKeyHealthApiRef ? aiKeyHealthApiRef.pickBestKey(keys) : null;
+            const autoId = aiKeyStoreApiRef.getAutoKeyId();
+            const autoEntry = (best && best.entry)
+                || (autoId && keys.find(k => k.id === autoId))
+                || keys[0];
+            const autoSel = mode === 'auto' ? ' selected' : '';
+            const autoBadge = best && best.verdict ? verdictBadge(best.verdict) : '待检测';
+            opts.push(`<option value="__auto__"${autoSel}>自动选择（推荐）· ${autoBadge} · ${autoEntry.label} · ${aiKeyStoreApiRef.maskKey(autoEntry.key)}</option>`);
             keys.forEach(k => {
-                const sel = active && k.id === active.id ? ' selected' : '';
-                opts.push(`<option value="${k.id}"${sel}>${k.label} · ${aiKeyStoreApiRef.maskKey(k.key)}</option>`);
+                const v = aiKeyHealthApiRef ? aiKeyHealthApiRef.getVerdict(k.id) : null;
+                const badge = verdictBadge(v);
+                const sel = (mode === 'manual' && active && k.id === active.id) ? ' selected' : '';
+                opts.push(`<option value="${k.id}"${sel}>${badge ? badge + ' ' : ''}${k.label} · ${aiKeyStoreApiRef.maskKey(k.key)}</option>`);
             });
         }
         // 末尾固定「＋ 添加新 Key…」（0 Key 时也保留，作为唯一可操作入口）
@@ -348,7 +392,12 @@ function createPanel() {
                                 <input type="password" id="scAiKeyInlineNew" placeholder="粘贴新 Key：sk-… (DeepSeek) 或 ark-… (火山引擎)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:13px;">
                                 <button class="btn btn-ghost" id="scAiKeyInlineAdd" type="button" style="padding:6px 12px;font-size:12px;flex-shrink:0;">确认</button>
                             </div>
-                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 仅存本地。自动识别：sk- → DeepSeek（推荐），ark- → 火山引擎豆包（免费）。下拉选中即生效并自动匹配大模型。</div>
+                            <div class="sc-hint" style="font-size:11px;color:#6b7280;margin-top:4px;">API Key 仅存本地，不会上传。默认「自动选择」：点下方检测后，将自动挑选<b>免费且可用</b>的引擎完成组词，无需手动选择。支持 DeepSeek / 火山引擎豆包 / 智谱GLM / Kimi / 硅基流动 / 阿里百炼 / OpenRouter / MiniMax / 阶跃 / 百度千帆 / 腾讯混元等。</div>
+                            <!-- v3.0.4：一键检测全部 Key 可用性（两阶段探测：/models 零 token → 3 token 能力探测） -->
+                            <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+                                <button class="btn btn-ghost" id="scAiKeyProbe" type="button" style="padding:4px 10px;font-size:11px;">🔍 检测全部 Key 可用性</button>
+                                <span id="scAiKeyProbeInfo" style="font-size:11px;color:#9ca3af;"></span>
+                            </div>
                             <!-- v1.2.1：文件导入与下拉同列，全宽一行 -->
                             <div style="display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;">
                                 <input type="file" id="scAiKeyFile" accept=".txt,.md,.csv,.docx,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none;">
@@ -653,13 +702,51 @@ function bindPanelEvents(overlay) {
                     return;
                 }
                 if (result.count === 0) {
-                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `⚠ ${result.filename} 中未找到 sk- 或 ark- 开头的 API Key`; aiKeyImportInfo.style.color = '#f59e0b'; }
+                    // v3.0.4 修复：形状提示改为从 aiProviders 注册表派生。
+                    //   原实现硬编码了 `github_pat_`，而注册表中并无任何引擎匹配该前缀
+                    //   （GitHub PAT 不是任何已支持引擎的 Key），属误导性提示。
+                    //   派生后新增引擎会自动出现在提示里，不会再漂移。
+                    let shapeHint = '';
+                    try {
+                        const { PROVIDERS } = await import('./aiProviders.js');
+                        const seen = new Set();
+                        const parts = [];
+                        for (const p of PROVIDERS) {
+                            const h = p.keyShape && p.keyShape.hint;
+                            if (h && !seen.has(h)) { seen.add(h); parts.push(h); }
+                        }
+                        shapeHint = parts.join(' / ');
+                    } catch (e) { /* 注册表不可用时省略提示 */ }
+                    if (aiKeyImportInfo) {
+                        aiKeyImportInfo.textContent = `⚠ ${result.filename} 中未找到可识别的 API Key`
+                            + (shapeHint ? `（支持形状：${shapeHint}）` : '');
+                        aiKeyImportInfo.style.color = '#f59e0b';
+                    }
                 } else {
                     // v1.2.0：全部加入 Key 列表，最后一个置活跃（addKey 每次都会置活跃，故按文件顺序最后一个生效）
-                    let lastEntry = null;
-                    result.keys.forEach(k => { lastEntry = addKey(k); });
-                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `✓ 已导入 ${result.count} 个 Key（当前生效：${lastEntry ? lastEntry.label : ''}）`; aiKeyImportInfo.style.color = '#16a34a'; }
+                    result.keys.forEach(k => { addKey(k); });
+                    if (aiKeyImportInfo) { aiKeyImportInfo.textContent = `✓ 已导入 ${result.count} 个 Key，正在自动检测…`; aiKeyImportInfo.style.color = '#6366f1'; }
                     refreshKeyUI(overlay);
+                    // v3.0.4：导入后自动探测全部 Key 并优选（用户无需手动选择引擎）
+                    if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+                        getHealthApi().then(async (health) => {
+                            const all = (await import('./aiKeyStore.js')).getAllKeys();
+                            const verdicts = await health.probeAll(all);
+                            const okCount = verdicts.filter(v => v.ok).length;
+                            const best = health.pickBestKey(all);
+                            if (best && best.entry) {
+                                (await import('./aiKeyStore.js')).setAutoKeyId(best.entry.id);
+                                (await import('./aiKeyStore.js')).setKeyMode('auto');
+                            }
+                            if (aiKeyImportInfo) {
+                                aiKeyImportInfo.textContent = okCount > 0
+                                    ? `✓ 已导入 ${result.count} 个 Key，可用 ${okCount} 个（自动选择：${best ? best.entry.label : '—'}）`
+                                    : `⚠ 已导入 ${result.count} 个 Key，但均未通过检测`;
+                                aiKeyImportInfo.style.color = okCount > 0 ? '#16a34a' : '#f59e0b';
+                            }
+                            refreshKeyUI(overlay);
+                        }).catch(() => { /* 静默降级 */ });
+                    }
                 }
             } catch (err) {
                 console.error('[Key导入] 失败:', err);
@@ -683,12 +770,18 @@ function bindPanelEvents(overlay) {
             const selVal = select.value;
             if (!selVal || selVal === '__add_new__') return;
             if (preview.style.display === 'none') {
-                // 取当前选中 Key 的完整值：优先活跃 Key，兜底按下拉选中 id 查找
+                // v3.0.4：优先按下拉框当前选中项取值（自动模式下选中的是 __auto__，
+                // 此时回落到生效 Key），避免"看到的"和"展开的"不是同一把 Key。
                 let fullKey = '';
-                const activeEntry = aiKeyStoreApiRef ? aiKeyStoreApiRef.getActiveKey() : null;
-                if (activeEntry) {
-                    fullKey = activeEntry.key;
-                } else if (aiKeyStoreApiRef && select.value) {
+                if (aiKeyStoreApiRef && select.value && select.value !== '__auto__') {
+                    const selKey = aiKeyStoreApiRef.getAllKeys().find(k => k.id === select.value);
+                    fullKey = selKey ? selKey.key : '';
+                }
+                if (!fullKey && aiKeyStoreApiRef) {
+                    const eff = aiKeyStoreApiRef.getEffectiveKeyEntry();
+                    fullKey = eff ? eff.key : '';
+                }
+                if (!fullKey && aiKeyStoreApiRef && select.value) {
                     const selKey = aiKeyStoreApiRef.getAllKeys().find(k => k.id === select.value);
                     fullKey = selKey ? selKey.key : '';
                 }
@@ -716,7 +809,13 @@ function bindPanelEvents(overlay) {
                 return;
             }
             const api = await getKeyStoreApi();
-            const entry = api.getAllKeys().find(k => k.id === id);
+            // v3.0.4：与删除/眼睛按钮保持一致 —— 自动选择态（value === '__auto__'）
+            // 或选中项已失效时，回落到生效 Key，避免「📋」在新默认模式下永远报"未找到该 Key"。
+            let entry = null;
+            if (id !== '__auto__') {
+                entry = api.getAllKeys().find(k => k.id === id) || null;
+            }
+            if (!entry) entry = api.getEffectiveKeyEntry();
             if (!entry) {
                 if (status) { status.textContent = '⚠ 未找到该 Key'; status.style.color = '#f59e0b'; }
                 return;
@@ -742,7 +841,11 @@ function bindPanelEvents(overlay) {
                 aiKeyCopyBtn.textContent = orig;
                 aiKeyCopyBtn.style.color = '#6b7280';
             }, 1500);
-            if (status) { status.textContent = `✓ 已复制：${entry.label}（${api.maskKey(entry.key)}）`; status.style.color = '#16a34a'; }
+            if (status) {
+                const autoNote = (id === '__auto__') ? '（自动选择当前生效）' : '';
+                status.textContent = `✓ 已复制：${entry.label}${autoNote}（${api.maskKey(entry.key)}）`;
+                status.style.color = '#16a34a';
+            }
         });
     }
 
@@ -771,10 +874,29 @@ function bindPanelEvents(overlay) {
             if (inlineRow) inlineRow.style.display = 'none'; // 切回已有 Key → 收起添加行
             if (!id) return;
             const api = await getKeyStoreApi();
+            // v3.0.4：自动选择模式 —— 由探测裁决自动挑最优，用户无需手动选
+            if (id === '__auto__') {
+                api.setKeyMode('auto');
+                const keys = api.getAllKeys();
+                const health = aiKeyHealthApiRef || await getHealthApi();
+                const best = health.pickBestKey(keys);
+                if (status) {
+                    if (best && best.verdict && best.verdict.ok) {
+                        status.textContent = `✓ 已切换为自动选择：当前最优 ${best.entry.label}（得分 ${best.score.toFixed(2)}${best.verdict.free ? '，免费' : ''}），组词将自动使用该引擎`;
+                        status.style.color = '#16a34a';
+                    } else {
+                        status.textContent = '⚠ 已切换为自动选择，但尚无可用裁决 —— 请点「🔍 检测全部 Key 可用性」';
+                        status.style.color = '#f59e0b';
+                    }
+                }
+                refreshKeyUI(overlay);
+                return;
+            }
+            api.setKeyMode('manual'); // v3.0.4：显式选中某个 Key → 固定为手动模式
             api.setActiveKey(id); // 选中即生效：写 ai_active_key_id
             const entry = api.getAllKeys().find(k => k.id === id);
             if (status && entry) {
-                status.textContent = `✓ 已切换：${entry.label}（${api.maskKey(entry.key)}），AI 检查将自动使用该引擎`;
+                status.textContent = `✓ 已固定为：${entry.label}（${api.maskKey(entry.key)}），AI 检查将始终使用该引擎`;
                 status.style.color = '#16a34a';
             }
             refreshKeyUI(overlay); // 刷新下拉选中态/预览值
@@ -799,15 +921,107 @@ function bindPanelEvents(overlay) {
             const entry = api.addKey({ key });
             if (inputNew) inputNew.value = '';
             if (status) {
-                if (providerInfo.type === 'unknown') {
-                    status.textContent = `⚠ 已添加但无法识别类型：${key.slice(0, 4)}…（请确认 sk- 或 ark- 开头；当前已生效）`;
-                    status.style.color = '#f59e0b';
-                } else {
-                    status.textContent = `✓ 已添加并生效：${entry.label}（${api.maskKey(entry.key)}）`;
-                    status.style.color = '#16a34a';
-                }
+                status.textContent = providerInfo.type === 'unknown'
+                    ? `✓ 已添加：${api.maskKey(entry.key)}（正在自动识别引擎…）`
+                    : `✓ 已添加：${entry.label}（${api.maskKey(entry.key)}），正在检测可用性…`;
+                status.style.color = '#6366f1';
             }
             refreshKeyUI(overlay); // 刷新后下拉回落到新添加的 Key
+            // v3.0.4：添加后立即自动探测（自动识别引擎 + 判定可用性 + 免费与否），
+            // 用户无需再手动点「检测」，也无需选择引擎。
+            if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+                getHealthApi().then(async (health) => {
+                    try {
+                        const v = await health.probeKey(entry);
+                        if (v.ok && v.providerId) {
+                            const { providerLabel } = await import('./aiProviders.js');
+                            api.addKey({
+                                key: entry.key,
+                                type: v.providerId,
+                                label: providerLabel(v.providerId),
+                                providerId: v.providerId,
+                                modelId: v.modelId || undefined
+                            });
+                            // 新 Key 可用 → 立即纳入自动优选
+                            api.setAutoKeyId(entry.id);
+                            api.setKeyMode('auto');
+                            if (status) {
+                                status.textContent = `✓ 可用（${providerLabel(v.providerId)}${v.free ? ' · 免费' : ''}，${v.latencyMs}ms），已加入自动选择`;
+                                status.style.color = '#16a34a';
+                            }
+                        } else if (status) {
+                            status.textContent = `⚠ 已添加但探测未通过：${v.message}`;
+                            status.style.color = '#f59e0b';
+                        }
+                    } catch (err) {
+                        console.warn('[Key自动探测] 失败:', err);
+                    }
+                    refreshKeyUI(overlay);
+                }).catch(() => { /* 健康模块加载失败时静默降级 */ });
+            }
+        });
+    }
+
+    // v3.0.4：一键检测全部 Key 可用性 → 自动挑最优（用户无需手动选择）
+    const aiKeyProbeBtn = overlay.querySelector('#scAiKeyProbe');
+    if (aiKeyProbeBtn) {
+        aiKeyProbeBtn.addEventListener('click', async () => {
+            const info = overlay.querySelector('#scAiKeyProbeInfo');
+            const status = overlay.querySelector('#scAiStatus');
+            const api = await getKeyStoreApi();
+            const keys = api.getAllKeys();
+            if (keys.length === 0) {
+                if (info) { info.textContent = '⚠ 尚未添加 API Key'; info.style.color = '#f59e0b'; }
+                return;
+            }
+            // 离线时跳过，避免把网络失败误记为"Key 无效"
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                if (info) { info.textContent = '⚠ 当前离线，无法检测（已保留上次裁决）'; info.style.color = '#f59e0b'; }
+                return;
+            }
+            aiKeyProbeBtn.disabled = true;
+            // v3.0.4 修复：getHealthApi() 必须在 try 内 await ——
+            //   原实现把 `const health = ... await getHealthApi()` 放在 try 之前，
+            //   一旦健康模块动态 import 失败，异常会直接冒泡出 handler，
+            //   finally 不执行 → 按钮永久停留在 disabled 状态，用户无法再检测。
+            try {
+                const health = aiKeyHealthApiRef || await getHealthApi();
+                const verdicts = await health.probeAll(keys, {
+                    onProgress: (p) => {
+                        if (info) { info.textContent = `检测中 ${p.done}/${p.total}…`; info.style.color = '#6366f1'; }
+                    }
+                });
+                const okList = verdicts.filter(v => v.ok);
+                const freeOk = okList.filter(v => v.free);
+                // 自动优选：写入 ai_auto_key_id 并切到自动模式
+                const best = health.pickBestKey(keys);
+                if (best && best.entry) {
+                    api.setAutoKeyId(best.entry.id);
+                    api.setKeyMode('auto');
+                }
+                if (info) {
+                    info.textContent = okList.length > 0
+                        ? `✓ 可用 ${okList.length}/${verdicts.length}（免费 ${freeOk.length}）`
+                        : `✗ ${verdicts.length} 个 Key 均不可用`;
+                    info.style.color = okList.length > 0 ? '#16a34a' : '#ef4444';
+                }
+                if (status) {
+                    if (best && best.verdict && best.verdict.ok) {
+                        status.textContent = `✓ 检测完成，已自动选用 ${best.entry.label}（得分 ${best.score.toFixed(2)}${best.verdict.free ? '，免费' : ''}）`;
+                        status.style.color = '#16a34a';
+                    } else {
+                        const first = verdicts[0];
+                        status.textContent = `✗ 未找到可用 Key${first ? '：' + first.message : ''}`;
+                        status.style.color = '#ef4444';
+                    }
+                }
+            } catch (err) {
+                console.error('[Key检测] 失败:', err);
+                if (info) { info.textContent = `✗ 检测失败：${err.message || err}`; info.style.color = '#ef4444'; }
+            } finally {
+                aiKeyProbeBtn.disabled = false;
+                refreshKeyUI(overlay);
+            }
         });
     }
 
@@ -816,17 +1030,25 @@ function bindPanelEvents(overlay) {
     if (aiKeyRemoveBtn) {
         aiKeyRemoveBtn.addEventListener('click', async () => {
             const api = await getKeyStoreApi();
-            const active = api.getActiveKey();
+            const select = overlay.querySelector('#scAiKeySelect');
             const status = overlay.querySelector('#scAiStatus');
-            if (!active) {
+            // v3.0.4：优先删除下拉框当前选中的 Key（用户意图明确），
+            // 自动选择态下则删除生效 Key。
+            let target = null;
+            const selVal = select ? select.value : '';
+            if (selVal && selVal !== '__auto__' && selVal !== '__add_new__') {
+                target = api.getAllKeys().find(k => k.id === selVal) || null;
+            }
+            if (!target) target = api.getEffectiveKeyEntry();
+            if (!target) {
                 if (status) { status.textContent = '⚠ 当前没有可删除的 Key'; status.style.color = '#f59e0b'; }
                 return;
             }
-            api.removeKey(active.id);
+            api.removeKey(target.id);
             const rest = api.getAllKeys();
             if (status) {
                 status.textContent = rest.length > 0
-                    ? `✓ 已删除 ${active.label}，当前生效：${rest[0].label}`
+                    ? `✓ 已删除 ${target.label}，剩余 ${rest.length} 个（自动选择将重新优选）`
                     : '✓ 已删除所有 API Key';
                 status.style.color = '#16a34a';
             }
@@ -838,6 +1060,7 @@ function bindPanelEvents(overlay) {
 
     const aiRunBtn = overlay.querySelector('#scAiRun');
     let aiAbortCtrl = null; // v2.9.9：支持再次点击中断
+    const AI_RUN_IDLE_LABEL = '▶ AI 检查与补齐';
     if (aiRunBtn) {
         aiRunBtn.addEventListener('click', async () => {
             const status = overlay.querySelector('#scAiStatus');
@@ -849,43 +1072,96 @@ function bindPanelEvents(overlay) {
                 return;
             }
 
-            // v1.2.0：从活跃键取值（内部自动迁移旧键）；不再直接读 deepseek_api_key
-            const api = await getKeyStoreApi();
-            const apiKey = api.getActiveKeyValue();
-            if (!apiKey) {
-                setStatus('⚠ 请先添加并选择 DeepSeek 或火山引擎 API Key', '#ef4444');
-                return;
-            }
-            // v3.0.0：拦截无法识别的 API Key 前缀
-            const { getAiProvider } = await import('./aiZuci.js');
-            const providerInfo = getAiProvider(apiKey);
-            if (providerInfo.type === 'unknown') {
-                setStatus('⚠ 无法识别 API Key 类型：请输入 sk- 开头（DeepSeek）或 ark- 开头（火山引擎）的 Key', '#ef4444');
-                return;
-            }
-            const text = (document.getElementById('inputText')?.value || '');
-            // 提取去重汉字
-            const chars = [...new Set((text.match(/[\u4e00-\u9fa5]/g) || []))];
-            if (chars.length === 0) {
-                setStatus('⚠ 字帖中没有汉字，请先输入文字并生成', '#ef4444');
+            // v3.0.4 修复：提前占用「运行位」。
+            //   原实现把 `aiAbortCtrl = new AbortController()` 放在 4 个 await
+            //   （getKeyStoreApi / 动态 import ×2 / getHealthApi + probeKey）之后，
+            //   这段可达数秒的窗口内 aiAbortCtrl 仍为 null → 第二次点击会绕过上面的
+            //   中断检查，启动**并行**的第二次运行，造成重复请求与状态互相覆盖。
+            //   现改为「先占位、后解析」，并在每条提前返回路径上归还占位。
+            aiAbortCtrl = new AbortController();
+            const runSignal = aiAbortCtrl.signal;
+            aiRunBtn.textContent = '⏹ 中断';
+            const endRun = () => { aiAbortCtrl = null; aiRunBtn.textContent = AI_RUN_IDLE_LABEL; };
+            const bail = (text, color) => { setStatus(text, color); endRun(); };
+
+            // v3.0.4：取「生效 Key」——自动模式下即探测优选结果（用户无需手动选择）
+            // 准备阶段（取 store / 动态 import / 引擎消歧）整段包在 try 内：
+            // 任一 await 抛错都能归还运行位，避免按钮永久停在「⏹ 中断」。
+            let api, effective, apiKey, resolvedEntry, providerInfo, chars;
+            try {
+                api = await getKeyStoreApi();
+                effective = api.getEffectiveKeyEntry();
+                apiKey = effective ? effective.key : '';
+                if (!apiKey) {
+                    bail('⚠ 请先添加 API Key（支持 DeepSeek / 火山引擎豆包 / 智谱GLM / Kimi / 硅基流动 / 阿里百炼 等多家引擎）', '#ef4444');
+                    return;
+                }
+                const { getAiProvider } = await import('./aiZuci.js');
+                const { detectProviderId } = await import('./aiProviders.js');
+                resolvedEntry = effective;
+                providerInfo = getAiProvider(resolvedEntry);
+                // v3.0.4：判断「引擎是否已确定」。
+                // ⚠ 关键：不能用 providerInfo.type === 'unknown' 作判据。
+                //   因为 resolveProviderId 对 sk- 保留了旧语义兜底（返回 deepseek），
+                //   所以 Kimi / 硅基流动 / 阿里百炼 等共用 sk- 前缀的 Key 会被"自信地"
+                //   误判为 DeepSeek，导致自动消歧分支永不触发 —— 而那正是本次要修的原始缺陷。
+                // 正确判据：条目已显式记录 providerId，或 Key 形状能被唯一判定。
+                const providerCertain = !!resolvedEntry.providerId || !!detectProviderId(apiKey);
+                if (!providerCertain) {
+                    setStatus('🔍 正在自动识别该 Key 所属引擎…', '#6366f1');
+                    const health = aiKeyHealthApiRef || await getHealthApi();
+                    // 把运行位 signal 传下去，使用户在此期间点「⏹ 中断」能真正取消探测
+                    const v = await health.probeKey(effective, { signal: runSignal });
+                    if (!v.ok || !v.providerId) {
+                        bail(`⚠ 自动识别引擎失败：${v.message || '未知原因'}`, '#ef4444');
+                        return;
+                    }
+                    // 回写 providerId，使后续调用（含组词）直接正确路由
+                    const { providerLabel } = await import('./aiProviders.js');
+                    api.addKey({
+                        key: apiKey,
+                        type: v.providerId,
+                        label: providerLabel(v.providerId),
+                        providerId: v.providerId,
+                        modelId: v.modelId || undefined
+                    });
+                    resolvedEntry = { ...effective, providerId: v.providerId, modelId: v.modelId || undefined };
+                    providerInfo = getAiProvider(resolvedEntry);
+                    refreshKeyUI(overlay);
+                }
+                if (providerInfo.type === 'unknown') {
+                    bail('⚠ 无法识别 API Key 所属引擎，请点「🔍 检测全部 Key 可用性」后重试', '#ef4444');
+                    return;
+                }
+                const text = (document.getElementById('inputText')?.value || '');
+                // 提取去重汉字
+                chars = [...new Set((text.match(/[\u4e00-\u9fa5]/g) || []))];
+                if (chars.length === 0) {
+                    bail('⚠ 字帖中没有汉字，请先输入文字并生成', '#ef4444');
+                    return;
+                }
+            } catch (err) {
+                console.error('[AI组词] 准备阶段失败:', err);
+                bail(`✗ 初始化失败：${(err && err.message) || err}`, '#ef4444');
                 return;
             }
 
-            aiAbortCtrl = new AbortController();
-            aiRunBtn.textContent = '⏹ 中断';
+            // v3.0.4：AbortController 已在入口处创建（见上），此处不再重复创建
             // v3.0.0：读取开关（组词补齐默认勾选；全量检查已联动勾选其余两项并禁用）
             const fullCheck = !!overlay.querySelector('#scAiFullCheck')?.checked;
             const fillMissing = !!overlay.querySelector('#scAiFillMissing')?.checked;
             const fixPinyin = !!overlay.querySelector('#scAiFixPinyin')?.checked;
             const anyOn = fullCheck || fillMissing || fixPinyin;
             // v3.0.0：全量检查时豆包自动升级 turbo 强模型，重新获取 providerInfo 以显示正确标签
-            const providerInfoFull = getAiProvider(apiKey, fullCheck);
+            const providerInfoFull = getAiProvider(resolvedEntry, fullCheck);
             const opts = {
                 fullCheck,
                 fillMissing: anyOn ? fillMissing : true,  // 都不勾选时默认补齐
                 fixPinyin,
                 apiKey,
-                signal: aiAbortCtrl.signal
+                // v3.0.4：把已消歧的 providerId 一并传入，使歧义 sk- Key 正确路由
+                providerId: resolvedEntry.providerId || null,
+                signal: runSignal
             };
             // v3.0.0：模式标签（简短，不重复引擎详情）
             const modeParts = [];
@@ -979,8 +1255,7 @@ function bindPanelEvents(overlay) {
                     setStatus(errMsg, '#ef4444');
                 }
             } finally {
-                aiAbortCtrl = null;
-                aiRunBtn.textContent = '▶ AI 检查与补齐';
+                endRun();
             }
         });
     }
@@ -988,6 +1263,9 @@ function bindPanelEvents(overlay) {
     // v1.2.1（问题6）：面板创建后异步加载 Key 列表并刷新下拉
     //   修复既有 bug：原代码 refreshKeyUI 仅由用户交互触发，首次打开面板时下拉为空
     getKeyStoreApi()
+        .then(() => refreshKeyUI(overlay))
+        // v3.0.4：同时预热 aiKeyHealth，使下拉能显示上次探测的健康徽章与自动优选结果
+        .then(() => getHealthApi())
         .then(() => refreshKeyUI(overlay))
         .catch(err => console.warn('[settingsCenter] 加载 aiKeyStore 失败:', err));
 }

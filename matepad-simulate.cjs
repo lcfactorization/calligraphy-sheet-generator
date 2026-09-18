@@ -18,7 +18,7 @@
  * 用法：
  *   node matepad-simulate.cjs                       # 默认 http://localhost:3000
  *   node matepad-simulate.cjs --url http://localhost:3000
- *   node matepad-simulate.cjs --url file:///C:/poem2pdf/distribution/dist/index.html
+ *   node matepad-simulate.cjs --url "file:///<项目绝对路径>/dist/index.html"
  *
  * 依赖：
  *   - 项目已安装 puppeteer（package.json 已声明）

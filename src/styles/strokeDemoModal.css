@@ -2,56 +2,97 @@
  * strokeDemoModal.css
  * 笔画笔顺动态演示弹窗（HanziWriter）样式
  *
- * v2.9.8 设计要点：
- *  - 双图层结构：.sd-stage-bg（底层0.25静态）+ .sd-stage-fg（顶层1.0动画）
- *  - 标准窗口式弹窗，支持最小化 / 最大化 / 关闭
- *  - 最多同时显示 4 个弹窗，水平排列于屏幕右下角
- *  - 主题适配复用项目既有 CSS 变量（light / dark）
- *  - z-index 范围 10003-10006（不与既有 modal 9999-10002 冲突）
- *  - 最小化/最大化使用固定 vw/vh 尺寸（不依赖 100%，避免 flex 容器失效）
+ * v3.0.4 触屏/平板自适应重构（契约 §3.8，缺陷 S1-S10）：
+ *  - 布局模型：.sd-overlay 由 flex 改为 CSS Grid
+ *      · .sd-slot 是网格条目，尺寸 = calc(340px * var(--sd-s)) × calc(440px * var(--sd-s))
+ *      · .sd-window 保持冻结的 340×440 内部几何，用 transform: scale(var(--sd-s)) 缩放
+ *        （transform-origin: top left → 左上角对齐插槽，插槽尺寸即视觉尺寸）
+ *      · --sd-cols / --sd-s 由 JS 写在 overlay 上
+ *  - 桌面 sMax=1.0 → 1×N 横排放得下时 s 恒为 1，与旧版逐像素一致（零退化）
+ *  - 触摸/平板 sMax=1.6，空间不足时 JS 自动收药丸
+ *  - S5：补齐 .sd-flash / .dragging 真实样式；入场动画迁到 .sd-slot.sd-open
+ *  - S6：.closing 立即脱离网格（position:absolute + pointer-events:none），残影淡出
+ *  - S7：粗略指针下触摸目标放大（媒体查询，非 JS 类）
+ *  - S8：补 769-1280px 平板断点（边界值取舍见下方注释）
+ *  - z-index 范围 10003-10006（内联 zIndex 由 JS 归一化分配，不再用 nth-child）
+ *  - 主题适配复用项目既有 CSS 变量（light / dark，仅 data-theme 切换）
  * ============================================================ */
 
 /* ------------------------------------------------------------
- * 外层容器 .sd-overlay
- * v2.9.8：弹窗居中显示（用户反馈"弹窗不能显示在屏幕正中央，寻找困难"）
- * 多弹窗时使用 flex 水平排列，居中对齐
+ * 外层容器 .sd-overlay —— CSS Grid
+ * 居中：position:fixed + top/left 50% + translate(-50%,-50%)
+ *      （保持旧版几何：overlay 收缩包裹内容并整体居中；
+ *        同时该 transform 也是"自由拖拽窗口"的绝对定位包含块）
  * ------------------------------------------------------------ */
 .sd-overlay {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 10003;                /* 容器自身层级，子弹窗各自递增 */
-  display: flex;
-  flex-direction: row;           /* 多弹窗水平排列 */
-  align-items: center;           /* v2.9.8：垂直居中对齐 */
-  justify-content: center;       /* v2.9.8：水平居中对齐 */
-  gap: 12px;
+  z-index: 10003;                /* 容器自身层级；子窗口用内联 zIndex 递增 */
+  display: grid;
+  /* --sd-cols 由 JS 求解后写入；缺省 1 防止未布局时列定义失效 */
+  grid-template-columns: repeat(var(--sd-cols, 1), max-content);
+  /*
+   * 间距必须与窗口一起缩放（gap = 12px * --sd-s）。
+   *
+   * 这是对契约 §3.8 冻结公式的一处必要修正：
+   *   公式 s = min(sMax, availW/(cols*340+(cols-1)*12), …) 隐含"间距也按 s 缩放"，
+   *   若 CSS 里 gap 固定 12px，则实际行宽 = cols*340*s + (cols-1)*12 > availW，
+   *   在 s<1 时必然溢出（实测 1280×800 四窗溢出 4px、844×390 四窗溢出 15px），
+   *   等于 S1/S2 没修好。改为缩放后公式与渲染完全一致，且 s=1 时间距恰为 12px，
+   *   桌面 1×N 横排仍是"等距 12px"。
+   */
+  gap: calc(12px * var(--sd-s, 1));
+  justify-content: center;       /* 水平居中 */
+  align-content: center;         /* 多行时垂直居中 */
+  align-items: center;           /* 药丸行内垂直居中（旧版 align-items:center 等价） */
   pointer-events: none;          /* 容器空白区域不拦截鼠标事件 */
   max-width: calc(100vw - 40px);
   max-height: calc(100vh - 40px);
 }
 
-/* 多弹窗 z-index 分配（最多 4 个，依次递增） */
-.sd-overlay .sd-window:nth-child(1) { z-index: 10003; }
-.sd-overlay .sd-window:nth-child(2) { z-index: 10004; }
-.sd-overlay .sd-window:nth-child(3) { z-index: 10005; }
-.sd-overlay .sd-window:nth-child(4) { z-index: 10006; }
+/* 插槽自身不接收事件，只有窗口本体接收（等价旧版 .sd-overlay > .sd-window） */
+.sd-slot {
+  pointer-events: none;
+}
 
-/* 弹窗自身需接收鼠标事件 */
-.sd-overlay > .sd-window {
+.sd-slot > .sd-window {
   pointer-events: auto;
 }
 
 /* ------------------------------------------------------------
- * 单个弹窗窗口 .sd-window
- * v2.9.8：默认尺寸 340x440px，宽高比固定 ≈ 0.77:1
- * 最大化时按比例放大到 60vw x 70vh（保持比例）
+ * 布局插槽 .sd-slot
+ * 冻结的布局盒：插槽尺寸 = 缩放后的窗口尺寸 → 网格排布的就是"视觉尺寸"。
+ * 窗口未缩放前的 340×440 会溢出插槽，但 transform 缩放后恰好填满。
+ * ------------------------------------------------------------ */
+.sd-slot {
+  width: calc(340px * var(--sd-s, 1));
+  height: calc(440px * var(--sd-s, 1));
+}
+
+/* 最小化：插槽同步收缩为药丸尺寸（240×40），网格才会正确重排 */
+.sd-slot.sd-slot--min {
+  width: calc(240px * var(--sd-s, 1));
+  height: calc(40px * var(--sd-s, 1));
+}
+
+/* 最大化：窗口脱离网格、在视口中心独立放大。
+ * display:contents 让插槽不产生盒子 → 不占网格轨道/间距，其余窗口按原列数重排；
+ * 此时窗口的绝对定位包含块回退到 .sd-overlay（slot 不是包含块）。 */
+.sd-slot.sd-slot--max {
+  display: contents;
+}
+
+/* ------------------------------------------------------------
+ * 单个窗口 .sd-window
+ * 内部几何冻结：340×440（标题栏 40、舞台 260、…），靠 transform 缩放适配屏幕。
+ * transform-origin: top left 是关键 —— 缩放后左上角与插槽左上角重合。
  * ------------------------------------------------------------ */
 .sd-window {
   width: 340px;
   height: 440px;
-  min-height: 360px;             /* v2.9.8：最小高度，确保控件可见 */
+  min-height: 360px;             /* 最小高度，确保控件可见 */
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -59,13 +100,31 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;                /* v2.9.8：不让弹窗在 overlay 中被压缩 */
-  /* 出现动画 */
-  animation: sd-pop-in 0.2s var(--ease-out-soft) both;
+  flex: 0 0 auto;
+  transform: scale(var(--sd-s, 1));
+  transform-origin: top left;
+}
+
+/* 出现动画：挂在插槽上（S5）
+ * 原因：.sd-window 自带 scale(var(--sd-s)) 变换，若把带 transform 的动画挂在窗口上，
+ *       animation-fill-mode 的终态会覆盖缩放（缩放永远不生效）。
+ *       挂在无变换的插槽上，既保留 pop-in 手感，又与缩放解耦。
+ * .sd-open 由 JS 在插入的同一任务内添加（无闪帧）。 */
+.sd-slot.sd-open {
+  animation: sd-pop-in 0.2s var(--ease-out-soft) backwards;
 }
 
 /* 关闭动画类（JS 在移除弹窗前添加此 class 触发反向动画） */
 .sd-window.closing {
+  /* S6：立即脱离布局，网格瞬时重排。
+   * v3.0.4 修复：原为 position:absolute，与 JS 不符 —— closeWindow() 会把残影
+   * 从插槽移出并 appendChild 到 <body>，同时内联设置 position:fixed，使
+   * left/top（getBoundingClientRect 的视口坐标）保持正确。
+   * absolute 在 <body> 下会相对最近的定位祖先解析，坐标语义错误，
+   * 只是被内联样式掩盖了。此处改为 fixed，与 JS 语义一致（内联样式保留，
+   * 用于 class 添加后、appendChild 前的同一任务内锁定定位方式）。 */
+  position: fixed;
+  pointer-events: none;
   animation: sd-pop-out 0.15s var(--ease-out-soft) both;
 }
 
@@ -81,15 +140,42 @@
   }
 }
 
+/* 关闭关键帧需带上当前缩放（窗口 transform-origin 为左上角，
+ * 残影的 left/top 已固定为视觉位置，故缩放必须以 var(--sd-s) 为基准） */
 @keyframes sd-pop-out {
   from {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scale(var(--sd-s, 1)) translateY(0);
   }
   to {
     opacity: 0;
-    transform: scale(0.95) translateY(8px);
+    transform: scale(calc(var(--sd-s, 1) * 0.95)) translateY(8px);
   }
+}
+
+/* ------------------------------------------------------------
+ * S5：聚焦闪烁（此前 JS 添加 .sd-flash 但 CSS 完全不存在 → 触摸端"点了没反应"）
+ * ------------------------------------------------------------ */
+.sd-window.sd-flash {
+  animation: sd-flash-ring 0.6s var(--ease-out-soft) 1;
+}
+
+@keyframes sd-flash-ring {
+  0%, 100% { box-shadow: var(--shadow-card); }
+  35%      { box-shadow: 0 0 0 4px var(--accent), var(--shadow-card); }
+}
+
+/* ------------------------------------------------------------
+ * S5：拖拽中状态（此前同样缺失样式）
+ * ------------------------------------------------------------ */
+.sd-window.dragging {
+  cursor: grabbing;
+  opacity: 0.97;
+  box-shadow: 0 18px 40px -12px rgba(15, 23, 42, 0.38), 0 0 0 1px var(--border);
+}
+
+.sd-window.dragging .sd-window-header {
+  cursor: grabbing;
 }
 
 /* ------------------------------------------------------------
@@ -103,7 +189,10 @@
   justify-content: space-between;
   padding: 0 6px 0 14px;
   cursor: move;                  /* 提示可拖拽 */
+  /* S3：触摸端把标题栏声明为拖拽手势区，避免拖拽时触发页面滚动/缩放 */
+  touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
   /* light 主题渐变背景 */
   background: linear-gradient(135deg, #fafafa, #f0f0f0);
   border-bottom: 1px solid var(--border);
@@ -171,7 +260,7 @@
 
 /* ------------------------------------------------------------
  * 弹窗主体 .sd-window-body
- * v2.9.8：使用 flex 布局让 stage 自适应缩放，确保所有控件可见
+ * 使用 flex 布局让 stage 自适应缩放，确保所有控件可见
  * ------------------------------------------------------------ */
 .sd-window-body {
   padding: 12px;
@@ -184,10 +273,9 @@
 }
 
 /* ============================================================
- * v2.9.9：加载态弹窗样式
+ * 加载态弹窗样式
  * 数据未就绪时显示加载动画，数据就绪后由 _promoteLoadingWindow 替换为正常内容；
  * 数据加载失败时由 _showLoadingError 显示错误信息。
- * 样式与现有弹窗风格一致，复用既有 CSS 变量（--bg/--text-color/--accent 等）。
  * ============================================================ */
 /* 加载态 / 错误态：body 改为居中 flex 布局（覆盖默认纵向布局） */
 .sd-window.loading .sd-window-body,
@@ -199,7 +287,7 @@
   text-align: center;
 }
 
-/* v2.9.9：CSS 旋转加载动画（圆形边框 + 旋转） */
+/* CSS 旋转加载动画（圆形边框 + 旋转） */
 .sd-loading-spinner {
   width: 36px;
   height: 36px;
@@ -214,14 +302,14 @@
   to { transform: rotate(360deg); }
 }
 
-/* v2.9.9：加载态灰色文字提示 */
+/* 加载态灰色文字提示 */
 .sd-loading-text {
   font-size: 13px;
   color: var(--desc-color, var(--text-color));
   line-height: 1.5;
 }
 
-/* v2.9.9：错误态红色文字提示 */
+/* 错误态红色文字提示 */
 .sd-loading-error-text {
   font-size: 13px;
   color: #d32f2f;
@@ -230,7 +318,7 @@
   word-break: break-word;
 }
 
-/* v2.9.9：尊重"减少动态效果"系统偏好 — 加载动画降速但不完全停止（保留视觉反馈） */
+/* 尊重"减少动态效果"系统偏好 — 加载动画降速但不完全停止（保留视觉反馈） */
 @media (prefers-reduced-motion: reduce) {
   .sd-loading-spinner {
     animation-duration: 2.5s;
@@ -239,26 +327,25 @@
 
 /* ------------------------------------------------------------
  * HanziWriter 演示舞台 .sd-stage
- * v2.9.8：双图层结构
+ * 双图层结构
  *   - .sd-stage-bg：底层，opacity 0.25，始终显示完整汉字（静态）
  *   - .sd-stage-fg：顶层，opacity 1，初始为空，动画时绘制笔画
- *   - .sd-stage 作为定位上下文（position: relative）
- * 正方形舞台，居中显示，保持与汉字匹配的 1:1 宽高比
- * 背景始终为白色（保证黑色笔画可读）
+ * 正方形舞台，居中显示，背景始终为白色（保证黑色笔画可读）
+ * 注意：尺寸是"冻结布局盒"的一部分，移动端也不再缩小（改由整体缩放适配）
  * ------------------------------------------------------------ */
 .sd-stage {
-  width: 260px;                  /* v2.9.8：固定宽度，保持正方形 */
-  height: 260px;                 /* v2.9.8：固定高度，与宽度一致保持 1:1 宽高比 */
+  width: 260px;                  /* 固定宽度，保持正方形 */
+  height: 260px;                 /* 固定高度，与宽度一致保持 1:1 宽高比 */
   margin: 0 auto;                /* 水平居中 */
   background: #fff;              /* 即使 dark 模式也保持白色（汉字黑色可读） */
   border: 1px solid var(--border);
   border-radius: 8px;
-  position: relative;            /* v2.9.8：作为双图层的定位上下文 */
+  position: relative;            /* 作为双图层的定位上下文 */
   overflow: hidden;
-  flex: 0 0 auto;                /* v2.9.8：不收缩不拉伸，保持固定尺寸 */
+  flex: 0 0 auto;                /* 不收缩不拉伸，保持固定尺寸 */
 }
 
-/* v2.9.8：双图层 - 底层与顶层的公共样式 */
+/* 双图层 - 底层与顶层的公共样式 */
 .sd-stage-bg,
 .sd-stage-fg {
   position: absolute;
@@ -269,24 +356,20 @@
   pointer-events: none;          /* 不拦截鼠标事件，避免影响拖拽 */
 }
 
-/* v2.9.8：底层 - 始终 0.25 不透明度显示完整汉字 */
+/* 底层 - 始终 0.25 不透明度显示完整汉字 */
 .sd-stage-bg {
   opacity: 0.25;
   z-index: 1;                    /* 底层 */
 }
 
-/* v2.9.8：顶层 - 初始 opacity:0（完全透明），点击播放后 .sd-playing 切换为 1
- * 确保 fg 的所有内容（笔画、中线、轮廓）初始都不可见，仅 bg 的 0.25 轮廓显示
- * 播放时 fg 变为 1，animateCharacter 逐笔绘制笔画覆盖底层
- * 重新播放时 animateCharacter 先隐藏笔画 → bg 0.25 轮廓再现 → 再逐笔绘制
- */
+/* 顶层 - 初始 opacity:0（完全透明），点击播放后 .sd-playing 切换为 1 */
 .sd-stage-fg {
   opacity: 0;
   z-index: 2;                    /* 顶层，覆盖底层 */
   transition: opacity 0.15s var(--ease-out-soft);
 }
 
-/* v2.9.8：播放状态 - 顶层变为完全不透明 */
+/* 播放状态 - 顶层变为完全不透明 */
 .sd-stage-fg.sd-playing {
   opacity: 1;
 }
@@ -308,10 +391,7 @@
   flex: 0 0 auto;
 }
 
-/* 播放按钮（accent 高亮）
- * v2.9.8：支持播放/暂停两态切换
- *   默认态：▶ 播放（accent 主色）
- *   播放中态：|| 暂停（略暗色，提示可暂停） */
+/* 播放按钮（accent 高亮，支持播放/暂停两态切换） */
 .sd-play-btn {
   width: 100%;
   height: 36px;
@@ -344,12 +424,12 @@
   cursor: not-allowed;
 }
 
-/* v2.9.8：播放中状态 — 切换为略暗色，提示当前可点击暂停 */
+/* 播放中状态 — 切换为略暗色，提示当前可点击暂停 */
 .sd-play-btn.playing {
   background: var(--accent2, #ec4899);
 }
 
-/* v2.9.8：播放/暂停图标尺寸与文本对齐 */
+/* 播放/暂停图标尺寸与文本对齐 */
 .sd-play-btn svg {
   flex-shrink: 0;
 }
@@ -369,8 +449,7 @@
 
 /*
  * 速度滑块 .sd-speed-slider
- * v2.9.8：范围 1x - 5x，步长 1（5档：1x/2x/3x/4x/5x）
- * 参考 settingsCenter.css 中 .sc-slider 的风格
+ * 范围 1x - 5x，步长 1（5档：1x/2x/3x/4x/5x）
  */
 .sd-speed-slider {
   flex: 1 1 auto;
@@ -381,7 +460,7 @@
   border-radius: 2px;
   outline: none;
   cursor: pointer;
-  /* v2.9.8：移动端触摸优化，允许滑块水平拖动而不触发页面滚动 */
+  /* 移动端触摸优化，允许滑块水平拖动而不触发页面滚动 */
   touch-action: pan-x;
 }
 
@@ -452,13 +531,12 @@
 
 /* ------------------------------------------------------------
  * 状态：最小化 .minimized
- * v2.9.8：仅显示标题栏，主体隐藏，高度收缩为标题栏高度（40px）
- * 使用 !important 确保覆盖移动端 min-height
+ * 仅显示标题栏，尺寸收缩为 240×40 药丸（插槽同步收缩，见 .sd-slot--min）
  * ------------------------------------------------------------ */
 .sd-window.minimized {
-  height: 40px !important;        /* v2.9.8：!important 确保覆盖移动端 min-height */
-  min-height: 40px !important;    /* v2.9.8：覆盖移动端 min-height: 400px */
-  width: 240px !important;        /* v2.9.8：最小化时宽度收缩，仅显示标题栏 */
+  height: 40px !important;
+  min-height: 40px !important;
+  width: 240px !important;
   flex: 0 0 auto;
 }
 
@@ -472,10 +550,16 @@
 
 /* ------------------------------------------------------------
  * 状态：最大化 .maximized
- * v2.9.8：使用固定 vw/vh 尺寸，不依赖 100%（flex 容器中 100% 无效）
+ * 脱离网格（插槽 display:contents）→ 在 overlay 中心（= 视口中心）独立放大。
+ * left/top 50% 是相对 overlay 的 padding box；由于 overlay 整体居中，
+ * 该点即视口中心（overlay 尺寸为 0 或非 0 均成立）。
  * 保持与默认弹窗相近的宽高比（约 0.77:1）
  * ------------------------------------------------------------ */
 .sd-window.maximized {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: min(60vw, 600px) !important;
   height: min(78vh, 780px) !important;
   max-height: none !important;
@@ -488,40 +572,132 @@
   flex: 1 1 auto;
 }
 
-/* v2.9.8：最大化时舞台放大，保持 1:1 宽高比居中显示 */
+/* 最大化时舞台放大，保持 1:1 宽高比居中显示 */
 .sd-window.maximized .sd-stage {
   width: min(50vw, 480px);
   height: min(50vw, 480px);
   flex: 0 0 auto;
 }
 
-/* ------------------------------------------------------------
- * 移动端适配（<768px）
- * v2.9.8：弹窗宽度 90vw，高度 70vh，确保完整显示所有控件
- * ------------------------------------------------------------ */
-@media (max-width: 768px) {
-  .sd-overlay {
-    /* v2.9.8：移动端也居中显示（继承桌面端 transform 居中） */
-    flex-direction: column;      /* 垂直堆叠 */
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
+/* ============================================================
+ * S7：粗略指针（触摸 / 笔）下的触摸目标放大
+ *
+ * 刻意用媒体查询（而不是 JS 加类）：
+ *   - JS 尚未执行（或加载失败）时即已生效
+ *   - 与 deviceEnv.isCoarsePointer() 使用同一判定口径：(hover:none),(pointer:coarse)
+ *
+ * 放大按钮后需要回收一点间距，否则冻结的 340×440 盒子内会裁切（body 内容高度仅 400px）。
+ *
+ * v3.0.4 修复（缩放补偿，第二轮）：
+ *   弹窗整体会被 transform: scale(var(--sd-s)) 缩放，因此**布局尺寸 × s = 实际触摸尺寸**。
+ *   只把布局尺寸设成 34px 是不够的 —— 在 s=0.9 时实际只有 30.6px，又掉回不达标区间。
+ *   因此用 calc(base / var(--sd-s)) 反向补偿：
+ *     layout = clamp(base, base / s, cap)  ⇒  实际尺寸 = layout × s
+ *
+ *   ⚠ 第一轮只补偿了按钮，结果布局尺寸长到 46px 却仍塞在 40px 高的标题栏里，
+ *     被 .sd-window{overflow:hidden} **纵向裁掉**（实测最差可见仅 29.3px），
+ *     并把 body 撑破 2.85px。因此本轮做**一致的空间重分配**：
+ *       1) 标题栏与播放按钮一起按同样比例放大（各自 clamp 兜底）；
+ *       2) 舞台（.sd-stage）扣掉"多出来的头部 + 播放按钮高度"作为补偿来源，
+ *          使 340×440 冻结盒子内的总高度守恒，既不裁切也不溢出。
+ *     这是唯一自洽的做法 —— 盒子尺寸是冻结的，任何增长都必须由别处让出空间。
+ *
+ *   补偿后的布局尺寸统一放进 CSS 变量，供 .sd-stage 扣减，避免算术重复书写。
+ * ============================================================ */
+@media (hover: none), (pointer: coarse) {
   .sd-window {
-    width: 90vw;
-    height: 70vh;                /* v2.9.8：固定高度，确保完整显示 */
-    max-height: 80vh;
-    min-height: 400px;           /* v2.9.8：移动端最小高度 */
+    /* 目标"实际"尺寸（乘 s 之后）：标题栏 ≥40px、按钮 ≥34px、播放 ≥44px、拇指 ≥22px */
+    --sd-hdr: clamp(40px, calc(40px / var(--sd-s, 1)), 56px);
+    --sd-btn: clamp(34px, calc(34px / var(--sd-s, 1)), 48px);
+    --sd-play: clamp(44px, calc(44px / var(--sd-s, 1)), 62px);
+    --sd-thumb: clamp(22px, calc(22px / var(--sd-s, 1)), 34px);
+    /* 舞台扣减补偿：260 - (头部增量 + 播放按钮增量)，下限 180px 保证字仍清晰 */
+    --sd-stage-comp: clamp(180px, calc(260px - (var(--sd-hdr) - 40px) - (var(--sd-play) - 44px)), 260px);
   }
 
-  /* v2.9.8：移动端舞台保持正方形，略小以适配窄屏 */
+  /* 标题栏同步放大，否则放大后的按钮会被 40px 的标题栏纵向裁切 */
+  .sd-window-header {
+    height: var(--sd-hdr);
+    flex: 0 0 var(--sd-hdr);
+  }
+
+  .sd-window-controls button {
+    width: var(--sd-btn);      /* 26 → 目标实际 ≥34px */
+    height: var(--sd-btn);
+    font-size: 16px;
+  }
+
+  .sd-play-btn {
+    height: var(--sd-play);    /* 36 → 目标实际 ≥44px */
+  }
+
+  .sd-speed-slider::-webkit-slider-thumb {
+    width: var(--sd-thumb);    /* 14 → 目标实际 ≥22px */
+    height: var(--sd-thumb);
+  }
+
+  .sd-speed-slider::-moz-range-thumb {
+    width: var(--sd-thumb);
+    height: var(--sd-thumb);
+  }
+
+  /* 舞台让出空间，保证 340×440 冻结盒子内总高度守恒 */
   .sd-stage {
-    width: 200px;
-    height: 200px;
+    width: var(--sd-stage-comp);
+    height: var(--sd-stage-comp);
   }
 
-  /* v2.9.8：移动端最大化时舞台放大 */
+  /* 最小化药丸高度必须跟着标题栏一起放大。
+   * 否则药丸仍是 40px 高（.minimized 用 !important 固定 40px），
+   * 而标题栏与按钮已长到 54.5px / 46.4px → 被 .sd-window{overflow:hidden} 纵向裁掉
+   * （实测可见高度只剩 25.6–30.2px）。
+   * ⚠ 宽度**不能**跟着放大：插槽宽度是按 240px 药丸算好的，
+   *   加宽会让药丸溢出插槽并与相邻弹窗重叠（实测重叠 5.2px）。
+   *   240px 足够容纳 3×46.4=139px 按钮 + 20px 内边距，标题仍剩 ~80px。 */
+  .sd-window.minimized {
+    height: var(--sd-hdr) !important;
+    min-height: var(--sd-hdr) !important;
+  }
+
+  /* 回收间距（10→6 / 8→6），为放大的播放按钮腾出空间 */
+  .sd-window-body { gap: 6px; }
+  .sd-controls { gap: 6px; }
+}
+
+/* ============================================================
+ * 断点取舍说明（S8）
+ *
+ * 本项目存在两套并存的移动边界：多数样式表用 680px，
+ * 主题 / 侧栏 / 历史 用 768px。本文件此前只有 768px。
+ * 本次**沿用本文件既有的 768px** 作为"手机 / 平板"分界，
+ * 并补上此前完全空白的 769–1280px 平板区间；不引入第三套边界值。
+ *
+ * 注意：弹窗的尺寸与排列已由 JS 求解器（solveLayout + --sd-cols/--sd-s）负责，
+ * 断点只处理"最大化尺寸"和视觉密度，不再强制 width/height/flex-direction。
+ * ============================================================ */
+
+/* 平板：769–1280px（iPad 竖/横、MatePad 等）。竖向空间较充裕，最大化给更高的舞台。 */
+@media (min-width: 769px) and (max-width: 1280px) {
+  .sd-window.maximized {
+    width: min(70vw, 620px) !important;
+    height: min(86vh, 820px) !important;
+  }
+
+  .sd-window.maximized .sd-stage {
+    width: min(48vw, 440px);
+    height: min(48vw, 440px);
+  }
+
+  .sd-info {
+    font-size: 13px;
+  }
+}
+
+/* 手机：≤768px */
+@media (max-width: 768px) {
+  /* 不再强制 .sd-window 的 90vw/70vh 与 200px 舞台 ——
+     那会破坏冻结的 340×440 布局盒，也让求解器失去意义。
+     排列/缩放交给 solveLayout。此处只保留最大化尺寸。 */
   .sd-window.maximized {
     width: 95vw !important;
     height: 90vh !important;
@@ -530,17 +706,6 @@
   .sd-window.maximized .sd-stage {
     width: min(70vw, 360px);
     height: min(70vw, 360px);
-  }
-
-  /* 移动端触摸时滑块拇指略大，便于操作 */
-  .sd-speed-slider::-webkit-slider-thumb {
-    width: 18px;
-    height: 18px;
-  }
-
-  .sd-speed-slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
   }
 }
 
@@ -551,13 +716,18 @@
   .sd-overlay {
     display: none !important;
   }
+  /* 关闭残影已移出 overlay（body 直属）→ 必须单独隐藏，
+     否则 150ms 的退场动画期间打印可能把残影印到纸上 */
+  .sd-window {
+    display: none !important;
+  }
 }
 
 /* ------------------------------------------------------------
  * 无障碍：尊重用户"减少动态效果"系统偏好
  * ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .sd-window,
+  .sd-slot.sd-open,
   .sd-window.closing {
     animation-duration: 0.01ms !important;
   }
@@ -567,10 +737,7 @@
 }
 
 /* ============================================================
- * v2.9.8：工具栏"笔顺演示"开关按钮（图标 + 文字）
- * 与"刷新""打印"按钮平齐，但显示文字"笔顺演示"+图标
- * 通过 btn-primary（开启）/ btn-secondary（关闭）切换状态
- * 功能说明"点击单字动态演示笔画笔顺"通过 title 悬停显示
+ * 工具栏"笔顺演示"开关按钮（图标 + 文字）
  * ============================================================ */
 .stroke-demo-toolbar-btn {
     /* 继承 .btn-quick 的 padding/字号，仅微调 */
@@ -578,7 +745,7 @@
     font-size: 13px;
     font-weight: 600;
     gap: 5px;
-    /* v2.9.9：作为就绪徽章（.sd-toolbar-badge）的定位基准 */
+    /* 作为就绪徽章（.sd-toolbar-badge）的定位基准 */
     position: relative;
 }
 .stroke-demo-toolbar-btn svg {
@@ -614,12 +781,10 @@
 }
 
 /* ============================================================
- * v2.9.9：工具栏按钮数据就绪徽章
+ * 工具栏按钮数据就绪徽章
  * 在"笔顺演示"按钮右上角显示一个小圆点，反馈笔画数据加载状态：
- *   - .loading：数据未就绪，橙色脉冲动画（提示用户笔画功能正在准备）
- *   - .ready：  数据就绪，绿色闪烁后消失（短暂成功提示）
- * 通过 hanziDataReady().then(...) 在 JS 中切换状态
- * 所有类名以 sd- 前缀开头（与现有弹窗命名一致）
+ *   - .loading：数据未就绪，橙色脉冲动画
+ *   - .ready：  数据就绪，绿色闪烁后消失
  * ============================================================ */
 .sd-toolbar-badge {
     position: absolute;
@@ -629,7 +794,7 @@
     height: 8px;
     border-radius: 50%;
     background: transparent;
-    /* v2.9.9：用 --bg 描边圆点，使其在橙色按钮（btn-primary）和灰色按钮（btn-secondary）上都清晰可见 */
+    /* 用 --bg 描边圆点，使其在橙色按钮（btn-primary）和灰色按钮（btn-secondary）上都清晰可见 */
     box-shadow: 0 0 0 2px var(--bg, #f6f7fb);
     pointer-events: none;
     z-index: 1;
@@ -637,14 +802,14 @@
     transition: opacity 0.2s var(--ease-out-soft);
 }
 
-/* v2.9.9：加载态 — 橙色脉冲动画 */
+/* 加载态 — 橙色脉冲动画 */
 .sd-toolbar-badge.loading {
     background: var(--accent3, #f59e0b);
     opacity: 1;
     animation: sd-badge-pulse 1.2s var(--ease-out-soft) infinite;
 }
 
-/* v2.9.9：就绪态 — 绿色闪烁后消失 */
+/* 就绪态 — 绿色闪烁后消失 */
 .sd-toolbar-badge.ready {
     background: var(--green, #339933);
     opacity: 1;
@@ -662,7 +827,7 @@
     100% { transform: scale(1);   opacity: 0; }
 }
 
-/* v2.9.9：尊重"减少动态效果"系统偏好 — 脉冲改为静态点，闪烁直接消失 */
+/* 尊重"减少动态效果"系统偏好 — 脉冲改为静态点，闪烁直接消失 */
 @media (prefers-reduced-motion: reduce) {
     .sd-toolbar-badge.loading {
         animation: none;
@@ -675,7 +840,7 @@
 }
 
 /* ============================================================
- * v2.9.8：左侧栏"点选单字演示笔画笔顺"勾选项样式
+ * 左侧栏"点选单字演示笔画笔顺"勾选项样式
  * 复用 settingsCenter.css 的 .sc-switch 视觉风格，类名前缀改为 stroke-demo-
  * ============================================================ */
 .stroke-demo-toggle-row {

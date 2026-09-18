@@ -1,26 +1,35 @@
 // v1.2.0 多 API Key 存储与活跃键管理模块
 // 存储结构：ai_api_keys (JSON数组) + ai_active_key_id (字符串)
 // 兼容迁移旧键 deepseek_api_key
+//
+// v3.0.4 增补（契约 §3.4，仅新增、不改既有语义）：
+//  - entry 允许可选字段 providerId / modelId（旧 entry 无这些字段仍完全可用）
+//  - 新增 ai_key_mode（'auto'|'manual'，默认 'auto'）与 ai_auto_key_id
+//  - 新增 getEffectiveKeyEntry()（生效 Key 解析）与 backfillProviderIds()
+
+import { detectApiKeyType, detectProviderId, providerLabel } from './aiProviders.js';
 
 const API_KEYS_KEY = 'ai_api_keys';
 const ACTIVE_KEY_ID = 'ai_active_key_id';
 const LEGACY_KEY = 'deepseek_api_key';
+// v3.0.4 新增键（只新增，不改旧键语义）
+const KEY_MODE = 'ai_key_mode';
+const AUTO_KEY_ID = 'ai_auto_key_id';
 
 // ---------------------------------------------------------------------------
 // 内部工具函数
 // ---------------------------------------------------------------------------
 
-/** 前缀识别（与 aiZuci.detectApiKeyType 保持一致，避免循环依赖） */
+/** 前缀识别（旧语义保持不变：sk-→deepseek / ark-→volcano / 其它→unknown） */
 export function detectKeyType(key) {
-    if (!key || typeof key !== 'string') return 'unknown';
-    const t = key.trim();
-    if (t.startsWith('sk-')) return 'deepseek';
-    if (t.startsWith('ark-')) return 'volcano';
-    return 'unknown'; // 未来：mimo- → 'mimo'
+    return detectApiKeyType(key);
 }
 
 function labelOf(type) {
-    return type === 'deepseek' ? 'DeepSeek' : type === 'volcano' ? '火山引擎豆包' : '未知引擎';
+    if (type === 'deepseek') return 'DeepSeek';
+    if (type === 'volcano') return '火山引擎豆包';
+    const lab = providerLabel(type);
+    return lab || '未知引擎';
 }
 
 function genId() {
@@ -88,6 +97,30 @@ export function migrateLegacyKey() {
     }
 }
 
+/**
+ * v3.0.4 新增：幂等补齐 providerId。
+ * 仅给 type 为 deepseek / volcano 的 entry 补 providerId；unknown 一律不动（留给用户自行检测）。
+ * @returns {number} 本次补齐的条数
+ */
+export function backfillProviderIds() {
+    try {
+        migrateLegacyKey();
+        const list = readList();
+        let changed = 0;
+        for (const e of list) {
+            if (!e || e.providerId) continue;
+            if (e.type === 'deepseek' || e.type === 'volcano') {
+                e.providerId = e.type;
+                changed++;
+            }
+        }
+        if (changed > 0) writeList(list);
+        return changed;
+    } catch (e) {
+        return 0;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 公开 API
 // ---------------------------------------------------------------------------
@@ -106,12 +139,6 @@ export function getActiveKey() {
     return list.find(k => k.id === id) || list[0] || null;
 }
 
-/** 获取当前活跃 Key 字符串值（供调用方直接 .trim() 使用） */
-export function getActiveKeyValue() {
-    const k = getActiveKey();
-    return k ? k.key : '';
-}
-
 /** 复制当前活跃 Key 的完整值（供复制按钮调用） */
 export function copyActiveKey() {
     const k = getActiveKey();
@@ -123,19 +150,101 @@ export function setActiveKey(id) {
     localStorage.setItem(ACTIVE_KEY_ID, id);
 }
 
+// ---------------------------------------------------------------------------
+// v3.0.4：自动/手动模式与生效 Key 解析
+// ---------------------------------------------------------------------------
+
+/** 当前 Key 选择模式；默认 'auto'。 */
+export function getKeyMode() {
+    try {
+        return localStorage.getItem(KEY_MODE) === 'manual' ? 'manual' : 'auto';
+    } catch (e) {
+        return 'auto';
+    }
+}
+
+/** 设置 Key 选择模式（非 'manual' 一律视为 'auto'）。 */
+export function setKeyMode(mode) {
+    try {
+        localStorage.setItem(KEY_MODE, mode === 'manual' ? 'manual' : 'auto');
+    } catch (e) {
+        /* 忽略 */
+    }
+}
+
+/** 自动选中的 Key id；未设置返回 null。 */
+export function getAutoKeyId() {
+    try {
+        return localStorage.getItem(AUTO_KEY_ID) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** 记录自动选中的 Key id（不覆盖 ai_active_key_id）。传空则清除。 */
+export function setAutoKeyId(id) {
+    try {
+        if (id) localStorage.setItem(AUTO_KEY_ID, id);
+        else localStorage.removeItem(AUTO_KEY_ID);
+    } catch (e) {
+        /* 忽略 */
+    }
+}
+
+/**
+ * 生效 Key 解析：manual → 用户选择；auto → ai_auto_key_id → 用户显式选择 → 首个；无 Key → null。
+ * 说明（与契约 §3.4 的偏差，见交付报告）：auto 分支在 ai_auto_key_id 未写入时，
+ * 额外回退到 ai_active_key_id，避免老用户（只有 ai_active_key_id）被静默切到“第一个 Key”。
+ * @returns {object|null}
+ */
+export function getEffectiveKeyEntry() {
+    migrateLegacyKey();
+    const list = readList();
+    if (list.length === 0) return null;
+
+    if (getKeyMode() === 'manual') {
+        const id = localStorage.getItem(ACTIVE_KEY_ID);
+        return list.find(k => k.id === id) || list[0] || null;
+    }
+
+    const autoId = getAutoKeyId();
+    if (autoId) {
+        const hit = list.find(k => k.id === autoId);
+        if (hit) return hit;
+    }
+    const activeId = localStorage.getItem(ACTIVE_KEY_ID);
+    const active = list.find(k => k.id === activeId);
+    if (active) return active;
+    return list[0] || null;
+}
+
+/** 生效 Key 字符串值（保持既有签名，语义升级为“生效 Key”） */
+export function getActiveKeyValue() {
+    const k = getEffectiveKeyEntry();
+    return k ? k.key : '';
+}
+
 /**
  * 新增或更新 Key。
  * - 以 key 字符串去重（同 key 更新 label/createdAt）
  * - 新增或重新选中均立即置为活跃（选中即生效）
- * @param {{ key: string, type?: string, label?: string }} opts
+ * @param {{ key: string, type?: string, label?: string, providerId?: string, modelId?: string }} opts
  * @returns {object|null} entry
  */
-export function addKey({ key, type, label } = {}) {
+export function addKey({ key, type, label, providerId, modelId } = {}) {
     migrateLegacyKey();
     const k = (key || '').trim();
     if (!k) return null;
 
-    const t = type || detectKeyType(k);
+    // v3.0.4 修复：形状**唯一**可判定时优先采用注册表结论，而不是旧前缀语义。
+    //   旧语义（detectKeyType）只看前缀：`sk-apx…`（APINEX）会被判成 deepseek 并在
+    //   下拉框显示「DeepSeek」—— 这是**主动错误**，且该 Key 因 CORS 探测必然失败，
+    //   writeBackProvider 永远不会纠正它，用户会一直以为自己在用 DeepSeek。
+    //   `ms-…`（ModelScope）旧语义为 unknown → 显示「未知引擎」，同样不如直接识别。
+    //   形状有歧义的 `sk-` 仍返回 null → 落回旧语义（保持向后兼容，交由探测消歧）。
+    const shapeId = detectProviderId(k);
+    const t = type || shapeId || detectKeyType(k);
+    const pid = providerId || shapeId || null;
     const lab = label || labelOf(t);
     const list = readList();
 
@@ -145,9 +254,13 @@ export function addKey({ key, type, label } = {}) {
         exist.type = t;
         exist.label = lab;
         exist.createdAt = Date.now();
+        if (pid) exist.providerId = pid;
+        if (modelId) exist.modelId = modelId;
         entry = exist;
     } else {
         entry = { id: genId(), type: t, key: k, label: lab, createdAt: Date.now() };
+        if (pid) entry.providerId = pid;
+        if (modelId) entry.modelId = modelId;
         list.push(entry);
     }
 
@@ -168,10 +281,14 @@ export function removeKey(id) {
     if (list.length === 0) {
         localStorage.removeItem(API_KEYS_KEY);
         localStorage.removeItem(ACTIVE_KEY_ID);
+        localStorage.removeItem(AUTO_KEY_ID);
         return;
     }
     writeList(list);
     if (localStorage.getItem(ACTIVE_KEY_ID) === id) {
         setActiveKey(list[0].id); // 删活跃 → 切第一个
+    }
+    if (getAutoKeyId() === id) {
+        localStorage.removeItem(AUTO_KEY_ID); // 删掉自动选中的 Key → 清除自动 id
     }
 }

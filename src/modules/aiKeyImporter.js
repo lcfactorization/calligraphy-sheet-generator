@@ -1,14 +1,38 @@
 // v1.1.0 模块：API Key 文件导入（txt/md/csv/docx → 正则匹配）
-// 支持：DeepSeek（sk-）、火山引擎豆包（ark-），预留小米 MiMo（mimo-）等
-// 输出：匹配到的 Key 列表（去重），供设置面板填充
+// v3.0.4：KEY_PATTERNS 改为由 aiProviders.PROVIDERS 的 keyShape 派生（契约 §3.6）
+//  - 保留导出名与返回结构 { ok, filename, count, keys:[{key,type,label}] }
+//  - 形状可唯一判定时用 detectProviderId 的真实引擎（sk-or-v1- → openrouter）；
+//    仅形状歧义的 sk- 类 Key 回退旧语义 type='deepseek'，label 提示"可能为其它 sk- 引擎，请用检测确认"
+//  - 输出：匹配到的 Key 列表（去重），供设置面板填充
 
-// ========== 引擎前缀表（未来新增引擎在此扩展） ==========
-export const KEY_PATTERNS = [
-    { type: 'deepseek', label: 'DeepSeek', regex: /sk-[A-Za-z0-9_-]{20,}/g },
-    { type: 'volcano', label: '火山引擎豆包', regex: /ark-[A-Za-z0-9_-]{20,}/g },
-    // 预留：小米 MiMo / 其他引擎
-    // { type: 'mimo', label: '小米 MiMo', regex: /mimo-[A-Za-z0-9_-]{20,}/g },
-];
+import { PROVIDERS, detectProviderId, getProvider } from './aiProviders.js';
+
+const SK_IMPORT_LABEL = 'DeepSeek（可能为其它 sk- 引擎，请用检测确认）';
+
+/**
+ * 由 PROVIDERS 的 keyShape.pattern 派生文本提取规则。
+ * - 按 pattern 源码去重（sk- 家族共用同一 pattern → 只产出一条）
+ * - pattern 以 sk- 开头者一律映射回旧语义 type='deepseek' 并加歧义提示
+ */
+function buildKeyPatterns() {
+    const out = [];
+    const seen = new Set();
+    for (const p of PROVIDERS) {
+        const src = p && p.keyShape && p.keyShape.pattern;
+        if (!src || seen.has(src)) continue;
+        seen.add(src);
+        const isSkFamily = /^sk-/.test(src);
+        out.push({
+            type: isSkFamily ? 'deepseek' : p.id,
+            label: isSkFamily ? SK_IMPORT_LABEL : p.label,
+            regex: new RegExp(src, 'g')
+        });
+    }
+    return out;
+}
+
+// ========== 引擎提取规则（未来新增引擎只需改 aiProviders.js） ==========
+export const KEY_PATTERNS = buildKeyPatterns();
 
 // ========== 从文本中提取所有 Key（去重） ==========
 export function extractKeysFromText(text) {
@@ -20,8 +44,16 @@ export function extractKeysFromText(text) {
         let m;
         while ((m = re.exec(text)) !== null) {
             const key = m[0].trim();
-            if (!seen.has(key)) {
-                seen.add(key);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            // v3.0.4：形状可唯一判定时以真实引擎为准（如 sk-or-v1- → openrouter），
+            // 避免把 OpenRouter Key 误标为 DeepSeek。仅当形状歧义（多个 sk- 引擎共用）
+            // 时才回退到 pattern 携带的旧语义 type/label。
+            const detected = detectProviderId(key);
+            if (detected) {
+                const prov = getProvider(detected);
+                found.push({ key, type: detected, label: prov ? prov.label : p.label });
+            } else {
                 found.push({ key, type: p.type, label: p.label });
             }
         }

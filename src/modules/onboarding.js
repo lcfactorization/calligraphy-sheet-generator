@@ -29,7 +29,7 @@ const OB_VERSION_KEY = 'onboarding_version';
 // v2.9.7：用户主动选择"不再弹出"。默认每次访问都自动弹出引导，
 // 除非用户在引导浮层勾选"不再自动弹出"或在设置中心关闭"启动时自动显示"
 const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
-const OB_VERSION = 'v3.0.3';
+const OB_VERSION = 'v3.0.5';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
 // v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）

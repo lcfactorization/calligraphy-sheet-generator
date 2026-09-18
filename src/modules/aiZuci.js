@@ -1,71 +1,93 @@
-// v3.0.0 模块B：AI 组词补齐 + 拼音纠错（双引擎：DeepSeek / 火山引擎豆包）
+// v3.0.0 模块B：AI 组词补齐 + 拼音纠错（多引擎：注册表驱动）
 // 核心优化：本地预分流(单/多音字) + 三模式提示词 + 缓存穿透修复 + 进度修复 + 重试机制 + 5分钟超时
-// 兼容：火山方舟 ARK Key / DeepSeek 官方 Key，自动识别前缀
+// v3.0.4：删除本地前缀识别，统一走 aiProviders 注册表；模型覆盖改为按引擎作用域
 // 缓存：localStorage 单 JSON Map，key = ai_zuci_cache_v1
-//   条目结构：{ zuci:[词1,词2], pinyin:"纠正后拼音", pinyinFixed:bool, pinyinChecked:bool, wordsDetail:[{w,p,pos,note}], ts:number }
+//   条目结构：{ zuci:[词1,词2], pinyin:"纠正后拼音", pinyinFixed:bool, pinyinChecked:bool, wordsDetail:[{w,p,pos,note}], src:"<providerId>:<modelId>", ts:number }
 
 import cnchar from 'cnchar';
 import words from 'cnchar-words';
 import customZuCi from '../data/customZuCi.js';
 import { pinyin } from './pinyin.js';
+import { getProvider, resolveProviderId, detectApiKeyType } from './aiProviders.js';
 
 // 注册 cnchar 插件（幂等）
 try { cnchar.use(words); } catch (e) { /* 忽略重复注册 */ }
 
-// ========== 引擎与模型配置 ==========
-// deepseek-v4-flash 已经官方文档核实（2026-07-31 正式版公测，API 调用名即 deepseek-v4-flash）
-// 豆包两个模型 ID 未离线核实；若账户无权限会报 403，可用补丁C逃生门换模型
-const AI_PROVIDERS = {
-    deepseek: {
-        endpoint: 'https://api.deepseek.com/chat/completions',
-        model: 'deepseek-v4-flash',
-        label: 'DeepSeek',
-        supportJsonMode: true
-    },
-    volcano: {
-        endpoint: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-        model: 'doubao-seed-2-0-lite-260428',
-        modelFullCheck: 'doubao-seed-2-1-turbo-260628',
-        label: '豆包',
-        labelFullCheck: '豆包Turbo',
-        supportJsonMode: true   // v3.0.0：实测 doubao-seed-2-0-lite-260428 支持 response_format json_object（2026-08-07 90字测试通过）
-    }
-};
+// 向后兼容导出（契约 §3.2/§3.5）：导出名与旧语义均保持不变
+export { detectApiKeyType };
 
 const CACHE_KEY = 'ai_zuci_cache_v1';
 const HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟硬超时
 const MAX_RETRY = 3; // 弱模型 JSON 不稳定时的最大重试次数
 
-// ========== 工具函数：引擎识别 ==========
-export function detectApiKeyType(key) {
-    if (!key || typeof key !== 'string') return 'unknown';
-    const trimmed = key.trim();
-    if (trimmed.startsWith('sk-')) return 'deepseek';
-    if (trimmed.startsWith('ark-')) return 'volcano';
-    return 'unknown';
+// ========== 工具函数：引擎与模型解析（注册表驱动） ==========
+
+function joinUrl(base, path) {
+    return String(base || '').replace(/\/$/, '') + (path || '');
 }
 
-export function getAiProvider(key, fullCheck = false) {
-    const type = detectApiKeyType(key);
-    if (type === 'unknown') {
-        return { type: 'unknown', endpoint: '', model: '', label: '未知', supportJsonMode: false };
+/** 从注册表挑选模型：wantFull 时优先 fullCheck 强模型，否则取默认模型。 */
+function pickProviderModel(provider, wantFull) {
+    const ms = (provider && Array.isArray(provider.models)) ? provider.models : [];
+    if (wantFull) {
+        const f = ms.find(m => m.fullCheck);
+        if (f) return f;
     }
-    const config = AI_PROVIDERS[type];
-    const useFullCheckModel = fullCheck && config.modelFullCheck;
-    let model = useFullCheckModel || config.model;
-    // 补丁C：紧急逃生门——若线上模型 ID 失效（403/404），可在浏览器控制台执行
-    //   localStorage.setItem('ai_model_override', '正确的模型名')
-    // 不重新打包即可换模型。平时不设置则完全无影响。
+    return ms.find(m => !m.fullCheck) || ms[0] || null;
+}
+
+/**
+ * 模型覆盖（补丁C 逃生门），改为按引擎作用域：
+ *   优先读 ai_model_override_<providerId>；
+ *   回退旧的全局 ai_model_override —— 仅对 deepseek / volcano 生效，避免污染新引擎。
+ */
+function readModelOverride(providerId) {
     try {
-        const ov = localStorage.getItem('ai_model_override');
-        if (ov && ov.trim()) model = ov.trim();
+        if (providerId) {
+            const scoped = localStorage.getItem('ai_model_override_' + providerId);
+            if (scoped && scoped.trim()) return scoped.trim();
+        }
+        if (providerId === 'deepseek' || providerId === 'volcano') {
+            const global = localStorage.getItem('ai_model_override');
+            if (global && global.trim()) return global.trim();
+        }
     } catch (e) { /* localStorage 不可用时忽略 */ }
+    return '';
+}
+
+/**
+ * 解析生效引擎。签名保持不变（key 可以是字符串，也可以是 entry 对象）。
+ * 解析顺序：entry.providerId → detectProviderId(形状唯一) → 旧前缀语义兜底 → unknown。
+ * 返回结构保留 { type, endpoint, model, label, supportJsonMode }，并新增若干字段（不删旧字段）。
+ */
+export function getAiProvider(key, fullCheck = false) {
+    const entry = (key && typeof key === 'object') ? key : null;
+    const rawKey = entry ? entry.key : key;
+    const providerId = resolveProviderId(rawKey, entry && entry.providerId);
+    if (!providerId) {
+        return {
+            type: 'unknown', providerId: null, endpoint: '', baseUrl: '',
+            chatPath: '/chat/completions', modelsPath: null, model: '',
+            label: '未知', supportJsonMode: false, authStyle: 'bearer'
+        };
+    }
+    const p = getProvider(providerId);
+    const model = pickProviderModel(p, !!fullCheck);
+    let modelId = model ? model.id : '';
+    if (entry && entry.modelId) modelId = entry.modelId;
+    const ov = readModelOverride(providerId);
+    if (ov) modelId = ov; // 覆盖优先级最高（原逃生门语义）
     return {
-        endpoint: config.endpoint,
-        model,
-        label: useFullCheckModel ? (config.labelFullCheck || config.label) : config.label,
-        supportJsonMode: config.supportJsonMode ?? true,
-        type
+        type: providerId,
+        providerId,
+        endpoint: joinUrl(p.baseUrl, p.chatPath),
+        baseUrl: p.baseUrl,
+        chatPath: p.chatPath,
+        modelsPath: p.modelsPath,
+        model: modelId,
+        label: p.label,
+        supportJsonMode: model ? (model.jsonMode !== false) : true,
+        authStyle: p.authStyle || 'bearer'
     };
 }
 
@@ -289,14 +311,39 @@ function buildSystemPrompt(mode) {
 }
 
 // ========== 核心：API 直连调用（含错误分类） ==========
-export async function callDeepSeekDirect(charPinyinPairs, {
-    apiKey, signal, model: customModel, mode = 'fast', supportJsonMode = true
-} = {}) {
-    const provider = getAiProvider(apiKey);
-    if (provider.type === 'unknown') {
-        throw new Error('无法识别 API Key 类型：请输入 sk- 开头（DeepSeek）或 ark- 开头（火山引擎）的 Key');
+/** 统一错误文案（保留数字状态码，供 getErrorSuggestion 匹配） */
+function buildApiErrMsg(status, label, errText) {
+    let m = `AI API [${label}] ${status}`;
+    switch (status) {
+        case 400:
+        case 422: m += '：请求被拒绝（可能是模型不支持 response_format/json_object，或参数不合法）'; break;
+        case 401: m += '：API Key 无效或已过期'; break;
+        case 402: m += '：账户额度不足'; break;
+        case 403: m += '：无该模型权限或额度已耗尽'; break;
+        case 404: m += '：模型 ID 不存在或未开通，请确认模型名'; break;
+        case 429: m += '：请求过频，触发限流'; break;
+        default: m += `：${String(errText || '').slice(0, 150)}`;
     }
-    const endpoint = provider.endpoint;
+    return m;
+}
+
+export async function callDeepSeekDirect(charPinyinPairs, {
+    apiKey, signal, model: customModel, mode = 'fast', supportJsonMode = true,
+    providerInfo = null, authStyle = ''
+} = {}) {
+    const provider = providerInfo || getAiProvider(apiKey);
+    if (provider.type === 'unknown') {
+        throw new Error('无法识别 API Key 类型：请在设置中使用受支持的引擎（如 sk- 开头的 DeepSeek、ark- 开头的火山引擎），或先运行“检测全部 Key 可用性”');
+    }
+    const auth = authStyle || provider.authStyle || 'bearer';
+    const key = String(apiKey || '').trim();
+    let endpoint = provider.endpoint;
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth === 'query-key') {
+        endpoint += (endpoint.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key);
+    } else {
+        headers['Authorization'] = `Bearer ${key}`;
+    }
     const model = customModel || provider.model;
 
     const systemPrompt = buildSystemPrompt(mode);
@@ -316,30 +363,33 @@ export async function callDeepSeekDirect(charPinyinPairs, {
         max_tokens: mode === 'fast' ? 2048 : 4096,
         temperature: 0.1
     };
-    if (supportJsonMode) {
-        reqBody.response_format = { type: 'json_object' };
-    }
 
-    const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey.trim()}`
-        },
-        signal,
-        body: JSON.stringify(reqBody)
-    });
+    const doFetch = (withJson) => {
+        const body = { ...reqBody };
+        if (withJson) body.response_format = { type: 'json_object' };
+        return fetch(endpoint, {
+            method: 'POST',
+            headers,
+            signal,
+            body: JSON.stringify(body)
+        });
+    };
+
+    let resp = await doFetch(!!supportJsonMode);
+
+    // 400/422 且提示 response_format 不支持 → 去掉该字段重试一次
+    if (!resp.ok && supportJsonMode && (resp.status === 400 || resp.status === 422)) {
+        const firstText = await resp.text().catch(() => '');
+        if (/response_format|json_object|json mode/i.test(firstText)) {
+            resp = await doFetch(false);
+        } else {
+            throw new Error(buildApiErrMsg(resp.status, provider.label, firstText));
+        }
+    }
 
     if (!resp.ok) {
         const errText = await resp.text().catch(() => '');
-        let errMsg = `AI API [${provider.label}] ${resp.status}`;
-        switch (resp.status) {
-            case 401: errMsg += '：API Key 无效或已过期'; break;
-            case 403: errMsg += '：无该模型权限或额度已耗尽'; break;
-            case 429: errMsg += '：请求过频，触发限流'; break;
-            default: errMsg += `：${errText.slice(0, 150)}`;
-        }
-        throw new Error(errMsg);
+        throw new Error(buildApiErrMsg(resp.status, provider.label, errText));
     }
 
     const data = await resp.json();
@@ -371,24 +421,68 @@ function combineSignals(a, b) {
     return ctrl.signal;
 }
 
+// ========== 工具：判断缓存来源的档位 ==========
+// src 形如 '<providerId>:<modelId>'。
+// v3.0.4 修订：原实现把「非 free」一律视为降级，导致 DeepSeek / 火山 doubao-lite 这类
+//   `cheap`（低价）引擎在**每一次**运行后都追加"由非免费模型生成"的提示 —— 而它们正是
+//   绝大多数用户手头唯一可用的引擎，提示纯属噪音（见验收报告缺陷 #2）。
+//   现改为精确三档：free / cheap / paid，只有真正 `paid`（高价档）才提示。
+//   无法解析 src 时返回 'unknown'，按不降级处理（不打扰用户）。
+export function srcTier(src) {
+    try {
+        const idx = String(src).indexOf(':');
+        if (idx <= 0) return 'unknown';
+        const pid = src.slice(0, idx);
+        const mid = src.slice(idx + 1);
+        const p = getProvider(pid);
+        if (!p) return 'unknown';
+        const m = (p.models || []).find(x => x.id === mid);
+        if (!m || !m.tier) return 'unknown';
+        return m.tier;
+    } catch (e) {
+        return 'unknown';
+    }
+}
+
 // ========== 主流程：智能组词 + 校验（三模式分流 + 5分钟超时 + 重试） ==========
 export async function fillMissingZuci(chars, {
-    apiKey, signal,
+    apiKey, providerId = null, signal,
     fullCheck = false, fillMissing = false, fixPinyin = false, onProgress
 } = {}) {
     const start = Date.now();
-    // v1.2.0：apiKey 兜底——未传 key 时从 aiKeyStore 读取活跃 Key（动态 import 避免循环依赖）
+    // v1.2.0：apiKey 兜底——未传 key 时从 aiKeyStore 读取生效 Key（动态 import 避免循环依赖）
+    // v3.0.4：同时解析 providerId。原因：sk- 前缀被 Moonshot / 硅基流动 / 百炼 /
+    //   OpenRouter 等多个引擎共用，仅凭 Key 字符串无法判定路由；必须由调用方
+    //   （设置中心）把已探测消歧出的 providerId 传下来，否则会被旧前缀语义
+    //   误判为 DeepSeek 并返回误导性的 401。
     let resolvedApiKey = apiKey;
+    let resolvedProviderId = providerId;
     if (!resolvedApiKey || typeof resolvedApiKey !== 'string' || !resolvedApiKey.trim()) {
         try {
-            const { getActiveKeyValue } = await import('./aiKeyStore.js');
-            const kv = getActiveKeyValue();
-            if (kv && typeof kv === 'string' && kv.trim()) resolvedApiKey = kv;
-        } catch (e) { /* 无活跃 Key 时保持 undefined，走原有错误提示 */ }
+            const { getEffectiveKeyEntry } = await import('./aiKeyStore.js');
+            const entry = getEffectiveKeyEntry();
+            if (entry && typeof entry.key === 'string' && entry.key.trim()) {
+                resolvedApiKey = entry.key;
+                if (!resolvedProviderId && entry.providerId) resolvedProviderId = entry.providerId;
+            }
+        } catch (e) { /* 无可用 Key 时保持 undefined，走原有错误提示 */ }
     }
-    const providerInfo = getAiProvider(resolvedApiKey, fullCheck);
+    // 显式 providerId 存在时以 entry 形态传入，使 getAiProvider 跳过形状推断
+    const providerInfo = getAiProvider(
+        resolvedProviderId ? { key: resolvedApiKey, providerId: resolvedProviderId } : resolvedApiKey,
+        fullCheck
+    );
     const needPinyinCheck = fullCheck || fixPinyin;
     const applyWords = fullCheck || fillMissing;
+
+    // v3.0.4：模型来源改为注册表；poly_check 使用 fullCheck 强模型（若有）。
+    // 按引擎作用域的覆盖（ai_model_override_<providerId>，旧全局键仅对 deepseek/volcano 生效）
+    // 优先级最高，保证“逃生门”在任何模式下都能生效。
+    const overrideModel = readModelOverride(providerInfo.providerId);
+    const providerObj = getProvider(providerInfo.providerId);
+    const fullCheckModel = pickProviderModel(providerObj, true);
+    const defaultModel = overrideModel || providerInfo.model;
+    const polyModel = overrideModel || (fullCheckModel ? fullCheckModel.id : providerInfo.model);
 
     // 5 分钟硬超时
     const timeoutCtrl = new AbortController();
@@ -471,6 +565,8 @@ export async function fillMissingZuci(chars, {
 
         // 分批处理函数（含重试机制）
         const batchProcess = async (charList, mode, batchSize, useModel) => {
+            // v3.0.4：记录生成来源 <providerId>:<modelId>，供 degradedChars 与 UI 诊断
+            const srcTag = `${providerInfo.type}:${useModel || providerInfo.model}`;
             for (let i = 0; i < charList.length; i += batchSize) {
                 if (combinedSignal?.aborted) {
                     timedOut = true;
@@ -492,7 +588,7 @@ export async function fillMissingZuci(chars, {
                     try {
                         const apiResult = await callDeepSeekDirect(pairs, {
                             apiKey: resolvedApiKey, signal: combinedSignal, model: useModel, mode,
-                            supportJsonMode: providerInfo.supportJsonMode
+                            supportJsonMode: providerInfo.supportJsonMode, providerInfo
                         });
                         result = apiResult.data;
                         break;
@@ -541,6 +637,7 @@ export async function fillMissingZuci(chars, {
                             pinyinFixed: pyFixed || prev.pinyinFixed === true,
                             pinyinChecked: needPinyinCheck || prev.pinyinChecked === true,
                             wordsDetail: validWords,
+                            src: srcTag,
                             ts: Date.now()
                         };
                         fetchedCount++;
@@ -552,6 +649,7 @@ export async function fillMissingZuci(chars, {
                             pinyinFixed: true,
                             pinyinChecked: true,
                             wordsDetail: [],
+                            src: srcTag,
                             ts: Date.now()
                         };
                         fetchedCount++;
@@ -563,6 +661,7 @@ export async function fillMissingZuci(chars, {
                             pinyinFixed: false,
                             pinyinChecked: true,
                             wordsDetail: [],
+                            src: srcTag,
                             ts: Date.now()
                         };
                         fetchedCount++;
@@ -600,25 +699,16 @@ export async function fillMissingZuci(chars, {
 
         // 1. 快速组词模式（批次 10）
         if (fastChars.length > 0 && !timedOut) {
-            const fastModel = providerInfo.type === 'volcano'
-                ? AI_PROVIDERS.volcano.model
-                : providerInfo.model;
-            await batchProcess(fastChars, 'fast', 10, fastModel);
+            await batchProcess(fastChars, 'fast', 10, defaultModel);
         }
 
         // 2. 单音字校验模式（批次 10）
         if (singleCheckChars.length > 0 && !timedOut) {
-            const checkModel = providerInfo.type === 'volcano'
-                ? AI_PROVIDERS.volcano.model
-                : providerInfo.model;
-            await batchProcess(singleCheckChars, 'single_check', 10, checkModel);
+            await batchProcess(singleCheckChars, 'single_check', 10, defaultModel);
         }
 
         // 3. 多音字深度校验模式（批次 6，用强模型）
         if (polyCheckChars.length > 0 && !timedOut) {
-            const polyModel = providerInfo.type === 'volcano'
-                ? (AI_PROVIDERS.volcano.modelFullCheck || AI_PROVIDERS.volcano.model)
-                : providerInfo.model;
             await batchProcess(polyCheckChars, 'poly_check', 6, polyModel);
         }
     }
@@ -634,6 +724,24 @@ export async function fillMissingZuci(chars, {
     // v1.1.0：新增 noWorkNeeded 标志——当所有字都无需 AI 处理（默认词库已足够 或 已有缓存）时置 true，
     // 避免前端把"一切正常"误报为"未能处理任何字"
     const noWorkNeeded = uniqueChars.length > 0 && toFetch.length === 0;
+
+    // v3.0.4：按来源档位统计已缓存字数。
+    //   freeChars  —— 免费档模型产出
+    //   cheapChars —— 低价档（DeepSeek / doubao-lite / qwen-turbo 等）
+    //   paidChars  —— 高价档产出，**这才是值得提示用户"可换更省"的部分**
+    //   degradedChars 保留为 paidChars 的别名（对外字段名不变，语义收窄）。
+    // 不自动清缓存（会破坏 userEdited 语义），仅在 suggestion 中提示。
+    let freeChars = 0, cheapChars = 0, paidChars = 0;
+    for (const c of uniqueChars) {
+        const ent = cache[c];
+        if (!ent || ent.userEdited === true || !ent.src) continue;
+        const t = srcTier(ent.src);
+        if (t === 'free') freeChars++;
+        else if (t === 'cheap') cheapChars++;
+        else if (t === 'paid') paidChars++;
+    }
+    const degradedChars = paidChars;
+
     const result = {
         total: uniqueChars.length,
         ai,
@@ -646,6 +754,10 @@ export async function fillMissingZuci(chars, {
         model: providerInfo.model,
         provider: providerInfo.type,
         providerLabel: providerInfo.label,
+        degradedChars,
+        freeChars,
+        cheapChars,
+        paidChars,
         timedOut,
         partialSuccess: timedOut && fetchedCount > 0,
         noWorkNeeded
@@ -659,6 +771,14 @@ export async function fillMissingZuci(chars, {
         result.suggestion = getErrorSuggestion(lastError, providerInfo);
     }
 
+    // 高价档产出提示（不自动清缓存）。
+    // v3.0.4 修订：仅在 paidChars > 0 时提示 —— free / cheap 档（含 DeepSeek、doubao-lite）
+    //   不再触发，避免对绝大多数用户每次运行都造成噪音。
+    if (paidChars > 0) {
+        const tip = `其中 ${paidChars} 字由高价档模型生成，如已配置免费或低价 Key，可在设置中点「🔍 检测全部 Key 可用性」后重跑（不会自动清除缓存）`;
+        result.suggestion = result.suggestion ? `${result.suggestion}；${tip}` : tip;
+    }
+
     return result;
 }
 
@@ -667,12 +787,14 @@ function getErrorSuggestion(error, providerInfo) {
     if (!error) return '';
     const msg = error.message || '';
     if (msg.includes('401')) return 'API Key 无效或已过期，请检查设置中的 Key 是否正确';
-    if (msg.includes('403')) return '无该模型调用权限或账户额度已耗尽，请更换模型或充值（也可在控制台用 localStorage.setItem("ai_model_override","模型名") 临时换模型）';
-    if (msg.includes('404')) return '模型未开通或模型ID不存在，请在火山方舟控制台开通对应模型（doubao-seed-2-0-lite-260428），或用 localStorage.setItem("ai_model_override","正确模型ID") 临时切换';
+    if (msg.includes('402')) return '账户额度不足，请充值或更换其它引擎的 Key（可在设置中运行“检测全部 Key 可用性”）';
+    if (msg.includes('403')) return '无该模型调用权限或账户额度已耗尽，请更换模型或充值（也可用 localStorage.setItem("ai_model_override_<引擎>","模型名") 临时换模型）';
+    if (msg.includes('404')) return '模型未开通或模型 ID 不存在，请确认该引擎下的模型名，或用 localStorage.setItem("ai_model_override_<引擎>","正确模型ID") 临时切换';
     if (msg.includes('429')) return '请求过于频繁被限流，请等待 30 秒后重试';
+    if (msg.includes('400') || msg.includes('422')) return '请求被拒绝：可能是该模型不支持 response_format/json_object，或参数不合法，建议更换模型';
     if (msg.includes('无法解析为 JSON')) return 'AI 模型返回格式异常，建议更换模型或减少单次处理字数';
     if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-        return '网络连接失败，请检查网络或更换 API 提供商（DeepSeek / 火山引擎）';
+        return '网络连接失败（可能是浏览器跨域 CORS 限制），请检查网络或更换 API 提供商';
     }
     if (msg.includes('超时') || msg.includes('timeout')) {
         return '请求超时，可能是网络延迟或模型负载高，建议减少单次处理字数或稍后重试';

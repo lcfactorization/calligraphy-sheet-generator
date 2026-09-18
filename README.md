@@ -2,21 +2,21 @@
 
 > TRAE AI 创造力大赛复赛作品 | 从"字帖生成工具"升级为"汉字学习闭环平台"
 > 双轨方案:浏览器直接打印(全平台) + Puppeteer 命令行批量生成(桌面端)
-> 在线体验:https://calligraphy-sheet-generator.pages.dev/  (如有密码，请用 666666 ）
+> 在线体验:https://calligraphy-sheet-generator.pages.dev/
 
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.3-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.5-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
 
-- **在线访问**:https://calligraphy-sheet-generator.pages.dev/ (如有密码，请用 666666 ）
+- **在线访问**:https://calligraphy-sheet-generator.pages.dev/
 - **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.3(访问统计系统:IP/设备/浏览器/访问时间统计 + 每日邮件报告 + 弹窗交互优化 + 多Key管理 + 手动修改模式)
-- **最新更新**:v3.0.3 — 访问统计系统(记录访问 IP/操作系统/浏览器/访问时间/次数,每日 08:00 邮件报告)+ 弹窗交互优化(点击外部不关闭 + 最小化/最大化/关闭按钮);v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v3.0.5(隐私与合规加固:移除个人邮箱/默认密钥、访问统计 IP 假名化、补齐 LICENSE 与第三方署名;并修复 file:// 双击启动)
+- **最新更新**:v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
 
@@ -24,19 +24,24 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v3.0.3,ES Module)
+├── package.json             ← 依赖配置(v3.0.5,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
 ├── 启动Puppeteer.bat/.ps1/.sh ← 三平台启动脚本(三步检查:Node/dist/Puppeteer)
-├── 字帖生成器.html          ← 早期独立 HTML(参赛初版,仅作历史保留)
+├── 字帖生成器.html          ← 双击即用的启动器(内嵌 dist/index.html;含加载中提示/失败诊断/重试按钮)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.3 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.5 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
+├── LICENSE                  ← 项目源码许可(MIT;第三方资产不适用,见下)
+├── THIRD_PARTY_NOTICES.md   ← 第三方数据/字体/库的许可与署名清单
+├── ARPHICPL.TXT             ← Arphic 公共许可证全文(笔画数据与文鼎楷体的强制保留文件,勿删)
+├── PRIVACY.md               ← 隐私说明(本地零上报 / 在线版收集范围与退出方式)
 ├── .github/workflows/       ← GitHub Actions 自动部署(触发分支:retake)
 ├── functions/
-│   └── _middleware.js       ← Cloudflare Pages 访问统计中间件(IP/设备/浏览器统计 + /api/report /api/stats /api/health)
+│   └── _middleware.js       ← Cloudflare Pages 访问统计中间件(设备/浏览器/国家统计 + /api/report /api/stats /api/health)
+│                              v3.0.5 起:访客标识为带密钥哈希,不再存储原始 IP / 完整 UA / 城市
 ├── analytics/
 │   ├── README.md            ← 访问统计系统设置导航(详细步骤)
 │   ├── setup.ps1            ← 一键配置脚本(建 D1 + 部署 Functions + Cron Worker)
@@ -112,7 +117,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v3.0.0 累计)
+### 核心功能(v2.0–v3.0.5 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -132,6 +137,8 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 14 | **笔画笔顺动态演示** | 点击字格弹窗逐笔演示笔顺,9574 汉字离线数据 + HanziWriter 双图层 + 播放/暂停 + 速度调节 + 多窗口 | v2.9.8 |
 | 15 | **笔画弹窗加载态** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗 | v3.0.0 |
 | 16 | **AI 组词补齐** | DeepSeek/火山引擎豆包双引擎补齐默认词库缺失的二字组词，三模式分流(快速/单音字校验/多音字深度校验)+5分钟超时+重试机制+级联开关+旋转图标进度提示+API Key 配置 | v3.0.0 |
+| 17 | **多引擎 AI 自动优选** | 16 家引擎注册表(DeepSeek/火山引擎豆包/智谱 GLM/月之暗面 Kimi/硅基流动/阿里云百炼/OpenRouter/MiniMax/阶跃星辰/百度千帆 v2/腾讯混元/Agnes AI/ModelScope 魔搭 + Gemini/Groq 标记未验证；APINEX 实测 CORS 不可用仅作形状识别)；两阶段 Key 可用性探测 + `sk-` 自动消歧 + 确定性评分优选，默认「自动选择(推荐)」无需手动选引擎 | v3.0.4 |
+| 18 | **触屏/平板笔顺弹窗自适应** | 多弹窗自动排列为网格并自动缩放(平板单窗可放大，桌面布局不变)；手机视口不足时最旧弹窗自动收为最小化药丸；触摸目标放大、拖拽边界约束、双击标题栏复位 | v3.0.4 |
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 
@@ -251,7 +258,11 @@ bash scripts/download-fonts.sh
 - 无需安装任何额外软件
 
 ### 使用步骤
-1. 用浏览器(推荐 Chrome/Edge)打开在线版或本地 `npm run dev`
+1. 打开应用,任选一种:
+   - **双击 `字帖生成器.html`**(离线即用,无需 Node;首次加载需读取约 16 MB 离线笔画数据,启动器会显示进度)
+   - 在线版(Cloudflare Pages / GitHub Pages)
+   - 本地开发:`npm run dev`
+   - 本地已构建:`npm run build` 后双击 `dist/index.html`
 2. 在文本框输入要练习的文字(支持中文、拼音自动标注)
 3. 选择汉字字体、网格类型、颜色预设等选项
 4. 点击「生成字帖」按钮
@@ -454,15 +465,35 @@ Windows 系统的 cmd.exe 默认使用 GBK(代码页 936)编码读取批处理�
 
 ## 许可证
 
-MIT License
+项目源码采用 **MIT License** — 全文见 [LICENSE](./LICENSE)。
+
+⚠️ **第三方资产不适用 MIT**：本仓库分发的中文笔画数据与文鼎楷体（TW-Kai）字体采用
+**ARPHIC PUBLIC LICENSE**，其完整许可文本见 [ARPHICPL.TXT](./ARPHICPL.TXT)（须原样保留）。
+其余内联库与字体的许可清单见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+
+### 商业字体声明
+
+本仓库**不分发、也不默认引用**任何需要单独商业授权的字体。
+如需使用商业字体，请自行取得授权后通过界面的「添加字体」或 `--font-file` 参数加载。
+
+## 隐私
+
+- 本地运行时**零网络上报**；输入内容与 API Key 只保存在您自己的浏览器中。
+- 在线版本收集的信息、用途与退出方式见 [PRIVACY.md](./PRIVACY.md)。
+- v3.0.5 起，访问统计**不再存储原始 IP、完整 User-Agent 与城市**（改为带密钥哈希的访客标识）。
 
 ## 致谢
 
 - [pinyin-pro](https://github.com/zh-lx/pinyin-pro) — 拼音转换库
 - [hanzi-writer](https://github.com/chanind/hanzi-writer) — 汉字笔顺动画
+- [hanzi-writer-data](https://github.com/chanind/hanzi-writer-data) / [Make Me A Hanzi](https://github.com/skishore/makemeahanzi) — 笔画数据（Arphic Public License）
+- [Arphic Technology](http://www.arphic.com/) — 原始字体数据的版权持有者
 - [cnchar](https://github.com/zh-lx/cnchar) — 中文汉字处理库
+- [fflate](https://github.com/101arrowz/fflate) — gzip 解压
+- [jsPDF](https://github.com/parallax/jsPDF) / [svg2pdf.js](https://github.com/yWorks/svg2pdf.js) — PDF 导出
 - [Puppeteer](https://github.com/puppeteer/puppeteer) — 无头 Chrome 控制库
 - [TeX Gyre Adventor](http://www.gust.org.pl/projects/e-foundry/tex-gyre/) — 拼音字体
+- [霞鹜文楷 LXGW WenKai](https://github.com/lxgw/LxgwWenKai) / [思源宋体](https://github.com/adobe-fonts/source-han-serif) — 开源中文字体
 - [Vite](https://vitejs.dev/) — 现代前端构建工具
 - [Tailwind CSS](https://tailwindcss.com/) — 实用优先的 CSS 框架
 - [Trae CN IDE](https://trae.cn/) — AI 辅助开发环境,全程多 Agent 协同开发

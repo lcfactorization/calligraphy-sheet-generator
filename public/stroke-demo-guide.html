@@ -258,8 +258,8 @@
 <div class="container">
     <header>
         <h1>✍️ 笔顺演示功能介绍</h1>
-        <p class="subtitle">字帖生成器 v3.0.0 · 离线笔画笔顺动态演示（双图层重构 + 暂停/恢复）</p>
-        <p class="meta">更新日期：2026-08-06 · 适用版本：v2.9.8 及以上</p>
+        <p class="subtitle">字帖生成器 v3.0.5 · 离线笔画笔顺动态演示（双图层重构 + 暂停/恢复 + 触屏/平板自适应）</p>
+        <p class="meta">更新日期：2026-09-18 · 适用版本：v3.0.5 及以上</p>
         <a href="./" class="back-link">← 返回字帖主页</a>
     </header>
 
@@ -270,6 +270,7 @@
             <li><span class="badge badge-on">开启</span>默认开启，可由工具栏"笔顺演示"按钮切换</li>
             <li><span class="badge badge-on">离线</span>内置 <strong>9574 个汉字</strong>的笔画数据，完全离线可用</li>
             <li><span class="badge badge-on">多弹窗</span>最多同时弹出 <strong>4 个</strong>不同汉字的演示窗口</li>
+            <li><span class="badge badge-on">自适应</span>多弹窗自动排列为网格并自动缩放，触屏 / 平板优化（v3.0.4）</li>
             <li><span class="badge badge-on">标准窗口</span>支持最小化 / 最大化 / 关闭 / 拖拽</li>
             <li><span class="badge badge-on">主题适配</span>light / dark 模式自动切换</li>
         </ul>
@@ -374,11 +375,15 @@
                 </tr>
                 <tr>
                     <td>拖拽</td>
-                    <td>按住标题栏拖动（最大化状态不可拖拽）</td>
+                    <td>按住标题栏拖动（最大化状态不可拖拽）；拖拽范围限制在屏幕内，窗口不会被拖出屏幕外（v3.0.4）</td>
+                </tr>
+                <tr>
+                    <td>复位排列</td>
+                    <td>双击标题栏，把自由拖拽的窗口复位回自动排列（v3.0.4）</td>
                 </tr>
                 <tr>
                     <td>聚焦</td>
-                    <td>点击相同汉字的字格，已有弹窗会置顶并闪烁高亮</td>
+                    <td>点击相同汉字的字格，已有弹窗会置顶并闪烁高亮（v3.0.4 补齐闪烁样式，触摸端点按有可见反馈）</td>
                 </tr>
             </tbody>
         </table>
@@ -388,12 +393,30 @@
 
         <h3>3.6 多弹窗管理</h3>
         <ul>
-            <li>最多同时弹出 <strong>4 个</strong>不同汉字的演示弹窗</li>
+            <li>最多同时弹出 <strong>4 个</strong>不同汉字的演示弹窗（<code>MAX_WINDOWS = 4</code>）</li>
             <li>超过 4 个时弹出 toast 提示：<em>"最多同时演示 4 个汉字，请先关闭部分弹窗"</em></li>
             <li>点击相同汉字的字格：聚焦已有弹窗（置顶 + 闪烁高亮，不自动播放）</li>
-            <li>桌面端：多弹窗水平排列于屏幕右下角</li>
-            <li>移动端：多弹窗垂直堆叠于屏幕右下方</li>
+            <li>自动排列：多弹窗由布局求解器自动排成网格，并自动缩放以适配屏幕（v3.0.4）</li>
+            <li>桌面端：优先 1×N 水平排列，缩放恒为 1，布局与旧版逐像素一致</li>
+            <li>移动端：自动选择列数并缩放；屏幕过小时最旧的弹窗自动收为最小化药丸</li>
         </ul>
+
+        <h3>3.7 触屏 / 平板自适应（v3.0.4）</h3>
+        <p><span class="badge badge-new">v3.0.4</span> 重构了弹窗的排列与触屏交互，<strong>桌面端行为刻意保持不变</strong>：</p>
+        <ul>
+            <li><strong>自动排列 + 自动放缩</strong>：弹窗容器改为 CSS Grid，新增纯函数求解器 <code>solveLayout(n, availW, availH, sMax)</code> —— 对每种列数计算缩放 <code>s</code> 并取最大值，多弹窗自动排成网格并整体缩放以适配屏幕</li>
+            <li><strong>桌面端零退化</strong>：桌面缩放上限 <code>sMax = 1.0</code>，只要 1×N 横排放得下，<code>s</code> 恒为 1，与旧版逐像素一致</li>
+            <li><strong>平板可用更多空间</strong>：粗略指针（触摸 / 笔）下缩放上限提高到 <code>1.6</code>，单个弹窗可放大到 1.6 倍，充分利用平板屏幕</li>
+            <li><strong>手机自动收纳</strong>：当最优缩放 <code>s</code> 低于可读下限 <code>0.72</code> 时，自动把<strong>最旧</strong>的展开弹窗收为最小化药丸，直到放得下或只剩一个；药丸可点击恢复（按 LRU 顺序）</li>
+            <li><strong>触摸目标放大</strong>：粗略指针下窗口按钮 <code>26 → 34px</code>、播放按钮 <code>36 → 44px</code>、速度滑块拇指 <code>14 → 22px</code>（并按当前缩放反向补偿，保证实际触摸尺寸达标）</li>
+            <li><strong>拖拽不会丢失窗口</strong>：拖拽增加视口边界约束，并在视口 / 屏幕方向变化时重新约束，窗口不可能被拖出屏幕外</li>
+            <li><strong>双击标题栏复位</strong>：把自由拖拽的窗口复位回自动排列</li>
+            <li><strong>聚焦有可见反馈</strong>：点击已打开的同一汉字会置顶并闪烁高亮（补齐了此前缺失的闪烁样式，触摸端点按不再"没反应"）</li>
+            <li><strong>平板断点</strong>：新增 769–1280px 平板区间规则（此前该区间完全空白）</li>
+        </ul>
+        <div class="tip">
+            <strong>说明：</strong>打印隐藏、最小化 / 最大化 / 关闭、<span class="kbd">Esc</span> 关闭最上层弹窗、"减少动态效果"偏好等既有行为全部保留。
+        </div>
     </section>
 
     <section>
@@ -570,6 +593,11 @@ persistCustomData();</code></pre>
                     <td><code>v3.0.0</code></td>
                     <td>2026-08-06</td>
                     <td>笔画弹窗加载态+就绪徽章；AI组词补齐（双引擎：DeepSeek/火山引擎豆包）；三项独立开关(全量检查/组词补齐/拼音纠错)+旋转图标进度提示</td>
+                </tr>
+                <tr>
+                    <td><code>v3.0.4</code></td>
+                    <td>2026-09-18</td>
+                    <td>触屏/平板自适应重构：容器改 CSS Grid + <code>solveLayout</code> 求解器自动排列与缩放；手机空间不足时自动收最旧窗口为药丸（LRU 恢复）；触摸目标放大（按钮 26→34px、播放 36→44px、滑块 14→22px）；拖拽视口边界约束 + 双击标题栏复位；补齐聚焦闪烁样式；新增 769–1280px 平板断点；桌面端布局零退化</td>
                 </tr>
             </tbody>
         </table>

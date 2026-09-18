@@ -36,6 +36,8 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 | Mobile Print Fix | Hidden iframe static document architecture | v2.9.0 |
 | MatePad Adapted | HarmonyOS print PDF multi-round fixes | v2.8 |
 | Stroke Order Demo | Click char grid to popup stroke-by-stroke animation, 9574 offline chars + HanziWriter dual-layer + play/pause + speed | v2.9.8 |
+| Multi-Engine AI Auto-Select | 16-provider registry (DeepSeek/Volcano Ark/Zhipu GLM/Kimi/SiliconFlow/DashScope/OpenRouter/MiniMax/StepFun/Qianfan/Hunyuan/Agnes AI/ModelScope + Gemini/Groq flagged unverified; APINEX measured CORS-blocked, kept for shape recognition only); two-stage key health probe + `sk-` disambiguation + deterministic best-key selection, "Auto (recommended)" by default | v3.0.4 |
+| Touch/Tablet Stroke Popup | Popups auto-arrange into a grid and auto-scale (single popup can grow on tablets; desktop layout unchanged); oldest popups collapse into pills on small phones; larger touch targets, bounded drag, double-tap title bar to re-centre | v3.0.4 |
 
 ## Quick Start
 
@@ -73,7 +75,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v3.0.3, ES Module)
+├── package.json             # Dependencies (v3.0.5, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -81,7 +83,7 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0 → v3.0.3)
+├── CHANGELOG.md             # Version history (v1.0 → v3.0.5)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
 ├── .github/workflows/       # GitHub Actions auto-deploy (trigger: retake branch)
 ├── functions/

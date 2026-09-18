@@ -2,10 +2,10 @@
 
 > [!NOTE]
 > **文档状态**:v2.4.0 重构已全部完成,本看板保留作为重构历史记录。
-> 重构后续演进(v2.5–v3.0.0)见文末[重构后续演进](#重构后续演进)段落。
+> 重构后续演进(v2.5–v3.0.5)见文末[重构后续演进](#重构后续演进)段落。
 > 当前最新有效状态请参阅 [README.md](./README.md) 和 [CHANGELOG.md](./CHANGELOG.md)。
 
-> 提示词来源:`C:\poem2pdf\字帖项目html渲染网格PDF显示以及最终打印的精准尺寸控制提示词.20260723Gemini.md`
+> 提示词来源:`字帖项目html渲染网格PDF显示以及最终打印的精准尺寸控制提示词.20260723Gemini.md`
 > 备份 tag:`backup/pre_svg_refactor/20260723_143000`(HEAD: 9587410)
 > 架构契约:`src/contracts/interfaces.js`
 
@@ -51,7 +51,7 @@
 
 ## 重构后续演进
 
-> v2.4.0 重构完成后,项目继续迭代到 v3.0.0。以下为关键演进节点(完整记录见 [CHANGELOG.md](./CHANGELOG.md))。
+> v2.4.0 重构完成后,项目继续迭代到 v3.0.5。以下为关键演进节点(完整记录见 [CHANGELOG.md](./CHANGELOG.md))。
 
 ### v2.5.x — UI 控件重排 + 网格类型快切
 - v2.5.3:新增九宫格(第 5 种网格类型)+ 4 色网格颜色预设(传统绿/朱砂红/靛青蓝/墨黑)
@@ -82,8 +82,8 @@
 - v2.9.7:引导增强(9 步 + "不再自动弹出"选项 + 智能推荐说明)+ Dark 模式范字 inverted color
 - v2.9.8:笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + 双图层 + 播放/暂停 + 速度持久化)+ 引导增强 16 步 + 笔顺演示介绍页 + Dark/触屏/移动端多项 Bug 修复(dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击)
 
-### 当前状态(v3.0.3)
-- **代码版本**:v3.0.3(package.json + CHANGELOG)
+### 当前状态(v3.0.5)
+- **代码版本**:v3.0.5(package.json + CHANGELOG)
 - **构建模块**:846 模块(随迭代增长)
 - **源文件**:15 JS + 18 CSS + 3 数据 + 2 组件 + 1 契约 + 1 工具 + 1 入口 = 41 源文件
 - **备份机制**:每个版本有 backup 分支可回退（v3.0.0 AI 加固前备份分支：backup/pre_v300_final_20260807）
@@ -115,3 +115,14 @@
 - **设置导航**:analytics/README.md 详细 7 节步骤(创建 D1/绑定/环境变量/部署/验证/常见问题)
 - **安全**:无密码保护(公开版,与自用版不同)、无 /api/debug /api/test-email、CRON_SECRET 默认值更换、wrangler.toml 不入库
 - **在线访问改为 Cloudflare Pages**:https://calligraphy-sheet-generator.pages.dev/ 为主发布链接(统计功能仅 Cloudflare 生效)
+
+### v3.0.5 — 隐私与合规加固 + 双击启动修复(2026-09-18)
+- **隐私加固**:移除硬编码个人邮箱(改为 fail closed)与公开仓库中的默认 `CRON_SECRET`(未配置即 401,setup.ps1 改生成 32 字节随机密钥);访问统计**不再存储原始 IP / 完整 User-Agent / 城市**,访客标识改为带密钥 SHA-256 哈希(IPv4 无盐哈希可秒级反查,故必须带密钥);移除作者真实姓名;清除 138 处泄露本机目录结构的 `file:///C:/...` 死链(119 处转为仓库内相对链接);新增 `PRIVACY.md`
+- **知识产权合规**:补齐**缺失的 `LICENSE`**(README 早已声明 MIT 并链接该文件,但文件不存在);补齐 **`ARPHICPL.TXT`** —— 笔画数据与文鼎楷体来自 Arphic Technology,其许可 §1 强制要求分发时原样保留该文件;新增 `THIRD_PARTY_NOTICES.md` 列出全部内联依赖许可;`puppeteer-pdf.cjs` 移除商业字体默认引用(姜浩硬笔楷书等),默认改为随仓库分发的文鼎楷体,并提供 gitignored 的本地私有字体映射
+- **双击启动修复**:`file://` 下启动器误报「无法加载」的根因是 1500ms 超时 vs 实测 6009ms 加载(16.4MB 数据)+ 监听注册竞态 + 错误提示不可恢复;改为**应用主动发就绪信标**(`postMessage`),超时仅作兜底且可恢复;新增加载进度与重试按钮;顺带补 favicon、指南链接改相对路径、Service Worker 改自行注册(带 PROD 与 file:// 双重前置条件)
+- **验证**:新增 `verify-v304-file-protocol.cjs`(19/0);8 个套件全绿
+
+### v3.0.4 — 多引擎 AI 自动优选 + 触屏/平板笔顺弹窗自适应(2026-09-18)
+- **多引擎 AI 自动优选**:新增 `src/modules/aiProviders.js` 引擎注册表(16 家:DeepSeek/火山引擎豆包/智谱 GLM/Kimi/硅基流动/阿里百炼/OpenRouter/MiniMax/阶跃星辰/千帆 v2/混元 + Agnes AI/ModelScope 魔搭 实测可用 + APINEX 实测 `cors:'failed'` + Gemini/Groq 标记 `cors:'unverified'`;不收录讯飞星火)+ `src/modules/aiKeyHealth.js` 两阶段探测(零 token `/models` 鉴权 + 3 token chat 能力);`sk-` 歧义 Key 逐个探测自动消歧并回写 `providerId`;设置中心默认「自动选择(推荐)」,新增「🔍 检测全部 Key 可用性」;添加/导入 Key 后自动探测;`ai_model_override` 改为按引擎作用域
+- **触屏/平板笔顺弹窗自适应**:`.sd-overlay` 由 flex 改为 CSS Grid + `solveLayout()` 纯函数求解器(冻结 340×440 布局盒 + `transform: scale(--sd-s)`);桌面 `sMax=1.0` 逐像素零退化,触摸/平板 `sMax=1.6`;手机视口不足时自动收最旧窗口为最小化药丸(LRU 恢复);触摸目标放大(按钮 26→34px、播放 36→44px、滑块拇指 14→22px);拖拽视口边界约束 + 双击标题栏复位 + 补齐 `.sd-flash` 聚焦反馈;新增 769–1280px 平板断点
+- **不包含**:在线 PDF API/商业字体(均为个人版专属功能)

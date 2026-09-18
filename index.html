@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#9E2A2B">
     <meta name="color-scheme" content="light">
+    <!-- v3.0.5：补上 favicon。此前未声明任何 icon，浏览器会自动请求 /favicon.ico，
+         在每个部署环境（含本地静态服务器）都留下一条 404。 -->
+    <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
     <title>字帖生成器</title>
 </head>
 <body>
@@ -26,15 +29,15 @@
     <!-- ════════ 标题区（v2.5.4：压缩高度，左对齐，副标题保留但紧凑） ════════ -->
     <div class="app-header">
         <div class="header-title">
-            <h1>✏️ <span class="accent">字帖生成器</span> <span class="version-tag">v3.0.3</span></h1>
-            <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF <span class="build-info">· build 2026-08-16 v3.0.3</span></p>
+            <h1>✏️ <span class="accent">字帖生成器</span> <span class="version-tag">v3.0.5</span></h1>
+            <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF <span class="build-info">· build 2026-09-18 v3.0.5</span></p>
         </div>
         <div class="app-header-actions">
             <!-- 帮助链接垂直排列三行（笔顺演示 / API Key 使用 / 导入与修改） -->
             <div class="header-guide-links" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
-                <a href="/stroke-demo-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="查看笔顺演示功能的详细介绍（离线数据方案、弹窗使用、可扩展性等）">📖 笔顺演示介绍</a>
-                <a href="/api-key-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="大模型 API Key 使用说明（多 Key 管理、下拉选择、自动匹配引擎、从文件导入）">🔑 API Key 使用</a>
-                <a href="/import-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="导入格式与手动修改说明（多音字/拼音/组词宽松输入、手动编辑字帖）">📥 导入与修改</a>
+                <a href="./stroke-demo-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="查看笔顺演示功能的详细介绍（离线数据方案、弹窗使用、可扩展性等）">📖 笔顺演示介绍</a>
+                <a href="./api-key-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="大模型 API Key 使用说明（多 Key 管理、下拉选择、自动匹配引擎、从文件导入）">🔑 API Key 使用</a>
+                <a href="./import-guide.html" class="header-guide-link" target="_blank" rel="noopener" title="导入格式与手动修改说明（多音字/拼音/组词宽松输入、手动编辑字帖）">📥 导入与修改</a>
             </div>
         </div>
     </div>
