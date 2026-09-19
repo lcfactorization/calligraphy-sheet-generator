@@ -85,7 +85,7 @@ calligraphy-sheet-generator/
 ├── README_contest.md        # Original contest doc + iteration appendix
 ├── CHANGELOG.md             # Version history (v1.0 → v3.0.5)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
-├── .github/workflows/       # GitHub Actions auto-deploy (trigger: retake branch)
+├── .github/workflows/       # GitHub Actions auto-deploy to GitHub Pages (trigger: main / retake)
 ├── functions/
 │   └── _middleware.js       # Cloudflare Pages analytics middleware (IP/device/browser tracking + /api/report /api/stats /api/health)
 ├── analytics/
@@ -93,10 +93,10 @@ calligraphy-sheet-generator/
 │   ├── setup.ps1            # One-click setup script (D1 + Functions + Cron Worker)
 │   └── cron-worker/         # Daily email report worker (08:00 Beijing time)
 ├── scripts/
-│   └── download-fonts.sh    # CI font download script
+│   └── verify-fonts.sh      # Validates the bundled woff2 fonts (CI + local)
 ├── public/
 │   ├── icon-*.svg           # PWA icons (192/512/maskable)
-│   └── fonts/               # Fonts (local dev, CI auto-downloads)
+│   └── fonts/               # 4 woff2 fonts bundled in the repo (~48 MB)
 ├── fonts/
 │   └── texgyreadventor-regular.otf  # Pinyin font (GUST, local fallback)
 └── src/
@@ -109,7 +109,11 @@ calligraphy-sheet-generator/
     └── styles/              # 18 CSS modules
 ```
 
-> **Font Policy**: The repo only includes TeX Gyre Adventor (GUST Font License) in `fonts/`. Other fonts are downloaded at CI build time via `scripts/download-fonts.sh`. All 4 Chinese fonts are open-source (SIL OFL 1.1 / ARPH). Commercial fonts were removed for license compliance.
+> **Font Policy**: The repo ships TeX Gyre Adventor (GUST Font License) in `fonts/` and four Chinese woff2 fonts in `public/fonts/` (~48 MB, committed). CI performs **no font download or conversion** — `scripts/verify-fonts.sh` only validates that the bundled files are present and well-formed. All 4 Chinese fonts are open-source (SIL OFL 1.1 / ARPH). Commercial fonts were removed for license compliance.
+>
+> ⚠ **`TW-Kai.woff2` has no surviving public upstream** — the original `anthonyfok/TW-Kai` repository was deleted and its release URL now returns 404. The copy in this repository is the only one; do not delete it (`git checkout -- public/fonts/` restores it).
+>
+> Note: v3.0.4–v3.0.5 downloaded and converted fonts at CI time via `scripts/download-fonts.sh`. That approach is retired: `pip3 install fonttools` fails under PEP 668 on GitHub's Ubuntu 24.04 runners, and the TW-Kai URL 404s — together these aborted the build under `set -e`, so no deployment after 2026-08-15 actually shipped.
 
 ## Built with Trae CN IDE
 

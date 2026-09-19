@@ -39,14 +39,17 @@
 
 | 字体 | 文件 | 许可 | 是否随仓库分发 |
 |---|---|---|---|
-| 文鼎楷体 TW-Kai | `public/fonts/TW-Kai.woff2` | **ARPHIC PUBLIC LICENSE**（同 [ARPHICPL.TXT](./ARPHICPL.TXT)） | 是（CI 下载后转 woff2） |
-| 霞鹜文楷 LXGW WenKai | `public/fonts/LXGWWenKai-Regular.woff2` | SIL Open Font License 1.1 | 是（CI 下载后转 woff2） |
-| 霞鹜文楷 Light | `public/fonts/LXGWWenKai-Light.woff2` | SIL Open Font License 1.1 | 是（CI 下载后转 woff2） |
-| 思源宋体 SC | `public/fonts/SourceHanSerifSC-Regular.woff2` | SIL Open Font License 1.1 | 是（CI 下载后转 woff2） |
+| 文鼎楷体 TW-Kai | `public/fonts/TW-Kai.woff2` | **ARPHIC PUBLIC LICENSE**（同 [ARPHICPL.TXT](./ARPHICPL.TXT)） | 是（随仓库分发） |
+| 霞鹜文楷 LXGW WenKai | `public/fonts/LXGWWenKai-Regular.woff2` | SIL Open Font License 1.1 | 是（随仓库分发） |
+| 霞鹜文楷 Light | `public/fonts/LXGWWenKai-Light.woff2` | SIL Open Font License 1.1 | 是（随仓库分发） |
+| 思源宋体 SC | `public/fonts/SourceHanSerifSC-Regular.woff2` | SIL Open Font License 1.1 | 是（随仓库分发） |
 | TeX Gyre Adventor（拼音用） | `fonts/texgyreadventor-regular.otf` | GUST Font License | 是 |
 
-- `public/fonts/` 在 `.gitignore` 中排除（体积原因），由 `.github/workflows/deploy.yml` 调用 `scripts/download-fonts.sh` 在构建时下载并转换。
-- 各字体完整许可文本随其官方发布包分发，见 `scripts/download-fonts.sh` 中记录的来源仓库。
+- 4 个 woff2 字体**随仓库分发**（`public/fonts/`，共约 48 MB）；`.gitignore` 仅排除非 woff2 的原始 ttf/otf。
+  `.github/workflows/deploy.yml` 调用 `scripts/verify-fonts.sh` 校验其存在与完整性，**不做下载或格式转换**。
+- 各字体的来源仓库与许可见 `scripts/verify-fonts.sh` 顶部注释；完整许可文本随其官方发布包分发。
+- ⚠ **`TW-Kai.woff2` 的公开上游已失效**（`anthonyfok/TW-Kai` 仓库已被删除，原下载链接实测返回 404），
+  本仓库中的副本为唯一来源，请勿删除；误删可用 `git checkout -- public/fonts/` 恢复。
 
 ### 未包含的商业字体（重要）
 

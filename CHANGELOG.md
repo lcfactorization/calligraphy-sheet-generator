@@ -135,6 +135,47 @@ file:// 下启动器显示应用而非错误、无空白页、**缺失文件仍�
   但既有记录需由部署者自行清理。
 - `IP_HASH_SALT` 变更会导致独立访客计数「重置」（同一访客哈希不同），这是密钥轮换的预期行为。
 
+### 🚀 部署链路修复（2026-09-19 补记，版本号不变）
+
+> v3.0.5 推送到 `retake` 后**线上并未更新** —— GitHub Pages 与 Cloudflare Pages 都仍停在 v3.0.3。
+> 排查结论：**不是应用的问题，是构建流水线的问题**。按「仅记录变更、不更新版本号」的既有偏好处理。
+
+**根因：`scripts/download-fonts.sh` 在 `set -e` 下中断了整个 CI 构建**
+
+v3.0.4 的字体 woff2 化提交（`ade6283`）在该脚本里新增了两处必失败的逻辑：
+
+1. **`pip3 install --quiet fonttools brotli`** —— GitHub 的 `ubuntu-latest` runner 已是 Ubuntu 24.04，
+   系统 Python 受 PEP 668 保护，安装会直接报 `error: externally-managed-environment` 并返回非零码。
+2. **TW-Kai 上游已失效** —— `https://github.com/anthonyfok/TW-Kai/releases/latest/download/TW-Kai.ttf`
+   实测返回 **404**（该仓库已被删除，API 亦返回 `Not Found`）。
+   旧版脚本只做 `curl -o`（404 时 curl 仍返回 0），会悄悄把 404 的 HTML 存成 `TW-Kai.ttf` 而无人察觉；
+   新版脚本要把它交给 `TTFont()` 转换，于是必然抛错。
+
+任一处失败都会让 `set -e` 立即终止脚本，**Build / Setup Pages / Upload artifact 三步全部被 skip**，
+所以工作流状态是「failure」而不是「部署了旧版本」。受影响的三次运行：
+
+| 提交 | 说明 | 结论 |
+|---|---|---|
+| `ade6283` | feat(v3.0.4) 字体全部转 woff2 | failure |
+| `21ec238` | README 在线访问章节 | failure |
+| `5bf6409` | **v3.0.5 隐私与合规加固** | failure |
+
+最后一次成功部署是 `39374ca`（v3.0.3，2026-08-15）—— 这正是线上版本号的来源。
+
+**修复方式：字体入库，CI 只做校验**
+
+- 4 个 woff2 字体（共 48 MB，单文件最大 16.6 MB，低于 Cloudflare Pages 的 25 MiB 单文件上限）
+  改为**随仓库分发**；`.gitignore` 由「排除整个 `public/fonts/`」改为「只排除非 woff2 的原始 ttf/otf」。
+- 新增 **`scripts/verify-fonts.sh`**：校验 4 个字体是否存在、文件头是否为 `wOF2`、体积是否合理，
+  任一不满足即非零退出 —— 避免「字体被误删 → 静默发布一个没有字体的站点」。
+- 删除 `scripts/download-fonts.sh`；工作流的 `Download fonts` 步骤改为 `Verify bundled fonts`。
+
+**收益**：构建不再依赖任何外部 URL、pip 或字体转换工具，消除了这类失败再次发生的可能。
+
+**代价**：仓库体积一次性增加 48 MB。字体是静态资源，不随版本变化。
+
+⚠ **`TW-Kai.woff2` 现在没有可用的公开上游**（原仓库已删除），本仓库中的副本即唯一来源，请勿删除。
+
 ---
 
 ## v3.0.4 (2026-09-18) — 多引擎 AI 自动优选 + 触屏/平板笔顺弹窗自适应

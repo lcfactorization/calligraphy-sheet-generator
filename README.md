@@ -12,11 +12,17 @@
 
 ## 部署状态
 
-- **在线访问**:https://calligraphy-sheet-generator.pages.dev/
-- **部署方式**:GitHub Actions 自动部署(push 到 `retake` 分支触发)
+同时部署到两个平台，内容一致：
+
+| 平台 | 地址 | 部署方式 |
+|:-----|:-----|:-----|
+| **Cloudflare Pages**（主） | https://calligraphy-sheet-generator.pages.dev/ | Git 集成：push 到 `retake` 后自动构建 |
+| **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions：push 到 `main` / `retake` 后自动构建 |
+
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
 - **最新版本**:v3.0.5(隐私与合规加固:移除个人邮箱/默认密钥、访问统计 IP 假名化、补齐 LICENSE 与第三方署名;并修复 file:// 双击启动)
 - **最新更新**:v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
+- **部署链路修复**(2026-09-19,版本号不变):v3.0.4 起 CI 字体下载脚本双重失效(pip PEP 668 + TW-Kai 上游 404),导致每次部署都在 `set -e` 下中断、线上长期停在 v3.0.3。现改为字体随仓库分发 + CI 只做校验,详见 [CHANGELOG](./CHANGELOG.md#v305-2026-09-18--隐私与合规加固--双击启动修复)。
 
 ## 目录结构
 
@@ -38,7 +44,7 @@ distribution/
 ├── THIRD_PARTY_NOTICES.md   ← 第三方数据/字体/库的许可与署名清单
 ├── ARPHICPL.TXT             ← Arphic 公共许可证全文(笔画数据与文鼎楷体的强制保留文件,勿删)
 ├── PRIVACY.md               ← 隐私说明(本地零上报 / 在线版收集范围与退出方式)
-├── .github/workflows/       ← GitHub Actions 自动部署(触发分支:retake)
+├── .github/workflows/       ← GitHub Actions 自动部署到 GitHub Pages(触发分支:main / retake)
 ├── functions/
 │   └── _middleware.js       ← Cloudflare Pages 访问统计中间件(设备/浏览器/国家统计 + /api/report /api/stats /api/health)
 │                              v3.0.5 起:访客标识为带密钥哈希,不再存储原始 IP / 完整 UA / 城市
@@ -47,10 +53,10 @@ distribution/
 │   ├── setup.ps1            ← 一键配置脚本(建 D1 + 部署 Functions + Cron Worker)
 │   └── cron-worker/         ← 每日邮件报告 Worker(北京时间 08:00 发送)
 ├── scripts/
-│   └── download-fonts.sh    ← CI 构建时下载开源字体
+│   └── verify-fonts.sh      ← 校验随仓库分发的 4 个 woff2 字体(CI 与本地通用)
 ├── public/
 │   ├── icon-*.svg           ← PWA 图标(192/512/maskable)
-│   └── fonts/               ← 字体目录(本地开发用,CI 构建时自动下载)
+│   └── fonts/               ← 字体目录(4 个 woff2 随仓库分发,共约 48 MB)
 ├── fonts/
 │   └── texgyreadventor-regular.otf ← 拼音字体(GUST,本地兜底)
 └── src/
@@ -210,43 +216,57 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## CI/CD 自动部署
 
-### GitHub Actions 工作流
+## CI/CD 自动部署
 
-项目通过 `.github/workflows/deploy.yml` 配置了 GitHub Pages 自动部署:
+项目同时部署到 **Cloudflare Pages**(主)与 **GitHub Pages**(备),两者内容一致。
+
+### GitHub Pages(`.github/workflows/deploy.yml`)
 
 - **触发条件**:push 到 `main` 或 `retake` 分支,或手动 `workflow_dispatch`
-- **构建流程**:`npm ci` → 下载字体 → `npm run build` → 上传 artifact → 部署到 Pages
+- **构建流程**:`npm ci` → 校验字体 → `npm run build` → 上传 artifact → 部署到 Pages
 - **部署环境**:`github-pages` environment
+- **访问 URL**:https://lcfactorization.github.io/calligraphy-sheet-generator/
+
+### Cloudflare Pages(主站)
+
+- **接入方式**:Cloudflare Pages 与 GitHub 仓库 Git 集成,push 到 `retake` 后自动构建
+- **构建产物**:`dist/`(含 `functions/_middleware.js` 提供的访问统计接口)
 - **访问 URL**:https://calligraphy-sheet-generator.pages.dev/
+- **访问统计配置**:见 [`analytics/README.md`](./analytics/README.md)
 
-### CI 字体下载脚本
+### 字体处理(重要)
 
-由于字体文件较大,未直接提交到仓库,而是通过 `scripts/download-fonts.sh` 在 CI 构建时下载:
+4 个 woff2 字体**随仓库分发**,CI 不做任何下载或格式转换:
 
-| 字体 | 来源 | 协议 |
-|:-----|:-----|:-----|
-| 霞鹜文楷 Regular | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
-| 霞鹜文楷 Light | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
-| 思源宋体 SC | adobe-fonts/source-han-serif releases | SIL OFL 1.1 |
-| 文鼎楷体(TW-Kai) | anthonyfok/TW-Kai releases | ARPH |
-| TeX Gyre Adventor(拼音字体) | base64 内嵌于 fontManager.js | GUST |
+| 字体 | 文件 | 来源 | 协议 |
+|:-----|:-----|:-----|:-----|
+| 霞鹜文楷 Regular | `LXGWWenKai-Regular.woff2` | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
+| 霞鹜文楷 Light | `LXGWWenKai-Light.woff2` | lxgw/LxgwWenKai releases | SIL OFL 1.1 |
+| 思源宋体 SC | `SourceHanSerifSC-Regular.woff2` | adobe-fonts/source-han-serif releases (2.002R) | SIL OFL 1.1 |
+| 文鼎楷体(TW-Kai) | `TW-Kai.woff2` | ⚠ 上游已失效,见下 | 见 `ARPHICPL.TXT` |
+| TeX Gyre Adventor(拼音字体) | base64 内嵌于 `fontManager.js` | — | GUST |
+
+> [!WARNING]
+> **`TW-Kai.woff2` 的公开上游已不存在**(`anthonyfok/TW-Kai` 仓库已被删除,原下载链接实测返回 404)。
+> 本仓库中的副本即唯一来源,请勿删除。若误删,用 `git checkout -- public/fonts/` 恢复。
 
 > [!NOTE]
-> 思源宋体 zip 解压后实际路径为 `OTF/SimplifiedChinese/SourceHanSerifSC-Regular.otf`,脚本使用 `find` 命令动态查找以避免硬编码路径问题。我逸清晨体楷书为商用字体,已移除。
+> v3.0.4–v3.0.5 期间字体曾由 `scripts/download-fonts.sh` 在 CI 中下载并转 woff2,该方式已废弃:
+> `pip3 install fonttools` 在 GitHub 的 Ubuntu 24.04 runner 上触发 PEP 668 而失败,叠加 TW-Kai 上游 404,
+> 使构建在 `set -e` 下中断 —— 2026-08-15 之后的所有部署因此均未生效(线上长期停在 v3.0.3)。
+> 详见 [CHANGELOG](./CHANGELOG.md)。
 
-### 本地开发字体准备
-
-如需本地开发,可手动执行字体下载脚本:
+### 字体校验
 
 ```bash
-# Linux/macOS
-bash scripts/download-fonts.sh
-
-# Windows (Git Bash)
-bash scripts/download-fonts.sh
+bash scripts/verify-fonts.sh      # 校验 4 个字体存在、文件头为 wOF2、体积合理
 ```
 
-或从 `public/fonts/` 目录直接复制已下载的字体文件。
+CI 中该步骤会在字体缺失或损坏时**直接失败**,避免静默发布一个没有字体的站点。
+
+### 本地开发
+
+仓库已包含全部字体,`npm install && npm run dev` 即可,无需额外准备字体。
 
 ---
 

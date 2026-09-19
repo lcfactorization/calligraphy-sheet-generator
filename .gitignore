@@ -24,8 +24,14 @@ v2.8.5-verify-*.pdf
 docs/
 _commit_v287.txt
 视频自我介绍脚本_*.md
-# v3.0.4：排除本地开源字体（CI 会通过 scripts/download-fonts.sh 下载并转 woff2，不提交到仓库避免体积膨胀）
-public/fonts/
+# v3.0.5 部署修复（2026-09-19）：字体改为随仓库分发（仅 woff2）
+#   原因：CI 下载链路双重失效 —— (1) pip3 install 在 GitHub Ubuntu 24.04 runner 上触发
+#   PEP 668（externally-managed-environment）；(2) TW-Kai 唯一上游 anthonyfok/TW-Kai 已 404。
+#   两者叠加使 scripts/download-fonts.sh 在 set -e 下中断整个构建 → v3.0.4 起每次部署均失败。
+#   现提交 4 个 woff2（共 48 MB，单文件最大 16.6 MB < Cloudflare Pages 25 MiB 限制）。
+#   原始 ttf/otf 仍不入库（体积更大，构建与运行时均只引用 woff2）。
+public/fonts/*
+!public/fonts/*.woff2
 
 # v3.0.1 安全要求：API Key 和个人配置不得上传
 .env

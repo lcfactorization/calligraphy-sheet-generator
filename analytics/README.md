@@ -78,8 +78,10 @@ cd analytics
    - `REPORT_EMAIL` = 您的邮箱（可选）
 
 #### 第 4 步：部署 Functions 代码
-- `functions/_middleware.js` 已随仓库代码自动部署（GitHub 集成每次 push 自动构建）
-- 若需手动：`npx wrangler pages deploy dist --project-name=calligraphy-sheet-generator`
+- Cloudflare Pages 与 GitHub 仓库 **Git 集成**：push 到 `retake` 后自动构建，`functions/_middleware.js` 随之生效
+- 若需手动：`npx wrangler pages deploy dist --project-name=calligraphy-sheet-generator`（需 `CLOUDFLARE_API_TOKEN`）
+- ⚠ 2026-08-15 之后 Cloudflare 与 GitHub Pages 曾长期停在 v3.0.3，原因是 CI 字体步骤在 `set -e` 下中断构建；
+  已于 2026-09-19 修复（字体随仓库分发 + CI 只做校验），详见 [CHANGELOG](../CHANGELOG.md)。
 
 #### 第 5 步：部署 Cron Worker（每日报告 + 邮件）
 ```powershell
