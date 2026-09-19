@@ -168,7 +168,10 @@ v3.0.4 的字体 woff2 化提交（`ade6283`）在该脚本里新增了两处必
   改为**随仓库分发**；`.gitignore` 由「排除整个 `public/fonts/`」改为「只排除非 woff2 的原始 ttf/otf」。
 - 新增 **`scripts/verify-fonts.sh`**：校验 4 个字体是否存在、文件头是否为 `wOF2`、体积是否合理，
   任一不满足即非零退出 —— 避免「字体被误删 → 静默发布一个没有字体的站点」。
-- 删除 `scripts/download-fonts.sh`；工作流的 `Download fonts` 步骤改为 `Verify bundled fonts`。
+- `scripts/download-fonts.sh` 改为**转发到 `verify-fonts.sh` 的兼容垫片**（不再下载任何内容）。
+  保留文件名是刻意的：Cloudflare Pages 等平台的构建配置里可能仍写着
+  `bash scripts/download-fonts.sh && npm run build`，直接删文件会让这类配置以「找不到脚本」失败。
+- 工作流的 `Download fonts` 步骤改为 `Verify bundled fonts`。
 
 **收益**：构建不再依赖任何外部 URL、pip 或字体转换工具，消除了这类失败再次发生的可能。
 

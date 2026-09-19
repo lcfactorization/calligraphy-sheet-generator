@@ -93,7 +93,8 @@ calligraphy-sheet-generator/
 │   ├── setup.ps1            # One-click setup script (D1 + Functions + Cron Worker)
 │   └── cron-worker/         # Daily email report worker (08:00 Beijing time)
 ├── scripts/
-│   └── verify-fonts.sh      # Validates the bundled woff2 fonts (CI + local)
+│   ├── verify-fonts.sh      # Validates the bundled woff2 fonts (CI + local)
+│   └── download-fonts.sh    # Compat shim (forwards to verify-fonts.sh for legacy build configs)
 ├── public/
 │   ├── icon-*.svg           # PWA icons (192/512/maskable)
 │   └── fonts/               # 4 woff2 fonts bundled in the repo (~48 MB)

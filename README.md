@@ -53,7 +53,8 @@ distribution/
 │   ├── setup.ps1            ← 一键配置脚本(建 D1 + 部署 Functions + Cron Worker)
 │   └── cron-worker/         ← 每日邮件报告 Worker(北京时间 08:00 发送)
 ├── scripts/
-│   └── verify-fonts.sh      ← 校验随仓库分发的 4 个 woff2 字体(CI 与本地通用)
+│   ├── verify-fonts.sh      ← 校验随仓库分发的 4 个 woff2 字体(CI 与本地通用)
+│   └── download-fonts.sh    ← 兼容垫片(仅转发到 verify-fonts.sh,供旧构建配置继续工作)
 ├── public/
 │   ├── icon-*.svg           ← PWA 图标(192/512/maskable)
 │   └── fonts/               ← 字体目录(4 个 woff2 随仓库分发,共约 48 MB)
