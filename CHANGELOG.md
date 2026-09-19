@@ -177,6 +177,19 @@ v3.0.4 的字体 woff2 化提交（`ade6283`）在该脚本里新增了两处必
 
 **代价**：仓库体积一次性增加 48 MB。字体是静态资源，不随版本变化。
 
+**部署结果（2026-09-19 实测）**
+
+| 目标 | 结果 |
+|---|---|
+| GitHub Pages | ✅ v3.0.5 已上线。`f30bcd8` 触发的 Actions 运行全绿（含新增的 `Verify bundled fonts`），页面字节数与本地 `dist/index.html` 完全一致（3,490,719） |
+| Cloudflare Pages | ✅ v3.0.5 已上线。手动 `wrangler pages deploy --branch=main`，注册为 **production** 部署；`/api/health` 正常、`/api/stats` 无密钥返回 401（v3.0.5 的 fail-closed 行为生效） |
+
+⚠ **Cloudflare Pages 并未接入 Git 集成**（实测该 Pages 项目 `source` 为 `null`）：
+push 代码**不会**触发 Cloudflare 构建，必须手动执行
+`npx wrangler pages deploy dist --project-name=calligraphy-sheet-generator --branch=main`。
+其**生产分支是 `main`**，`--branch` 填错只会生成预览部署。此前
+`analytics/README.md` 中「GitHub 集成每次 push 自动构建」的说法与事实不符，已更正。
+
 ⚠ **`TW-Kai.woff2` 现在没有可用的公开上游**（原仓库已删除），本仓库中的副本即唯一来源，请勿删除。
 
 ---

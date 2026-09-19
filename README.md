@@ -16,8 +16,8 @@
 
 | 平台 | 地址 | 部署方式 |
 |:-----|:-----|:-----|
-| **Cloudflare Pages**（主） | https://calligraphy-sheet-generator.pages.dev/ | Git 集成：push 到 `retake` 后自动构建 |
-| **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions：push 到 `main` / `retake` 后自动构建 |
+| **Cloudflare Pages**（主） | https://calligraphy-sheet-generator.pages.dev/ | **手动**：`npx wrangler pages deploy dist --project-name=calligraphy-sheet-generator --branch=main`（需 `CLOUDFLARE_API_TOKEN`） |
+| **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions 自动：push 到 `main` / `retake` 后构建部署 |
 
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
 - **最新版本**:v3.0.5(隐私与合规加固:移除个人邮箱/默认密钥、访问统计 IP 假名化、补齐 LICENSE 与第三方署名;并修复 file:// 双击启动)
@@ -230,10 +230,16 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ### Cloudflare Pages(主站)
 
-- **接入方式**:Cloudflare Pages 与 GitHub 仓库 Git 集成,push 到 `retake` 后自动构建
-- **构建产物**:`dist/`(含 `functions/_middleware.js` 提供的访问统计接口)
+- **接入方式**:**手动直接上传**(**未接入 Git 集成**)。实测该 Pages 项目的 `source` 为 `null`,
+  push 代码**不会**触发 Cloudflare 构建 —— 必须手动部署。
+- **生产分支**:`main`。`--branch` 必须填 `main`,否则只会生成**预览**部署而非生产部署。
+- **部署命令**:`npx wrangler pages deploy dist --project-name=calligraphy-sheet-generator --branch=main`,
+  需 `CLOUDFLARE_API_TOKEN`(权限 `Account → Cloudflare Pages → Edit`)。
+  `functions/_middleware.js` 会随部署自动打包上传(Pages Functions),无需单独部署。
 - **访问 URL**:https://calligraphy-sheet-generator.pages.dev/
 - **访问统计配置**:见 [`analytics/README.md`](./analytics/README.md)
+- **若想改为 push 自动部署**:在 Cloudflare 仪表盘为该 Pages 项目接入 Git 仓库,
+  Build command 填 `npm run build`、输出目录 `dist`。字体已入库,**不需要**任何字体步骤。
 
 ### 字体处理(重要)
 
