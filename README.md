@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.5-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.6-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -20,8 +20,8 @@
 | **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions 自动：push 到 `main` / `retake` 后构建部署 |
 
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.5(隐私与合规加固:移除个人邮箱/默认密钥、访问统计 IP 假名化、补齐 LICENSE 与第三方署名;并修复 file:// 双击启动)
-- **最新更新**:v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v3.0.6(完整移植 AI Key 处理体系:18 家内置引擎 + 自定义引擎 + 「⚙ AI 控制台」+ Key 四种保存方式(默认只存内存)+ 两阶段连通性体检;并修复笔顺演示弹窗在 pad/手机上的可视视口居中与多窗口排布)
+- **最新更新**:v3.0.6 — AI Key 体系完整移植(新增 `aiConsole`/`aiDiagView`/`aiProbeHttp` 等 7 个模块、Key 默认不落盘 + 旧明文一次性迁移、18 家引擎注册表 + 自定义引擎、AI 控制台连通性体检)+ 笔顺弹窗按**可视视口**精确居中(单窗口 0 偏差、2/3/4 窗口末行孤窗居中)+ 修复 `callDeepSeekDirect` 在只传 apiKey 时的空指针;v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 - **部署链路修复**(2026-09-19,版本号不变):v3.0.4 起 CI 字体下载脚本双重失效(pip PEP 668 + TW-Kai 上游 404),导致每次部署都在 `set -e` 下中断、线上长期停在 v3.0.3。现改为字体随仓库分发 + CI 只做校验,详见 [CHANGELOG](./CHANGELOG.md#v305-2026-09-18--隐私与合规加固--双击启动修复)。
 
 ## 目录结构
@@ -30,7 +30,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v3.0.5,ES Module)
+├── package.json             ← 依赖配置(v3.0.6,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -38,7 +38,7 @@ distribution/
 ├── 字帖生成器.html          ← 双击即用的启动器(内嵌 dist/index.html;含加载中提示/失败诊断/重试按钮)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.5 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.6 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
 ├── LICENSE                  ← 项目源码许可(MIT;第三方资产不适用,见下)
 ├── THIRD_PARTY_NOTICES.md   ← 第三方数据/字体/库的许可与署名清单
@@ -54,7 +54,9 @@ distribution/
 │   └── cron-worker/         ← 每日邮件报告 Worker(北京时间 08:00 发送)
 ├── scripts/
 │   ├── verify-fonts.sh      ← 校验随仓库分发的 4 个 woff2 字体(CI 与本地通用)
-│   └── download-fonts.sh    ← 兼容垫片(仅转发到 verify-fonts.sh,供旧构建配置继续工作)
+│   ├── download-fonts.sh    ← 兼容垫片(仅转发到 verify-fonts.sh,供旧构建配置继续工作)
+│   ├── measure-popup-layout.cjs ← 笔顺弹窗排布取证(Puppeteer 真浏览器量测 → popup-layout-report.json)
+│   └── verify-aiconsole-ui.cjs  ← AI 控制台真浏览器取证(内置 mock 引擎 → aiconsole-ui-report.json)
 ├── public/
 │   ├── icon-*.svg           ← PWA 图标(192/512/maskable)
 │   └── fonts/               ← 字体目录(4 个 woff2 随仓库分发,共约 48 MB)
@@ -68,7 +70,10 @@ distribution/
     │   ├── GridEngine.js    ← SVG 字格引擎(createGridCellSVG + renderSheet,5 类型 × 3 模式)
     │   └── Sidebar.js       ← 320px 双栏侧栏(网格类型/透明度/预设场景)
     ├── utils/
-    │   └── pdfExport.js     ← 双轨 PDF 导出(client-jspdf 默认 + client-print + server-puppeteer)
+    │   ├── pdfExport.js     ← 双轨 PDF 导出(client-jspdf 默认 + client-print + server-puppeteer)
+    │   ├── deviceEnv.js     ← 设备环境判定(粗指针/触屏/移动布局,与 CSS 媒体查询同一口径)
+    │   ├── sanitize.js      ← v3.0.6 文本净化(所有用户可控数据走 textContent/setAttribute)
+    │   └── staticMarkup.js  ← v3.0.6 编译期常量 innerHTML 骨架(零插值,杜绝 XSS)
     ├── data/
     │   ├── customZuCi.js    ← 自定义组词字典
     │   ├── templates.js     ← 预设模板(唐诗/三字经/千字文等)
@@ -88,8 +93,18 @@ distribution/
     │   ├── reportPanel.js   ← 学习报告统计
     │   ├── feedback.js      ← 练习反馈(reportPanel 依赖)
     │   ├── onboarding.js    ← v2.9.5 移动端首次使用引导(9 步 + 滚动边角提示)
-    │   └── fabDrag.js       ← v2.9.5 桌面端 FAB 拖拽(Pointer Events + 8px 网格吸附)
-    └── styles/              ← CSS 模块(18 个)
+    │   ├── fabDrag.js       ← v2.9.5 桌面端 FAB 拖拽(Pointer Events + 8px 网格吸附)
+    │   ├── strokeDemoModal.js ← 笔顺动态演示弹窗(最多 4 窗,按可视视口居中与排布)
+    │   ├── aiProviders.js   ← AI 引擎唯一注册表(18 家内置 + 自定义引擎 + OpenAI/Anthropic 双协议)
+    │   ├── aiZuci.js        ← AI 组词补齐 / 拼音纠错 / 全量检查
+    │   ├── aiKeyStore.js    ← Key 存储:四种保存方式 + PBKDF2(20 万次)/AES-GCM 口令加密
+    │   ├── aiKeyHealth.js   ← 两阶段连通性体检(/models → chat max_tokens:3)+ 错误分类 + 评分优选
+    │   ├── aiKeyImporter.js ← 批量导入(json/csv/txt/环境变量形状)
+    │   ├── aiConsole.js     ← v3.0.6「⚙ AI 控制台(模型设置)」面板
+    │   ├── aiDiagnostics.js ← v3.0.6 体检编排(并发/节流/结果归并)
+    │   ├── aiDiagView.js    ← v3.0.6 体检结果渲染
+    │   └── aiProbeHttp.js   ← v3.0.6 探测用 HTTP 层(超时/协议适配/错误归一)
+    └── styles/              ← CSS 模块(20 个)
         ├── base.css / components.css / grid.css / theme.css / main.css
         ├── print.css        ← 打印样式(@media print + 移动端 iframe 打印)
         ├── fab.css / tailwind.css
@@ -98,6 +113,8 @@ distribution/
         ├── onboarding.css   ← v2.9.5 引导浮层样式
         ├── difficulty.css / feedback.css / fileImporter.css
         ├── history.css / recommender.css / report.css / settingsCenter.css
+        ├── strokeDemoModal.css ← 笔顺弹窗(可视视口变量 --sd-avail-w/h + 末行孤窗居中)
+        └── aiConsole.css    ← v3.0.6 AI 控制台(左栏分组 + 右栏扁平表单)
 └── dist/                    ← 构建产物(npm run build 生成)
 ```
 
@@ -124,7 +141,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v3.0.5 累计)
+### 核心功能(v2.0–v3.0.6 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -144,8 +161,11 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 14 | **笔画笔顺动态演示** | 点击字格弹窗逐笔演示笔顺,9574 汉字离线数据 + HanziWriter 双图层 + 播放/暂停 + 速度调节 + 多窗口 | v2.9.8 |
 | 15 | **笔画弹窗加载态** | 首次访问数据未就绪时点击字格立即显示加载动画弹窗 | v3.0.0 |
 | 16 | **AI 组词补齐** | DeepSeek/火山引擎豆包双引擎补齐默认词库缺失的二字组词，三模式分流(快速/单音字校验/多音字深度校验)+5分钟超时+重试机制+级联开关+旋转图标进度提示+API Key 配置 | v3.0.0 |
-| 17 | **多引擎 AI 自动优选** | 16 家引擎注册表(DeepSeek/火山引擎豆包/智谱 GLM/月之暗面 Kimi/硅基流动/阿里云百炼/OpenRouter/MiniMax/阶跃星辰/百度千帆 v2/腾讯混元/Agnes AI/ModelScope 魔搭 + Gemini/Groq 标记未验证；APINEX 实测 CORS 不可用仅作形状识别)；两阶段 Key 可用性探测 + `sk-` 自动消歧 + 确定性评分优选，默认「自动选择(推荐)」无需手动选引擎 | v3.0.4 |
+| 17 | **多引擎 AI 自动优选** | **18 家**引擎注册表(DeepSeek/火山引擎豆包/智谱 GLM/月之暗面 Kimi/硅基流动/阿里云百炼/OpenRouter/MiniMax/阶跃星辰/百度千帆 v2/腾讯混元/Agnes AI/ModelScope 魔搭/商汤 SenseNova/AMD Radeon Cloud + Gemini/Groq 标记未验证；APINEX 实测 CORS 不可用仅作形状识别)；两阶段 Key 可用性探测 + `sk-` 自动消歧 + 确定性评分优选，默认「自动选择(推荐)」无需手动选引擎 | v3.0.4 → v3.0.6 |
 | 18 | **触屏/平板笔顺弹窗自适应** | 多弹窗自动排列为网格并自动缩放(平板单窗可放大，桌面布局不变)；手机视口不足时最旧弹窗自动收为最小化药丸；触摸目标放大、拖拽边界约束、双击标题栏复位 | v3.0.4 |
+| 19 | **⚙ AI 控制台(模型设置)** | 引擎/模型/Key 统一管理面板:添加**自定义引擎**(自己的 Base URL + OpenAI/Anthropic 双协议 + 请求参数覆盖)、批量导入(json/csv/txt)、**连通性体检**(两阶段探测 + 错误分类:鉴权失败/额度不足/模型不存在/限流/网络不可达) | v3.0.6 |
+| 20 | **Key 四种保存方式(默认不落盘)** | 不保存(仅内存，刷新即消失) / 记住到本标签页(sessionStorage) / 明文保存在本机 / 长期记住(PBKDF2-SHA256 **20 万次** + AES-GCM-256 口令加密)；旧版明文 Key 首次加载时一次性迁入内存并**从本地存储删除** | v3.0.6 |
+| 21 | **笔顺弹窗按可视视口精确居中** | 以 `visualViewport`(而非布局视口 / `100vh`)为基准写 `--sd-avail-w/h`;单窗口恒在**可见区域正中央**(软键盘、双指缩放+平移、地址栏收展下均成立)；2/3/4 窗口网格排布且**末行孤窗居中** | v3.0.6 |
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 

@@ -36,8 +36,11 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 | Mobile Print Fix | Hidden iframe static document architecture | v2.9.0 |
 | MatePad Adapted | HarmonyOS print PDF multi-round fixes | v2.8 |
 | Stroke Order Demo | Click char grid to popup stroke-by-stroke animation, 9574 offline chars + HanziWriter dual-layer + play/pause + speed | v2.9.8 |
-| Multi-Engine AI Auto-Select | 16-provider registry (DeepSeek/Volcano Ark/Zhipu GLM/Kimi/SiliconFlow/DashScope/OpenRouter/MiniMax/StepFun/Qianfan/Hunyuan/Agnes AI/ModelScope + Gemini/Groq flagged unverified; APINEX measured CORS-blocked, kept for shape recognition only); two-stage key health probe + `sk-` disambiguation + deterministic best-key selection, "Auto (recommended)" by default | v3.0.4 |
+| Multi-Engine AI Auto-Select | **18-provider** registry (DeepSeek/Volcano Ark/Zhipu GLM/Kimi/SiliconFlow/DashScope/OpenRouter/MiniMax/StepFun/Qianfan/Hunyuan/Agnes AI/ModelScope/SenseNova/AMD Radeon Cloud + Gemini/Groq flagged unverified; APINEX measured CORS-blocked, kept for shape recognition only); two-stage key health probe + `sk-` disambiguation + deterministic best-key selection, "Auto (recommended)" by default | v3.0.4 → v3.0.6 |
 | Touch/Tablet Stroke Popup | Popups auto-arrange into a grid and auto-scale (single popup can grow on tablets; desktop layout unchanged); oldest popups collapse into pills on small phones; larger touch targets, bounded drag, double-tap title bar to re-centre | v3.0.4 |
+| ⚙ AI Console (Model Settings) | Unified panel for engines / models / keys: add **custom providers** (your own Base URL + OpenAI/Anthropic protocol + request-param overrides), bulk import (json/csv/txt), and **connectivity check-up** (two-stage probe + error taxonomy: auth failure / quota / model-not-found / rate-limited / unreachable) | v3.0.6 |
+| 4 Key Storage Modes (off-disk by default) | Don't save (memory only, gone on reload) / remember for this tab (`sessionStorage`) / save in plain text on this device / remember long-term (PBKDF2-SHA256 **200 000** iterations + AES-GCM-256 passphrase encryption). Legacy plain-text keys are migrated into memory once on first load and **deleted from local storage** | v3.0.6 |
+| Stroke Popup Centred on the *Visual* Viewport | Sized against `visualViewport` (not the layout viewport / `100vh`) via `--sd-avail-w/h`; a single popup sits at the **exact centre of the visible area** — including with the soft keyboard up, under pinch-zoom + pan, and while the mobile address bar shows/hides; 2–4 popups lay out as a grid with the **orphan last row centred** | v3.0.6 |
 
 ## Quick Start
 
@@ -75,7 +78,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v3.0.5, ES Module)
+├── package.json             # Dependencies (v3.0.6, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -83,7 +86,7 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0 → v3.0.5)
+├── CHANGELOG.md             # Version history (v1.0 → v3.0.6)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
 ├── .github/workflows/       # GitHub Actions auto-deploy to GitHub Pages (trigger: main / retake)
 ├── functions/

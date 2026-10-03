@@ -1,0 +1,891 @@
+/* ============================================================================
+   AI 控制台 · 模型设置（v1.5.6）
+   ----------------------------------------------------------------------------
+   视觉语言对齐 zai-org/ZCode 的「模型设置」页：
+     · 扁平表单，而不是「卡片 + 徽章 + 芯片」的堆叠
+     · 字段 = 一行灰色标签 + 一个全宽输入框
+     · 列表 = 细行 + 底部分隔线，行内放灰色小标签与图标动作
+     · 导航 = 分组标题 + 细行项，状态点右对齐
+     · 页头 = 标题 + 一句话说明；右侧「圆形刷新图标 + 实心主按钮」
+   配色一律走 theme.css 的 CSS 变量，light / dark 双主题自动跟随。
+   命名空间：aic-
+   ============================================================================ */
+
+/* ---------- 主题变量别名（统一从这里取，便于整页换皮） ---------- */
+.aic-overlay {
+    --aic-surface: var(--toggle-bg);
+    --aic-surface-2: var(--bg);
+    --aic-border: var(--border);
+    --aic-text: var(--text-color);
+    --aic-strong: var(--title-color);
+    --aic-muted: var(--desc-color);
+    --aic-hover: rgba(127, 127, 127, 0.09);
+    --aic-selected: rgba(99, 102, 241, 0.13);
+    --aic-line: rgba(127, 127, 127, 0.16);
+    --aic-radius: 8px;
+}
+
+/* ---------- 遮罩与窗口 ---------- */
+.aic-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10003;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity .22s var(--ease-out-soft);
+}
+.aic-overlay.open { opacity: 1; }
+
+.aic-modal {
+    width: min(96vw, 1120px);
+    height: min(90vh, 780px);
+    max-width: 100%;
+    background: var(--aic-surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--aic-border);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px -8px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--aic-text);
+    transform: scale(0.95) translateY(16px);
+    transition: transform .22s var(--ease-out-soft), height .2s, width .2s;
+}
+.aic-overlay.open .aic-modal { transform: scale(1) translateY(0); }
+
+.aic-modal.minimized { height: 56px !important; width: 380px !important; flex: 0 0 auto; }
+.aic-modal.minimized .aic-body,
+.aic-modal.minimized .aic-footer { display: none !important; }
+.aic-modal.minimized .aic-header { border-bottom: none; }
+.aic-modal.maximized { width: min(98vw, 1600px) !important; height: min(95vh, 1040px) !important; }
+
+/* ---------- 页头：标题 + 说明 + 动作 ---------- */
+.aic-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--aic-border);
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+.aic-head-text { min-width: 0; flex: 1 1 260px; }
+.aic-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--aic-strong);
+    letter-spacing: -0.01em;
+}
+.aic-subtitle {
+    margin: 5px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--aic-muted);
+}
+.aic-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+.aic-window-controls { margin-left: 4px; }
+
+/* ---------- 按钮 ---------- */
+.aic-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    line-height: 1.4;
+    color: var(--aic-text);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: var(--aic-radius);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s, opacity .15s;
+}
+.aic-btn:hover { border-color: rgba(99, 102, 241, 0.5); }
+.aic-btn:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-btn:disabled { opacity: .45; cursor: not-allowed; }
+.aic-btn:disabled:hover { border-color: var(--aic-border); }
+.aic-btn-sm { padding: 4px 9px; font-size: 11.5px; }
+
+/* 实心主按钮（ZCode 的「＋ 添加供应商」） */
+.aic-btn-solid {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1.4;
+    color: #fff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--aic-radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, opacity .15s;
+}
+.aic-btn-solid:hover { background: #4f46e5; border-color: #4f46e5; }
+.aic-btn-solid:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.6); outline-offset: 2px; }
+.aic-btn-solid:disabled { opacity: .5; cursor: not-allowed; }
+.aic-btn-solid.aic-btn-sm { padding: 4px 10px; font-size: 11.5px; }
+
+/* 圆形图标按钮（ZCode 的刷新键） */
+.aic-icon-round {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--aic-text);
+    background: transparent;
+    border: 1px solid var(--aic-border);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.aic-icon-round:hover { background: var(--aic-hover); border-color: rgba(99, 102, 241, 0.5); }
+.aic-icon-round:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 2px; }
+
+/* 行内图标按钮（列表行右侧） */
+.aic-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-size: 12.5px;
+    line-height: 1;
+    color: var(--aic-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.aic-icon-btn:hover { background: var(--aic-hover); color: var(--aic-text); border-color: var(--aic-border); }
+.aic-icon-btn:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-icon-danger:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
+.aic-icon-active { color: var(--accent); }
+.aic-icon { display: inline-flex; align-items: center; }
+.aic-icon svg { display: block; }
+
+/* ---------- 主体：双栏 ---------- */
+.aic-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+}
+
+/* ---------- 左栏：导航 ---------- */
+.aic-nav {
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--aic-border);
+    padding: 12px 8px 18px;
+}
+.aic-nav-group { margin-bottom: 16px; }
+.aic-nav-group:last-child { margin-bottom: 0; }
+.aic-nav-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 0 8px 6px;
+}
+.aic-nav-group-head h2 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--aic-muted);
+}
+.aic-nav-group-badge {
+    font-size: 10px;
+    color: var(--aic-muted);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: 999px;
+    padding: 0 6px;
+    line-height: 15px;
+}
+.aic-nav-list { display: flex; flex-direction: column; gap: 2px; }
+
+.aic-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 12.5px;
+    font-family: inherit;
+    text-align: left;
+    color: var(--aic-text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--aic-radius);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.aic-nav-item:hover { background: var(--aic-hover); }
+.aic-nav-item:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-nav-item.active {
+    background: var(--aic-selected);
+    border-color: rgba(99, 102, 241, 0.4);
+    font-weight: 600;
+}
+.aic-nav-glyph { flex: 0 0 auto; width: 18px; text-align: center; font-size: 12px; }
+.aic-nav-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.aic-nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aic-nav-count {
+    flex: 0 0 auto;
+    font-size: 10px;
+    color: var(--aic-muted);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: 999px;
+    padding: 0 5px;
+    line-height: 15px;
+}
+
+/* 供应商图标（确定性色相字母块） */
+.aic-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 700;
+    color: #fff;
+    background: hsl(var(--aic-avatar-hue, 240), 52%, 46%);
+    user-select: none;
+}
+.aic-avatar-sm { width: 18px; height: 18px; font-size: 10px; border-radius: 5px; }
+.aic-avatar-md { width: 26px; height: 26px; font-size: 13px; }
+
+/* 状态点（四态，右对齐） */
+.aic-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.aic-status-ready { background: #16a34a; }
+.aic-status-unavailable { background: #f59e0b; }
+.aic-status-disabled { background: #9ca3af; opacity: .6; }
+.aic-status-off { background: #6b7280; opacity: .5; }
+
+/* ---------- 右栏：详情 ---------- */
+.aic-detail {
+    min-width: 0;
+    overflow-y: auto;
+    padding: 20px 24px 28px;
+}
+.aic-view { display: flex; flex-direction: column; gap: 4px; }
+
+/* 详情头：图标 + 名称 + 开关 + ⋯ */
+.aic-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 14px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--aic-line);
+    flex-wrap: wrap;
+}
+.aic-detail-namebox { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; }
+.aic-detail-name {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--aic-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.aic-detail-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* 灰色小标签（ZCode 的 `1M` / `视觉`） */
+.aic-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    line-height: 16px;
+    color: var(--aic-muted);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: 4px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.aic-tag-ok { color: #16a34a; border-color: rgba(22, 163, 74, 0.4); background: rgba(22, 163, 74, 0.1); }
+.aic-tag-warn { color: #b45309; border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); }
+.aic-tag-info { color: var(--accent); border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.1); }
+.aic-tag-free { color: #16a34a; border-color: rgba(22, 163, 74, 0.4); background: rgba(22, 163, 74, 0.1); }
+.aic-tag-cheap { color: #0d9488; border-color: rgba(13, 148, 136, 0.4); background: rgba(13, 148, 136, 0.1); }
+.aic-tag-paid { color: #b45309; border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); }
+
+/* ---------- 表单字段 ---------- */
+.aic-field { margin-top: 14px; }
+.aic-field-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    min-width: 0;
+}
+.aic-field-label {
+    font-size: 12px;
+    color: var(--aic-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.aic-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    margin-bottom: 6px;
+}
+.aic-field-row .aic-field-head { margin-bottom: 0; }
+/* 「失焦即存」字段的行内状态（已保存 / 校验失败原因） */
+.aic-field-msg {
+    margin-top: 5px;
+    min-height: 0;
+    word-break: break-word;
+}
+
+.aic-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    font-family: inherit;
+    line-height: 1.5;
+    color: var(--aic-text);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: var(--aic-radius);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.aic-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16); }
+.aic-input::placeholder { color: var(--aic-muted); opacity: .7; }
+.aic-input-readonly { color: var(--aic-muted); cursor: default; }
+.aic-input-readonly:focus { border-color: var(--aic-border); box-shadow: none; }
+.aic-textarea { resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+.aic-mono { font-family: ui-monospace, Consolas, monospace; }
+
+.aic-input-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
+.aic-input-wrap .aic-input { padding-right: 34px; }
+.aic-input-eye { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); }
+
+.aic-add-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.aic-inline-msg { font-size: 11px; color: var(--aic-muted); min-width: 0; }
+.aic-msg-ok { color: #16a34a !important; }
+.aic-msg-warn { color: #b45309 !important; }
+.aic-msg-fail { color: #ef4444 !important; }
+.aic-msg-busy { color: var(--accent) !important; }
+
+/* 参数网格 */
+.aic-param-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+
+/* ---------- 区块与列表 ---------- */
+.aic-section { display: flex; flex-direction: column; }
+.aic-section-title {
+    margin: 18px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--aic-muted);
+}
+
+.aic-list {
+    border: 1px solid var(--aic-border);
+    border-radius: var(--aic-radius);
+    overflow: hidden;
+    background: var(--aic-surface-2);
+}
+.aic-list-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--aic-line);
+    min-width: 0;
+}
+.aic-list-row:last-child { border-bottom: none; }
+.aic-list-row.active { background: var(--aic-selected); }
+.aic-row-name {
+    font-size: 12.5px;
+    color: var(--aic-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 0 1 auto;
+    max-width: 46%;
+}
+.aic-row-name.revealed { color: #b45309; max-width: none; }
+.aic-grow { flex: 1 1 auto; min-width: 0; }
+.aic-select-inline { flex: 0 1 240px; min-width: 120px; }
+
+/* ---------- 开关 ---------- */
+.aic-switch-wrap { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.aic-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+.aic-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.aic-slider {
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.32);
+    transition: background .18s;
+    position: relative;
+    flex: 0 0 auto;
+}
+.aic-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform .18s;
+}
+.aic-switch input:checked + .aic-slider { background: var(--accent); }
+.aic-switch input:checked + .aic-slider::before { transform: translateX(14px); }
+.aic-switch input:focus-visible + .aic-slider { outline: 2px solid rgba(99, 102, 241, 0.6); outline-offset: 2px; }
+.aic-switch input:disabled + .aic-slider { opacity: .5; }
+
+/* ---------- 高级参数折叠 ---------- */
+.aic-advanced { margin-top: 14px; }
+.aic-advanced-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    font-family: inherit;
+    color: var(--aic-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.aic-advanced-trigger:hover { background: var(--aic-hover); color: var(--aic-text); }
+.aic-advanced-trigger:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-chevron { display: inline-block; font-size: 13px; line-height: 1; transition: transform .18s var(--ease-out-soft); }
+.aic-advanced.open .aic-chevron { transform: rotate(90deg); }
+.aic-advanced-body { display: none; padding: 2px; }
+.aic-advanced.open .aic-advanced-body { display: block; }
+
+/* ---------- 帮助气泡 ---------- */
+.aic-help { position: relative; display: inline-flex; align-items: center; }
+.aic-help-trigger {
+    width: 15px;
+    height: 15px;
+    padding: 0;
+    font-size: 9.5px;
+    line-height: 1;
+    font-family: inherit;
+    color: var(--aic-muted);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.aic-help-trigger:hover { color: var(--accent); border-color: rgba(99, 102, 241, 0.5); }
+.aic-help-trigger:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-help-pop {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    width: 300px;
+    max-width: 78vw;
+    max-height: 42vh;
+    overflow-y: auto;
+    padding: 9px 11px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--aic-text);
+    background: var(--aic-surface);
+    border: 1px solid var(--aic-border);
+    border-radius: 9px;
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.aic-help.open .aic-help-pop { display: block; }
+.aic-help-pop p { margin: 0 0 7px; }
+.aic-help-pop p:last-child { margin-bottom: 0; }
+.aic-help-pop code {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10.5px;
+    background: var(--aic-hover);
+    border-radius: 4px;
+    padding: 0 4px;
+}
+.aic-help-list { margin: 0 0 7px; padding-left: 18px; }
+.aic-help-list li { margin-bottom: 4px; }
+
+/* ---------- 弹层（⋯ 菜单 / 模型设置） ---------- */
+.aic-popover {
+    z-index: 10010;
+    background: var(--aic-surface);
+    border: 1px solid var(--aic-border);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    overflow: hidden;
+    color: var(--aic-text);
+    font-family: inherit;
+    font-size: 13px;
+}
+/* ⚠ `.aic-menu` 必须用 width:max-content 约束成「内容宽度」。
+   它是块级元素，追加到 body 后若 width:auto 会撑满整个 body 宽度，
+   于是 openPopover 里 `panel.offsetWidth` 量到 ~1000px，
+   `left = rect.right - offsetWidth` 变成负数 → 被钳到 12px，
+   菜单会跑到视口最左边（而不是锚点下方）。
+   jsdom 量不到这个问题（getBoundingClientRect 恒为 0），只有真实浏览器截图能发现。 */
+.aic-menu {
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    min-width: 210px;
+    max-width: min(320px, 84vw);
+    padding: 4px;
+}
+.aic-menu-item {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    font-family: inherit;
+    text-align: left;
+    color: var(--aic-text);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.aic-menu-item:hover { background: var(--aic-hover); }
+.aic-menu-item:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: -2px; }
+.aic-menu-item:disabled { color: var(--aic-muted); cursor: default; }
+.aic-menu-item:disabled:hover { background: transparent; }
+.aic-menu-danger { color: #ef4444; }
+.aic-menu-danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+.aic-pop-panel { width: 300px; max-width: 84vw; padding: 14px; }
+.aic-pop-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--aic-strong);
+    word-break: break-all;
+    margin-bottom: 4px;
+}
+.aic-flag-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.aic-flag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--aic-text);
+    cursor: pointer;
+}
+.aic-flag input { accent-color: var(--accent); margin: 0; }
+
+/* ---------- 折叠区（体检） ---------- */
+.aic-fold {
+    margin-top: 20px;
+    border: 1px solid var(--aic-border);
+    border-radius: var(--aic-radius);
+    overflow: hidden;
+}
+.aic-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--aic-text);
+    background: var(--aic-surface-2);
+    cursor: pointer;
+    list-style: none;
+}
+.aic-fold > summary::-webkit-details-marker { display: none; }
+.aic-fold > summary:hover { background: var(--aic-hover); }
+.aic-fold-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--aic-muted);
+    background: var(--aic-surface);
+    border: 1px solid var(--aic-border);
+    border-radius: 999px;
+    padding: 0 7px;
+    line-height: 16px;
+}
+.aic-fold-body { padding: 12px; }
+
+/* ---------- 卡片（存储方式 / 从零自定义） ---------- */
+.aic-card {
+    border: 1px solid var(--aic-border);
+    border-radius: 10px;
+    padding: 14px;
+    background: var(--aic-surface-2);
+    margin-top: 12px;
+}
+.aic-card > h3 { margin: 0 0 10px; font-size: 12.5px; font-weight: 700; color: var(--aic-strong); }
+.aic-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.aic-card-head h3 { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--aic-strong); }
+.aic-card-focus { border-color: rgba(99, 102, 241, 0.5); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+
+/* 单选卡（存储方式） */
+.aic-radio { flex: 0 0 auto; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.aic-radio-group { display: flex; flex-direction: column; gap: 6px; }
+.aic-radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--aic-border);
+    border-radius: var(--aic-radius);
+    background: var(--aic-surface);
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.aic-radio-card:hover { border-color: rgba(99, 102, 241, 0.5); }
+.aic-radio-card-warn { border-color: rgba(245, 158, 11, 0.4); }
+.aic-radio-card input { margin-top: 2px; }
+.aic-radio-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aic-radio-label { font-size: 12px; font-weight: 600; color: var(--aic-text); }
+.aic-radio-sub { font-size: 10.5px; line-height: 1.5; color: var(--aic-muted); }
+
+/* ---------- 提示 ---------- */
+.aic-hint {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--aic-muted);
+}
+.aic-hint-warn { color: #b45309; }
+.aic-warn-box {
+    margin-top: 10px;
+    padding: 9px 11px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #92400e;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: var(--aic-radius);
+}
+[data-theme='dark'] .aic-warn-box { color: #fcd34d; }
+
+/* ---------- 添加供应商：模板网格 ---------- */
+.aic-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 8px;
+}
+.aic-picker-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    padding: 10px 12px;
+    font-family: inherit;
+    text-align: left;
+    color: var(--aic-text);
+    background: var(--aic-surface-2);
+    border: 1px solid var(--aic-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    min-width: 0;
+}
+.aic-picker-card:hover { border-color: rgba(99, 102, 241, 0.5); background: var(--aic-hover); }
+.aic-picker-card:focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 1px; }
+.aic-picker-glyph {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--accent);
+    background: rgba(99, 102, 241, 0.12);
+    border-radius: 6px;
+}
+.aic-picker-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.aic-picker-label { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aic-picker-sub {
+    font-size: 10px;
+    color: var(--aic-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.aic-picker-arrow { flex: 0 0 auto; color: var(--aic-muted); font-size: 15px; }
+
+/* ---------- 体检结果（与设置中心共用 aiDiagView 的结构类名） ---------- */
+.aic-diag-summary {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: var(--aic-radius);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+.aic-diag-results { margin-top: 6px; }
+.aic-diag-block { margin-top: 12px; }
+.aic-diag-block:first-child { margin-top: 0; }
+.aic-diag-card {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-left: 3px solid #6b7280;
+    background: var(--aic-hover);
+    font-size: 12px;
+    line-height: 1.55;
+}
+.aic-diag-title-row { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.aic-diag-title { font-weight: 700; flex-shrink: 0; }
+.aic-diag-code { font-size: 10px; color: var(--aic-muted); }
+.aic-diag-detail { margin-top: 3px; color: var(--aic-text); word-break: break-word; }
+.aic-diag-hints {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px dashed var(--aic-line);
+}
+.aic-diag-hint { margin-top: 3px; }
+.aic-diag-evidence { margin-top: 5px; }
+.aic-diag-evidence > summary { cursor: pointer; font-size: 11px; color: var(--aic-muted); }
+.aic-diag-evidence-body {
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 4px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    word-break: break-all;
+    color: var(--aic-muted);
+    white-space: pre-wrap;
+}
+.aic-diag-elapsed { margin-top: 6px; font-size: 10px; color: var(--aic-muted); }
+
+/* ---------- 底栏 ---------- */
+.aic-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-top: 1px solid var(--aic-border);
+    flex: 0 0 auto;
+    font-size: 11.5px;
+}
+.aic-footer-status { color: var(--aic-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aic-footer-spacer { flex: 1 1 auto; }
+.aic-footer-hint { color: var(--aic-muted); font-size: 11px; white-space: nowrap; }
+
+/* ---------- 忙碌态 ---------- */
+.aic-busy .aic-body,
+.aic-busy .aic-head-actions { pointer-events: none; opacity: .6; }
+
+/* ---------- 窄屏：左栏收成图标栏 ---------- */
+@media (max-width: 780px) {
+    .aic-overlay { padding: 0; }
+    .aic-modal { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }
+    .aic-body { grid-template-columns: 52px minmax(0, 1fr); }
+    .aic-nav { padding: 10px 4px 14px; }
+    .aic-nav-group-head { display: none; }
+    .aic-nav-item { justify-content: center; padding: 6px 4px; gap: 0; position: relative; }
+    .aic-nav-main,
+    .aic-nav-count { display: none; }
+    .aic-nav-item .aic-dot { position: absolute; right: 5px; bottom: 4px; }
+    .aic-nav-item .aic-avatar-sm { width: 22px; height: 22px; font-size: 11px; }
+    .aic-detail { padding: 14px 14px 22px; }
+    .aic-header { padding: 14px 14px 12px; }
+    .aic-picker-grid { grid-template-columns: 1fr; }
+    .aic-row-name { max-width: 40%; }
+    .aic-help-pop { width: 240px; }
+}
+
+/* ---------- 减少动效偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .aic-overlay,
+    .aic-modal,
+    .aic-chevron,
+    .aic-slider,
+    .aic-slider::before { transition: none; }
+}

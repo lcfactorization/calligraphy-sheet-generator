@@ -29,23 +29,7 @@ export function isCoarsePointer() {
     try {
         return window.matchMedia('(pointer: coarse)').matches ||
                window.matchMedia('(hover: none)').matches;
-    } catch (e) {
-        return false;
-    }
-}
-
-/**
- * 是否具备触摸能力（maxTouchPoints > 0 或 'ontouchstart' in window）。
- * 与 isCoarsePointer 的区别：本函数在"触摸屏笔记本"上返回 true，
- * 用于需要"有没有手指"而非"主指针是不是手指"的场景。
- * @returns {boolean}
- */
-export function isTouchDevice() {
-    if (typeof window === 'undefined') return false;
-    try {
-        if (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints) > 0) return true;
-        return 'ontouchstart' in window;
-    } catch (e) {
+    } catch {
         return false;
     }
 }
@@ -59,7 +43,7 @@ export function isTouchDevice() {
  *
  * @returns {{w:number, h:number}}
  */
-export function getViewport() {
+function getViewport() {
     if (typeof window === 'undefined') return { w: 1024, h: 768 };
     const vv = window.visualViewport;
     if (vv && vv.width > 0 && vv.height > 0) {
@@ -86,6 +70,19 @@ function getViewportOffset() {
         };
     }
     return { left: 0, top: 0 };
+}
+
+/**
+ * 可视视口的完整几何：原点偏移 + 宽高。
+ *
+ * 定位浮动层时必须同时用「原点」和「宽高」：fixed 元素的百分比/坐标基准是布局视口，
+ * 而用户看得见的是 visualViewport，二者在双指缩放平移、软键盘弹出、
+ * 移动端地址栏收放时并不重合。只取宽高会把浮层放在「布局视口的中心」而非「可见区的中心」。
+ *
+ * @returns {{left:number, top:number, w:number, h:number}}
+ */
+export function getViewportRect() {
+    return { ...getViewportOffset(), ...getViewport() };
 }
 
 /**

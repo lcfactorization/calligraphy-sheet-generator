@@ -194,6 +194,36 @@ if (printBtn) {
     printBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
 }
 
+// v3.0.6：一次性告知用户 API Key 已不再明文写入本地存储（aiKeyStore 迁移的副作用）。
+// 借鉴 shuaixiaodai-calligraphy v1.3.0 的存储模型：默认只存内存，
+// 「记住 Key」需用户显式开启（sessionStorage / 明文 / PBKDF2+AES-GCM 口令加密三档）。
+// 用动态 import：settingsCenter 也是懒加载 aiKeyStore，这里同样不把它提前拉进首屏依赖图。
+import('./modules/aiKeyStore.js').then((m) => {
+    try {
+        if (typeof m.consumeKeyMigrationNotice !== 'function' || !m.consumeKeyMigrationNotice()) return;
+        const t = document.createElement('div');
+        t.className = 'puppeteer-toast info';
+        t.style.cssText = 'max-width:90vw;line-height:1.6;padding:16px 20px;text-align:left;cursor:pointer;';
+        // 纯 textContent，不拼 HTML
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:14px;font-weight:bold;margin-bottom:8px;';
+        title.textContent = '🔒 安全提示：API Key 已从本地明文存储迁入内存';
+        const body = document.createElement('div');
+        body.style.cssText = 'font-size:13px;';
+        body.textContent = '检测到旧版本保存在本地的 API Key，已迁入内存并从本地存储中删除。' +
+            '刷新后默认不再保留；如需长期记住，请在「设置 → AI 控制台」中显式选择保存方式' +
+            '（标签页级 / 明文 / 口令加密）。点击此处关闭。';
+        t.append(title, body);
+        const dismiss = () => {
+            t.style.opacity = '0';
+            setTimeout(() => { if (t.parentNode) t.remove(); }, 300);
+        };
+        t.addEventListener('click', dismiss);
+        document.body.appendChild(t);
+        setTimeout(dismiss, 12000);
+    } catch { /* 忽略 */ }
+}).catch(() => { /* aiKeyStore 不可用时静默跳过 */ });
+
 // v2.8.0：PWA 更新提示，避免旧访客持续跑老代码
 // v2.9.0：toast 改为常驻直到用户点击，防止真机长期运行旧代码导致版本归因失真
 if ('serviceWorker' in navigator) {

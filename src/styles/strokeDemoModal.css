@@ -47,9 +47,23 @@
   justify-content: center;       /* 水平居中 */
   align-content: center;         /* 多行时垂直居中 */
   align-items: center;           /* 药丸行内垂直居中（旧版 align-items:center 等价） */
+  /*
+   * 每个插槽在自己那条 max-content 轨道内水平居中。
+   *
+   * 必需：混排时（窗口 340 与药丸 240 同列）轨道宽 = 该列最宽条目，
+   * 窄条目默认 start 对齐会贴在轨道左侧 → 实测药丸相对视口中心偏 -47px，
+   * 与上下行的窗口明显不齐。居中后窄条目与同列宽条目同轴。
+   */
+  justify-items: center;
   pointer-events: none;          /* 容器空白区域不拦截鼠标事件 */
-  max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 40px);
+  /*
+   * 上限取 JS 写入的「可视视口可用区」，而不是 100vw/100vh。
+   * 100vw 含桌面滚动条宽度；100vh 在移动端 = 大视口（地址栏收起时的高度），
+   * 都比用户真正看得见的区域大 → 约束形同虚设，内容会被裁掉。
+   * 兜底值保持旧行为，确保 JS 未执行时仍有合理上限。
+   */
+  max-width: var(--sd-avail-w, calc(100vw - 40px));
+  max-height: var(--sd-avail-h, calc(100vh - 40px));
 }
 
 /* 插槽自身不接收事件，只有窗口本体接收（等价旧版 .sd-overlay > .sd-window） */
@@ -75,6 +89,15 @@
 .sd-slot.sd-slot--min {
   width: calc(240px * var(--sd-s, 1));
   height: calc(40px * var(--sd-s, 1));
+}
+
+/* 孤行（末行只有 1 个条目）：横跨所有列后在整条跨度内居中。
+ * 只指定整数列起点做不到精确居中 —— 奇数条目落在偶数列网格时必然偏半格
+ * （实测 3 窗 / 2 列时孤行偏离视口中心 198px）。跨列 + justify-self 才是精确解。
+ * 由 JS(_placeLastRow) 增删本类。 */
+.sd-slot.sd-slot--orphan {
+  grid-column: 1 / -1;
+  justify-self: center;
 }
 
 /* 最大化：窗口脱离网格、在视口中心独立放大。
@@ -554,14 +577,18 @@
  * left/top 50% 是相对 overlay 的 padding box；由于 overlay 整体居中，
  * 该点即视口中心（overlay 尺寸为 0 或非 0 均成立）。
  * 保持与默认弹窗相近的宽高比（约 0.77:1）
+ *
+ * 尺寸基准用 --sd-avail-w/h（JS 按**可视视口**写入）而非 vw/vh：
+ * 移动端的 100vh 是"大视口"高度（地址栏收起时才成立），地址栏展开或软键盘弹出时
+ * 用 vh 算出来的最大化窗口会高出可见区一截，底部控件被推到屏幕外。
  * ------------------------------------------------------------ */
 .sd-window.maximized {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(60vw, 600px) !important;
-  height: min(78vh, 780px) !important;
+  width: min(calc(var(--sd-avail-w, 100vw) * 0.6), 600px) !important;
+  height: min(calc(var(--sd-avail-h, 100vh) * 0.78), 780px) !important;
   max-height: none !important;
   min-height: 0 !important;
   flex: 0 0 auto;
@@ -574,8 +601,8 @@
 
 /* 最大化时舞台放大，保持 1:1 宽高比居中显示 */
 .sd-window.maximized .sd-stage {
-  width: min(50vw, 480px);
-  height: min(50vw, 480px);
+  width: min(calc(var(--sd-avail-w, 100vw) * 0.5), 480px);
+  height: min(calc(var(--sd-avail-w, 100vw) * 0.5), 480px);
   flex: 0 0 auto;
 }
 
@@ -679,13 +706,13 @@
 /* 平板：769–1280px（iPad 竖/横、MatePad 等）。竖向空间较充裕，最大化给更高的舞台。 */
 @media (min-width: 769px) and (max-width: 1280px) {
   .sd-window.maximized {
-    width: min(70vw, 620px) !important;
-    height: min(86vh, 820px) !important;
+    width: min(calc(var(--sd-avail-w, 100vw) * 0.7), 620px) !important;
+    height: min(calc(var(--sd-avail-h, 100vh) * 0.86), 820px) !important;
   }
 
   .sd-window.maximized .sd-stage {
-    width: min(48vw, 440px);
-    height: min(48vw, 440px);
+    width: min(calc(var(--sd-avail-w, 100vw) * 0.48), 440px);
+    height: min(calc(var(--sd-avail-w, 100vw) * 0.48), 440px);
   }
 
   .sd-info {
@@ -699,13 +726,13 @@
      那会破坏冻结的 340×440 布局盒，也让求解器失去意义。
      排列/缩放交给 solveLayout。此处只保留最大化尺寸。 */
   .sd-window.maximized {
-    width: 95vw !important;
-    height: 90vh !important;
+    width: calc(var(--sd-avail-w, 100vw) * 0.95) !important;
+    height: calc(var(--sd-avail-h, 100vh) * 0.9) !important;
   }
 
   .sd-window.maximized .sd-stage {
-    width: min(70vw, 360px);
-    height: min(70vw, 360px);
+    width: min(calc(var(--sd-avail-w, 100vw) * 0.7), 360px);
+    height: min(calc(var(--sd-avail-w, 100vw) * 0.7), 360px);
   }
 }
 

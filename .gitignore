@@ -81,3 +81,11 @@ thumbs.ps1
 preview*.log
 *Trae大赛*.mp4
 *.mp4
+
+# v3.0.6：取证脚本的报告产物（scripts/measure-popup-layout.cjs / scripts/verify-aiconsole-ui.cjs）。
+# 一条命令即可重跑生成，进仓库只会变成「冻结在某个时刻的旧证据」，反而误导。
+scripts/popup-layout-report.json
+scripts/aiconsole-ui-report.json
+
+# v3.0.6：HTML → Markdown 的临时转换脚本与产物，不是交付物
+_tmp_html2md/

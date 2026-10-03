@@ -242,8 +242,8 @@
 <div class="container">
     <header>
         <h1>🔑 大模型 API Key 使用说明</h1>
-        <p class="subtitle">字帖生成器 v3.0.5 · AI 组词补齐 / 拼音纠错 / 全量检查（16 家引擎 · 自动检测 + 自动优选）</p>
-        <p class="meta">更新日期：2026-09-18 · 适用版本：v3.0.5 及以上</p>
+        <p class="subtitle">字帖生成器 v3.0.6 · AI 组词补齐 / 拼音纠错 / 全量检查（18 家内置引擎 + 自定义引擎 · 自动检测 + 自动优选）</p>
+        <p class="meta">更新日期：2026-10-04 · 适用版本：v3.0.6 及以上</p>
         <div class="nav-links">
             <a href="/" class="back-link">← 返回字帖</a>
             <a href="/import-guide.html" class="back-link plain">📥 导入与修改 →</a>
@@ -252,14 +252,17 @@
 
     <section>
         <h2>一、功能概述</h2>
-        <p><span class="badge badge-new">v1.1.0</span><span class="badge badge-new">v3.0.4</span>字帖的 AI 辅助功能提供<strong>组词补齐</strong>、<strong>拼音纠错</strong>与<strong>全量检查</strong>三项能力，支持 <strong>16 家大模型引擎</strong>（唯一注册表：<code>src/modules/aiProviders.js</code>）：</p>
+        <p><span class="badge badge-new">v1.1.0</span><span class="badge badge-new">v3.0.4</span><span class="badge badge-new">v3.0.6</span>字帖的 AI 辅助功能提供<strong>组词补齐</strong>、<strong>拼音纠错</strong>与<strong>全量检查</strong>三项能力，支持 <strong>18 家内置大模型引擎</strong>，并可在 AI 控制台里<strong>添加任意自定义引擎</strong>（唯一注册表：<code>src/modules/aiProviders.js</code>）：</p>
         <ul>
             <li><strong>AI 组词补齐</strong>：对默认词库缺失二字组词的汉字，调用大模型补齐 2 个二字词</li>
             <li><strong>拼音纠错</strong>：核对多音字 / 误读拼音并纠正（自动升级强模型深度校验）</li>
             <li><strong>全量检查</strong>：核验所有未缓存字的拼音 / 语义 / 已有组词（优先级最高，联动其余两项）</li>
             <li><strong>自动选择引擎</strong>：默认「自动选择（推荐）」，应用逐个探测已保存的 Key，自动挑选最可用的引擎并优先免费引擎，<strong>无需用户手动选择</strong></li>
-            <li><strong>本地存储</strong>：Key 仅保存在浏览器 localStorage，调用记录与结果缓存在本地，不上传任何服务器</li>
+            <li><strong>Key 默认不落盘</strong>（v3.0.6 起）：默认只存内存，刷新即消失；要跨刷新记住必须自己显式选保存方式（标签页级 / 明文 / <strong>口令加密</strong>）。调用记录与组词结果缓存在本地，不上传任何服务器</li>
         </ul>
+        <div class="tip">
+            <strong>v3.0.6 的两个大变化：</strong>① 新增「⚙ AI 控制台（模型设置）」——引擎 / 模型 / Key 的统一管理面板，支持自定义引擎（自己的 Base URL + OpenAI/Anthropic 协议 + 请求参数）、批量导入、连通性体检；② <strong>Key 默认只存内存、不再明文落盘</strong>，旧版明文 Key 会在首次加载时迁入内存并从本地存储删除（会弹一次安全提示）。
+        </div>
         <div class="tip">
             <strong>提示：</strong>AI 辅助为可选功能，不配置 Key 时字帖所有核心功能（生成 / 打印 / 笔顺演示等）完全不受影响。
         </div>
@@ -268,20 +271,28 @@
     <section>
         <h2>二、快速开始</h2>
         <ol>
-            <li>点击右上角「⚙️ 设置中心」→ 找到「🤖 AI 辅助（可选）」区块</li>
-            <li>在「＋ 添加」输入框粘贴任意受支持引擎的 API Key（如 DeepSeek 的 <code>sk-</code> 开头、火山引擎豆包的 <code>ark-</code> 开头），点击「＋ 添加」</li>
+            <li>点击右上角「⚙️ 设置中心」→ 找到「🤖 AI 辅助（可选）」区块，<strong>先勾上「启用 AI 辅助」开关</strong>（默认关闭，不勾则下方配置区不显示）</li>
+            <li>添加 Key，两条路都行：
+                <ul>
+                    <li><strong>快通道</strong>：在「＋ 添加」输入框粘贴 Key（如 DeepSeek 的 <code>sk-</code> 开头、火山引擎豆包的 <code>ark-</code> 开头），点击「＋ 添加」</li>
+                    <li><strong>完整通道（推荐）</strong>：点「<strong>⚙ AI 控制台（模型设置）</strong>」——双栏面板，左侧是引擎列表（内置 18 家 + 你添加的自定义引擎），右侧是该引擎下的 Key / 模型 / 参数。可一次填完 <strong>Key + Base URL + 模型 ID + 协议（OpenAI / Anthropic）+ 请求参数</strong>，也能「＋ 添加供应商」挂一个注册表里没有的引擎，或用「📂 导入」批量导入</li>
+                </ul>
+            </li>
             <li>勾选功能开关：组词补齐（默认）/ 拼音纠错 / 全量检查（级联联动）</li>
             <li>点击「▶ AI 检查与补齐」运行，状态栏显示旋转图标 + 批次进度</li>
         </ol>
         <div class="tip">
             <strong>说明：</strong>v3.0.1 起 Key 采用「添加即生效」机制，无需再点「保存」按钮；v3.0.4 起<strong>添加或导入后自动探测</strong>（识别引擎 + 判定可用性 + 是否免费）并纳入自动优选，无需任何手动步骤。
         </div>
+        <div class="tip">
+            <strong>🔒 v3.0.6 起 Key 默认只存内存</strong>：刷新页面就没了。想让它活着，在 AI 控制台里显式选一种保存方式（见「五、安全与隐私」）——这是刻意的安全默认值，不是 bug。
+        </div>
     </section>
 
     <section>
         <h2>三、多 Key 管理</h2>
 
-        <h3>3.1 支持的平台（16 家引擎）</h3>
+        <h3>3.1 支持的平台（18 家内置引擎）</h3>
         <table>
             <thead>
                 <tr>
@@ -399,6 +410,20 @@
                     <td>已实测可跨域直连；模型 ID 为「<code>组织/模型</code>」形式（如 <code>Qwen/Qwen3.8-Flash-Next</code>）。<strong>注意：现有可用模型均为推理型，真实组词负载明显偏慢</strong>（实测 4 字约 100–120 秒），适合作为备用引擎</td>
                 </tr>
                 <tr>
+                    <td>AMD Radeon Cloud <span class="badge badge-off">未实测</span></td>
+                    <td>无稳定前缀</td>
+                    <td><strong>8 款 Public Free Model API</strong></td>
+                    <td>—（Base URL 已内置：<code>developer.amd.com.cn/radeon/api/v1</code>）</td>
+                    <td>免费模型最多的一家（<code>GLM-5.3-Flash</code> / <code>Qwen3.8-27B</code> / <code>DeepSeek-V4-Flash-0731</code> / <code>MiniCPM5-2B</code> 等）。⚠ CORS 状态为 <code>unverified</code>（本机无 Key，未实测），因此<strong>不会进入「形状未知」时的自动扫描候选</strong>，需在 AI 控制台里手动指定引擎；官方共享端点按 Key + IP 限流，建议选轻量款</td>
+                </tr>
+                <tr>
+                    <td>商汤 SenseNova <span class="badge badge-off">未实测</span></td>
+                    <td>无稳定前缀</td>
+                    <td>有低价档（<strong>计费未核实</strong>）</td>
+                    <td>—（Base URL 已内置：<code>token.sensenova.cn/v1</code>）</td>
+                    <td>注册表按命名惯例把 <code>*-flash-lite</code> / <code>*-lite</code> 记为低价档、<code>*-pro</code> 记为付费，<strong>宁可低估</strong>（避免自动优选把付费模型当免费用）；无 <code>/models</code> 零 token 快路径，探测走 3 token 能力校验，需手动指定引擎</td>
+                </tr>
+                <tr>
                     <td>APINEX <span class="badge badge-off">实测不可用</span></td>
                     <td><code>sk-apx</code> 开头</td>
                     <td>—</td>
@@ -408,14 +433,14 @@
             </tbody>
         </table>
         <div class="tip">
-            <strong>说明：</strong>「是否免费」依据注册表 <code>tier</code> 字段（<code>free</code> 永久免费 / <code>cheap</code> 免费额度或低价 / <code>paid</code> 付费）。标注「实测」的条目为 2026-09-18 以 curl + 真实 Chromium 跨域 <code>fetch</code> 双重验证的结论；其余模型 ID 多数未经在线核实，实际可用性以「🔍 检测全部 Key 可用性」的探测结果为准。
+            <strong>说明：</strong>「是否免费」依据注册表 <code>tier</code> 字段（<code>free</code> 永久免费 / <code>cheap</code> 免费额度或低价 / <code>paid</code> 付费）。标注「实测」的条目为 2026-09-18 以 curl + 真实 Chromium 跨域 <code>fetch</code> 双重验证的结论；标注「未实测」的两条（AMD Radeon Cloud / 商汤 SenseNova）是 v3.0.6 随注册表一并带入的，<strong>本机无 Key、未做过在线核实</strong>，其 CORS 状态如实记为 <code>unverified</code> 而不谎报 verified。其余模型 ID 多数未经在线核实，实际可用性以「🔍 检测全部 Key 可用性」的探测结果为准。这 18 家之外，你还可以在 AI 控制台里<strong>添加任意自定义引擎</strong>（见 3.6）。
         </div>
         <p><strong>讯飞星火未收录：</strong>实测其端点 <code>OPTIONS</code> 返回 403、<code>POST</code> 返回 401，且响应不带 <code>Access-Control-Allow-Origin</code>，浏览器直连不可用，故本应用<strong>刻意不支持</strong>。</p>
         <p><strong>为什么有的引擎「不可用」也保留条目：</strong>形状唯一的 Key（如 <code>sk-apx</code>）若不入表，会被 <code>sk-</code> 家族的旧前缀语义误判为 DeepSeek，从而发起一串注定 401 的探测。入表后应用能<strong>立刻</strong>识别归属并给出「可能是浏览器跨域(CORS)限制」的准确诊断。</p>
 
         <h3>3.2 多 Key 存储与自动选择</h3>
         <ul>
-            <li>设置面板可存储<strong>多个</strong> API Key（localStorage key：<code>ai_api_keys</code>，JSON 数组）</li>
+            <li>可存储<strong>多个</strong> API Key（上限 200 条）；<strong>存哪里由「保存方式」决定，默认只在内存、不落盘</strong>（详见「五、安全与隐私」）</li>
             <li>≥2 个 Key 时显示<strong>引擎下拉选择器</strong>，<strong>首位为「自动选择（推荐）」且默认选中</strong>：应用探测每个 Key 后自动挑选最优引擎并优先免费引擎，<strong>用户无需自己选择</strong>；选项格式：<code>DeepSeek · sk-1234…abcd</code>（引擎 + Key 前 4 后 4 打码）</li>
             <li>手动在下拉中选中某个具体 Key → 固定为<strong>手动模式</strong>；重新选择「自动选择」→ 回到自动模式（写入 <code>ai_active_key_id</code>，无需保存）</li>
             <li>单个 Key 时不显示下拉（保持简洁）；删除当前活跃 Key 后自动切换到剩余第一个</li>
@@ -493,6 +518,45 @@
             <strong>自动优选的评分依据：</strong><code>0.30×免费度 + 0.20×速度 + 0.25×JSON稳定性 + 0.25×历史成功率 − 额度风险</code>，并列时按「延迟升序 → 引擎优先级 → 创建时间」决胜。
             <br><strong>关于「速度」的诚实说明：</strong>探测只有 3 token，<strong>对推理型模型毫无代表性</strong>——推理模型在 3 token 下秒回，真实组词负载下却会先生成大量 reasoning token。实测同一任务（4 字全量检查）：Agnes 约 <strong>13 秒</strong>，ModelScope 约 <strong>100–120 秒</strong>（约 8–9 倍），而两者探测延迟反而是 ModelScope 更快。因此注册表支持 <code>slow</code> 标记（<strong>仅对实测过的模型</strong>设置），标记后该项不再由失真的探测延迟给分，避免自动优选选中"探测快、实际慢"的引擎。
         </div>
+
+        <h3>3.6 自定义引擎与「⚙ AI 控制台」（v3.0.6）</h3>
+        <p>设置中心 AI 区顶部新增「<strong>⚙ AI 控制台（模型设置）</strong>」入口，旁边一行实时摘要显示「N 个 Key · M 个已配置引擎 · 共 18 个引擎可选」。控制台是双栏 master-detail：左侧引擎导航（已配置在前、内置在后，带状态点），右侧是该引擎的 Key 列表、模型列表与参数表单。</p>
+        <p>「＋ 添加供应商」可挂一个<strong>任意 OpenAI 兼容或 Anthropic 端点</strong>——注册表里没有的也能用：</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>字段</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>API Key</strong></td>
+                    <td>必填；不得含空格，至少 8 位，否则<strong>当场拒绝</strong>（不会带着脏数据打到线上端点）</td>
+                </tr>
+                <tr>
+                    <td><strong>Base URL</strong></td>
+                    <td>必填，例如 <code>https://your-gateway.example.com/v1</code>；应用会拼接协议默认路径（openai → <code>/chat/completions</code>，anthropic → <code>/v1/messages</code>）。<strong>别把 chat 路径写进 Base URL</strong>——创建入口与体检入口共用同一份识别正则，创建时就会被拦下，避免出现「创建时说合法、体检时说非法」的自相矛盾</td>
+                </tr>
+                <tr>
+                    <td><strong>模型 ID</strong></td>
+                    <td>必填，至少一个；可加多个，其中标为「全量检查用」的会在深度校验时自动升档</td>
+                </tr>
+                <tr>
+                    <td><strong>协议</strong></td>
+                    <td><code>openai</code>（<code>Authorization: Bearer</code>，system 走 <code>messages</code> 数组）或 <code>anthropic</code>（<code>x-api-key</code> + <code>anthropic-version</code>，system 是顶层字段、<code>max_tokens</code> 必填、响应体是 <code>content[]</code>、不接受 <code>response_format</code>）</td>
+                </tr>
+                <tr>
+                    <td><strong>请求参数</strong></td>
+                    <td><code>max_tokens</code> / <code>temperature</code> / <code>top_p</code> 以及任意附加 JSON。<strong>可设置，也可留空用默认值</strong>——留空时按内置默认发（fast 2048 / 全量 4096 token，temperature 0.1），且<strong>不会</strong>发出非法字段</td>
+                </tr>
+            </tbody>
+        </table>
+        <ul>
+            <li>自定义引擎<strong>没有形状规则</strong>，应用不会去猜它属于哪家——一律由你显式指定，避免误路由</li>
+            <li>自定义引擎本身（名称 / 地址 / 模型名）不是密钥，因此明文存本地是可接受的；<strong>Key 仍按第五节的保存方式处理</strong></li>
+            <li>控制台还带「批量导入」（<code>.txt</code> / <code>.md</code> / <code>.csv</code> / <code>.json</code> / <code>.docx</code>）与「连通性体检」，体检复用的是<strong>与真实调用完全相同的请求形状</strong>，因此体检通过即代表这条链路真的能跑</li>
+        </ul>
     </section>
 
     <section>
@@ -511,13 +575,69 @@
     </section>
 
     <section>
-        <h2>五、安全与隐私</h2>
+        <h2>五、安全与隐私（v3.0.6 起：默认不落盘）</h2>
+
+        <h3>5.1 四种保存方式，你自己选</h3>
+        <p>在 AI 控制台里选「保存方式」，四档语义明确、互斥：</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>保存方式</th>
+                    <th>Key 存哪</th>
+                    <th>刷新后</th>
+                    <th>关标签页后</th>
+                    <th>安全性</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>不保存（默认）</strong></td>
+                    <td>只在内存</td>
+                    <td>丢失</td>
+                    <td>丢失</td>
+                    <td>★★★ 磁盘上什么都没有</td>
+                </tr>
+                <tr>
+                    <td><strong>记住到本标签页</strong></td>
+                    <td>镜像到 <code>sessionStorage</code>（<code>ai_keys_session</code>）</td>
+                    <td>存活</td>
+                    <td>丢失</td>
+                    <td>★★ 不出当前标签页</td>
+                </tr>
+                <tr>
+                    <td><strong>明文保存在本机</strong></td>
+                    <td><code>localStorage['ai_api_keys_plain']</code></td>
+                    <td>存活</td>
+                    <td>存活</td>
+                    <td>★ <strong>无口令</strong>，任何能在本页执行脚本的东西都能读走</td>
+                </tr>
+                <tr>
+                    <td><strong>长期记住（口令加密）</strong></td>
+                    <td><code>localStorage['ai_api_keys_enc']</code>，密文 <code>{v,salt,iv,ct}</code></td>
+                    <td>存活</td>
+                    <td>存活</td>
+                    <td>★★★ PBKDF2(SHA-256, <strong>200000</strong> 次迭代) 派生 AES-GCM-256 密钥，口令本身不落盘</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>选择「明文保存在本机」时界面会给出等价强度的警告——便利和安全在这里是直接对立的，应用不替你做决定，但会把代价说清楚。</p>
+
+        <h3>5.2 旧数据的处理</h3>
         <ul>
-            <li>API Key 仅存储在浏览器 <code>localStorage</code>（<code>ai_api_keys</code> + <code>ai_active_key_id</code>）</li>
-            <li>Key 不会发送到任何第三方服务器，仅直接调用所选引擎的官方 API</li>
-            <li>旧版单 Key（<code>deepseek_api_key</code>）在首次使用时自动迁移到新结构（幂等，迁移成功才删除旧键）</li>
-            <li>建议：不要在多用户共用的电脑上保存 Key，或使用浏览器「退出时清除此站点数据」功能</li>
+            <li>旧版明文键（<code>ai_api_keys</code> / <code>deepseek_api_key</code>）在<strong>首次加载时迁入内存，并从磁盘删除</strong>（迁移成功才删，幂等）</li>
+            <li>迁移发生时会弹一次安全提示，告诉你 Key 已不再明文躺在本地存储里</li>
+            <li>「长期记住」的口令<strong>只在解锁时用一次</strong>，既不写盘也不上传；忘了口令 = 密文不可解，只能删掉重加</li>
         </ul>
+
+        <h3>5.3 不变的底线</h3>
+        <ul>
+            <li>Key 不会发送到任何第三方服务器，仅直接调用你选定的那个引擎端点</li>
+            <li>组词结果缓存（<code>ai_zuci_cache_v1</code>）在本地；<strong>探测过程不写这个缓存</strong>（体检不污染业务数据）</li>
+            <li>你的练字内容、生成的字帖、导出的 PDF 全在本地完成，产品方看不到任何东西</li>
+        </ul>
+        <div class="tip">
+            <strong>建议：</strong>多用户共用电脑上请保持默认（不保存）；自己长期用的机器可选「长期记住 + 口令」；图省事选明文前，先想清楚这台机器还有谁能开这个浏览器。<strong>默认不落盘</strong>这条，是把「忘了自己存过 Key」这种最常见的泄露路径直接堵掉。
+        </div>
     </section>
 
     <section>
@@ -532,11 +652,17 @@
         <h3>Q3：如何切换当前生效的 Key？</h3>
         <p>默认使用「自动选择（推荐）」，无需手动切换；如需指定，≥2 个 Key 时在设置面板下拉中选中某个具体 Key 即固定为手动模式，重新选择「自动选择」即回到自动模式。删除活跃 Key 后自动切换到剩余第一个。</p>
 
-        <h3>Q4：如何删除已保存的 Key？</h3>
-        <p>打开设置中心 → 点击 Key 展示框右侧 <code>🗑</code> 删除当前 Key；删空后自动清空两把存储键。也可用浏览器开发者工具 → Application → Local Storage → 删除 <code>ai_api_keys</code> / <code>ai_active_key_id</code>。</p>
+        <h3>Q4：刷新页面后 Key 没了？</h3>
+        <p>这是 v3.0.6 的<strong>默认行为</strong>（保存方式 = 不保存，只存内存）。想让它活下来：AI 控制台 → 保存方式 → 选「记住到本标签页」/「明文保存在本机」/「长期记住（口令加密）」之一。详见第五节。</p>
 
-        <h3>Q5：豆包报 403？</h3>
+        <h3>Q5：如何删除已保存的 Key？</h3>
+        <p>AI 控制台 → 选中引擎 → 该 Key 行点删除；或打开设置中心 → 点击 Key 展示框右侧 <code>🗑</code> 删除当前 Key。删掉活跃 Key 会自动切到剩下的第一个；删空则一并清空当前保存方式对应的存储键（<code>ai_api_keys_plain</code> / <code>ai_api_keys_enc</code> / <code>ai_keys_session</code>）。也可用浏览器开发者工具 → Application → Local Storage 手工清。</p>
+
+        <h3>Q6：豆包报 403？</h3>
         <p>无该模型权限或额度耗尽，请更换模型（见 3.4 逃生门）或充值；全量检查使用的 Turbo 模型可能需单独开通权限。</p>
+
+        <h3>Q7：怎么确认这把 Key「真的能用」，而不是只存下来了？</h3>
+        <p>用 AI 控制台里的<strong>连通性体检</strong>（或设置面板的「🔍 检测全部 Key 可用性」）。它发的请求与真实组词调用<strong>形状完全一致</strong>——同样的端点、同样的鉴权头、同样的 <code>response_format</code> 处理，只是把 <code>max_tokens</code> 压到 3。因此只有真的拿到 chat completion 响应体才判「✓可用」；<strong>HTTP 200 但响应体是 HTML（典型是走了代理或 Base URL 配错）会被判为不可用</strong>，不会拿 200 糊弄你。</p>
     </section>
 </div>
 

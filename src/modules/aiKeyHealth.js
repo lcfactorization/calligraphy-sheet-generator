@@ -8,8 +8,19 @@
 //  - 绝不写入 ai_zuci_cache_v1。
 //  - probeKey 永不 throw：失败一律以 { ok:false, ... } 的 Verdict 返回。
 
-import { PROVIDERS, getProvider, detectProviderId, providerLabel } from './aiProviders.js';
-import { getAllKeys } from './aiKeyStore.js';
+import { PROVIDERS, getProvider, detectProviderId, isEntrySelectable } from './aiProviders.js';
+// ⚠ setKeyProviderRaw 必须显式导入 —— writeBackProvider 直接调用它。
+//   历史缺陷（v1.5.3 修复时引入，直到 v1.5.6 才发现）：这个标识符从未被导入，
+//   调用点又包在 `try { … } catch { /* 回写失败不影响探测结果 */ }` 里，
+//   于是**每一次回写都抛 ReferenceError 并被静默吞掉**：
+//     · 探测成功 → 回写失败 → entry.providerId 恒空
+//     · 真实调用仍按旧前缀兜底 sk-→deepseek 路由 → 401
+//   表现与 v1.5.3 修掉的那个 bug 一模一样（「在别的 agent 里好用的 Key 在这里不可用」），
+//   只是换了一条路径复发。由 tests/core/ai-key-health-writeback.test.js 锁定。
+import { getAllKeys, setKeyModel, setKeyProviderRaw } from './aiKeyStore.js';
+// v1.5.4：HTTP 底座（joinUrl / isOnline / timedFetch / 鉴权头）抽到 aiProbeHttp，
+//   与 aiDiagnostics 共用同一份实现 —— 此前两处复制已出现正则漂移（见该文件头注释）。
+import { joinUrl, isOnline, timedFetch, buildAuthHeaders, withQueryKey } from './aiProbeHttp.js';
 
 const HEALTH_KEY = 'ai_key_health_v1';
 const TTL_MS = 30 * 60 * 1000;      // 裁决有效期 30 分钟
@@ -25,7 +36,7 @@ function readAll() {
     try {
         const m = JSON.parse(localStorage.getItem(HEALTH_KEY) || '{}');
         return m && typeof m === 'object' ? m : {};
-    } catch (e) {
+    } catch {
         return {};
     }
 }
@@ -33,16 +44,8 @@ function readAll() {
 function writeAll(map) {
     try {
         localStorage.setItem(HEALTH_KEY, JSON.stringify(map));
-    } catch (e) {
+    } catch {
         /* 配额满等情况忽略 */
-    }
-}
-
-function isOnline() {
-    try {
-        return !(typeof navigator !== 'undefined' && navigator.onLine === false);
-    } catch (e) {
-        return true;
     }
 }
 
@@ -109,45 +112,13 @@ function resolveModel(provider, entry) {
     return ms.find((m) => !m.fullCheck) || ms[0] || null;
 }
 
-function joinUrl(base, path) {
-    return String(base || '').replace(/\/$/, '') + (path || '');
-}
-
 function buildUrl(provider, path, key, authStyle) {
-    let url = joinUrl(provider.baseUrl, path);
-    if (authStyle === 'query-key') {
-        url += (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key);
-    }
-    return url;
+    const url = joinUrl(provider.baseUrl, path);
+    return authStyle === 'query-key' ? withQueryKey(url, key) : url;
 }
 
-function buildHeaders(provider, key, authStyle) {
-    const h = { 'Content-Type': 'application/json' };
-    if (authStyle !== 'query-key') h['Authorization'] = 'Bearer ' + key;
-    return h;
-}
-
-// AbortSignal.any 兼容兜底（旧 WebView / Safari < 17.4）
-function combineSignals(a, b) {
-    if (!a) return b;
-    if (!b) return a;
-    if (typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
-    const ctrl = new AbortController();
-    const forward = () => ctrl.abort();
-    a.addEventListener('abort', forward, { once: true });
-    b.addEventListener('abort', forward, { once: true });
-    return ctrl.signal;
-}
-
-async function timedFetch(url, init, timeoutMs, outerSignal) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-        return await fetch(url, { ...init, signal: combineSignals(outerSignal, ctrl.signal) });
-    } finally {
-        clearTimeout(timer);
-    }
-}
+// 鉴权头构造已统一到 aiProbeHttp.buildAuthHeaders（含 anthropic-version）
+const buildHeaders = buildAuthHeaders;
 
 // ---------------------------------------------------------------------------
 // 错误分类与文案
@@ -193,7 +164,7 @@ function persist(verdict, ok) {
         hist.push(!!ok);
         all[verdict.id] = { ...verdict, hist };
         writeAll(all);
-    } catch (e) {
+    } catch {
         /* 忽略 */
     }
 }
@@ -240,6 +211,8 @@ async function probeOneProvider(entry, provider, timeoutMs, signal, started) {
     const authStyle = provider.authStyle || 'bearer';
     const headers = buildHeaders(provider, key, authStyle);
     const chatPath = provider.chatPath || '/chat/completions';
+    // v1.5.2：Anthropic Messages API 的探测形状与 OpenAI 完全不同，单独分支。
+    const anthropic = provider.protocol === 'anthropic';
 
     try {
         // 阶段 1：/models 零 token 快路径（仅当该端点会校验鉴权）
@@ -260,7 +233,7 @@ async function probeOneProvider(entry, provider, timeoutMs, signal, started) {
                     };
                 }
                 // 其它状态不阻断：以阶段 2 的 chat 探测为准
-            } catch (e) {
+            } catch {
                 /* /models 失败不阻断（可能仅该端点 CORS 受限） */
             }
         }
@@ -295,13 +268,56 @@ async function probeOneProvider(entry, provider, timeoutMs, signal, started) {
         // 因此 resp.json() 仍应得到完整 JSON —— 不得为"截断"放宽此校验。
         const readChat = async (r) => {
             let d = null;
-            try { d = await r.json(); } catch (e) { d = null; }
+            try { d = await r.json(); } catch { d = null; }
             return {
                 data: d,
                 valid: !!(d && Array.isArray(d.choices) && d.choices.length > 0
                     && d.choices[0] && d.choices[0].message)
             };
         };
+
+        // ── Anthropic 分支 ────────────────────────────────────────────────
+        // 形状差异：system 是顶层字段、max_tokens 必填、响应体是 content[] 数组。
+        // 不支持 response_format，因此不存在「两步降级」——一次请求定胜负。
+        if (anthropic) {
+            const aBody = {
+                model: modelId,
+                messages: [{ role: 'user', content: '1' }],
+                max_tokens: 3
+            };
+            const aResp = await timedFetch(
+                url,
+                { method: 'POST', headers, body: JSON.stringify(aBody) },
+                timeoutMs,
+                signal
+            );
+            const latencyMsA = now() - started;
+            if (!aResp.ok) {
+                const kind = classify(aResp.status);
+                return {
+                    ...baseV, ok: kind === 'ratelimit', code: aResp.status, kind,
+                    latencyMs: latencyMsA, jsonOk: false,
+                    message: messageFor(kind, aResp.status)
+                };
+            }
+            let aData = null;
+            try { aData = await aResp.json(); } catch { aData = null; }
+            const validA = !!(aData && Array.isArray(aData.content) && aData.content.length > 0);
+            if (!validA) {
+                return {
+                    ...baseV, ok: false, code: aResp.status, kind: 'unknown', latencyMs: latencyMsA,
+                    jsonOk: false,
+                    message: `端点有响应（HTTP ${aResp.status}）但响应体不是 Anthropic Messages 格式`
+                        + '（应为 {content:[{type:"text",...}]}；通常意味着协议选错或 baseUrl 配置错误）'
+                };
+            }
+            return {
+                ...baseV, ok: true, code: aResp.status, kind: 'ok', latencyMs: latencyMsA,
+                // Anthropic 无 response_format 概念，jsonOk 恒 false 以免被误读为"JSON 模式可用"
+                jsonOk: false,
+                message: `可用（${provider.label} · ${modelId || '默认模型'} · Anthropic 协议，${latencyMsA}ms）`
+            };
+        }
 
         let resp = await send();
         let parsed = resp.ok ? await readChat(resp) : { data: null, valid: false };
@@ -471,7 +487,7 @@ export async function probeAll(entries, opts = {}) {
         if (v.ok && v.kind === 'ok' && v.providerId && e && e.id) {
             try {
                 writeBackProvider(e.id, v.providerId, v.modelId);
-            } catch (err) {
+            } catch {
                 /* 回写失败不影响探测结果 */
             }
         }
@@ -480,7 +496,7 @@ export async function probeAll(entries, opts = {}) {
         if (typeof opts.onProgress === 'function') {
             try {
                 opts.onProgress({ done, total, id: v.id, ok: v.ok });
-            } catch (e2) {
+            } catch {
                 /* 忽略回调异常 */
             }
         }
@@ -488,31 +504,40 @@ export async function probeAll(entries, opts = {}) {
     return out;
 }
 
-/** 把命中的引擎/模型回写到 ai_api_keys 条目（可选字段，向后兼容）。 */
+/** 把命中的引擎/模型回写到 Key 条目。
+ *
+ * v1.5.3 修复（真实缺陷）：原实现直接读写 `localStorage['ai_api_keys']`，
+ *   但该键名是**旧版明文迁移的专用键**，`aiKeyStore._migrateLegacyStorage()` 在每次
+ *   页面加载时都会读取它、把内容搬进内存，然后 `_lsDel(API_KEYS_KEY)` **删除**。
+ *   此后 store 再也不会读它（读写走 PLAIN_KEYS_KEY / SESSION_KEYS_KEY / 内存）。
+ *   后果：探测成功 → 回写进一个已被删除的键 → 下一次读又得到空数组 →
+ *   `entry.providerId` 永远是 null → 真实组词调用仍落到旧前缀语义（sk- → deepseek）
+ *   → 返回 401。用户看到的就是「在别的 agent 里好用的 Key，在这里不可用」。
+ *
+ *   现在改为走 aiKeyStore 的公开写入接口，与手动选择引擎共用同一条落盘路径
+ *   （因此也会正确同步到 session / plain / encrypted 三种持久化模式）。
+ *
+ * 副作用说明：`setKeyModel` 会被调用 —— 只在 modelId 非空时；
+ *   传空串表示"清除、回到注册表档位优选"，与本函数的语义（不知道模型就别乱写）不符，
+ *   因此这里显式跳过空值。
+ */
 function writeBackProvider(keyId, providerId, modelId) {
-    let list = [];
+    if (!keyId || !providerId) return;
+    // 该 Key 必须仍然存在于 store 中（可能在探测期间被用户删掉）
+    let exists;
     try {
-        list = JSON.parse(localStorage.getItem('ai_api_keys') || '[]');
-    } catch (e) {
+        exists = getAllKeys().some((k) => k && k.id === keyId);
+    } catch {
         return;
     }
-    if (!Array.isArray(list)) return;
-    let changed = false;
-    for (const k of list) {
-        if (k && k.id === keyId) {
-            if (k.providerId !== providerId) { k.providerId = providerId; changed = true; }
-            if (modelId && k.modelId !== modelId) { k.modelId = modelId; changed = true; }
-            // v3.0.4 追加：消歧成功后同步 type / label。
-            //   否则用「未识别」形状加入的 Key 即使探测成功，下拉框仍显示「未识别」，
-            //   用户看不出自动识别到底识别成了哪家（实测：agnes 探测成功后 label 仍是"未识别"）。
-            const lab = providerLabel(providerId);
-            if (k.type !== providerId) { k.type = providerId; changed = true; }
-            if (k.label !== lab) { k.label = lab; changed = true; }
-        }
-    }
-    if (changed) {
-        try { localStorage.setItem('ai_api_keys', JSON.stringify(list)); } catch (e) { /* 忽略 */ }
-    }
+    if (!exists) return;
+
+    setKeyProviderRaw(keyId, providerId);
+    if (modelId) setKeyModel(keyId, modelId);
+    // label / type 由 aiKeyStore 的 labelOf / detectKeyType 决定，不在这里覆写 ——
+    //   它们只是展示用的派生字段，而 providerId 才是路由的唯一依据。
+    //   （旧实现同时改 type/label 是为了修"探测成功后下拉仍显示未识别"，
+    //     该问题现由 refreshKeyUI 读 providerId 渲染，不依赖落盘的 type/label。）
 }
 
 // ---------------------------------------------------------------------------
@@ -533,7 +558,7 @@ export function getVerdict(id) {
 export function clearVerdicts() {
     try {
         localStorage.removeItem(HEALTH_KEY);
-    } catch (e) {
+    } catch {
         /* 忽略 */
     }
 }
@@ -670,14 +695,26 @@ function isBetter(a, b) {
 
 /**
  * 在给定 Key 中选出最优。
+ *
+ * v1.5.6：尊重用户在 AI 控制台里设的「参与自动优选」开关。
+ *   · 先按 isEntrySelectable 过滤候选池（引擎级 / 模型级两道）；
+ *   · **若过滤后为空，回退到全量候选** —— 避免「用户把唯一的引擎关掉 →
+ *     自动选择彻底失效」这种比「挑到不想要的」更糟的结果。
+ *   开关只影响**自动优选**，不影响用户显式选中某把 Key 后的真实调用。
+ *
  * @param {Array} entries
  * @returns {{entry:object, verdict:object|null, score:number}|null}
  */
 export function pickBestKey(entries) {
     const list = Array.isArray(entries) ? entries.filter((e) => e && e.key) : [];
     if (list.length === 0) return null;
+    let pool = list;
+    try {
+        const selectable = list.filter((e) => isEntrySelectable(e));
+        if (selectable.length > 0) pool = selectable;
+    } catch { /* 开关存储不可用时按全量候选处理（不因可选功能失败而中断优选） */ }
     let best = null;
-    for (const e of list) {
+    for (const e of pool) {
         const verdict = getVerdict(e.id);
         const score = scoreEntry(e, verdict);
         const cand = { entry: e, verdict, score };
@@ -694,7 +731,7 @@ export function getBestKeyEntry() {
     let keys = [];
     try {
         keys = getAllKeys();
-    } catch (e) {
+    } catch {
         return null;
     }
     if (!Array.isArray(keys) || keys.length === 0) return null;

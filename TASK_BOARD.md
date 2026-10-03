@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **文档状态**:v2.4.0 重构已全部完成,本看板保留作为重构历史记录。
-> 重构后续演进(v2.5–v3.0.5)见文末[重构后续演进](#重构后续演进)段落。
+> 重构后续演进(v2.5–v3.0.6)见文末[重构后续演进](#重构后续演进)段落。
 > 当前最新有效状态请参阅 [README.md](./README.md) 和 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 提示词来源:`字帖项目html渲染网格PDF显示以及最终打印的精准尺寸控制提示词.20260723Gemini.md`
@@ -51,7 +51,7 @@
 
 ## 重构后续演进
 
-> v2.4.0 重构完成后,项目继续迭代到 v3.0.5。以下为关键演进节点(完整记录见 [CHANGELOG.md](./CHANGELOG.md))。
+> v2.4.0 重构完成后,项目继续迭代到 v3.0.6。以下为关键演进节点(完整记录见 [CHANGELOG.md](./CHANGELOG.md))。
 
 ### v2.5.x — UI 控件重排 + 网格类型快切
 - v2.5.3:新增九宫格(第 5 种网格类型)+ 4 色网格颜色预设(传统绿/朱砂红/靛青蓝/墨黑)
@@ -82,10 +82,10 @@
 - v2.9.7:引导增强(9 步 + "不再自动弹出"选项 + 智能推荐说明)+ Dark 模式范字 inverted color
 - v2.9.8:笔画笔顺动态演示(点击字格弹窗逐笔演示,9574 汉字离线数据 + Web Worker 解压 + 双图层 + 播放/暂停 + 速度持久化)+ 引导增强 16 步 + 笔顺演示介绍页 + Dark/触屏/移动端多项 Bug 修复(dark 打印页脚黑底/汉字不显示、触屏 Light 主题、移动端按钮位置/字格双击)
 
-### 当前状态(v3.0.5)
-- **代码版本**:v3.0.5(package.json + CHANGELOG)
+### 当前状态(v3.0.6)
+- **代码版本**:v3.0.6(package.json + CHANGELOG)
 - **构建模块**:846 模块(随迭代增长)
-- **源文件**:15 JS + 18 CSS + 3 数据 + 2 组件 + 1 契约 + 1 工具 + 1 入口 = 41 源文件
+- **源文件**:28 模块 + 4 工具 + 3 数据 + 2 组件 + 1 契约 + 1 入口 = 39 JS,加 20 CSS = 59 源文件
 - **备份机制**:每个版本有 backup 分支可回退（v3.0.0 AI 加固前备份分支：backup/pre_v300_final_20260807）
 - **部署**:GitHub Actions 自动部署(GitHub Pages + Cloudflare Pages 双平台,触发分支:retake)
 - **在线访问**:https://calligraphy-sheet-generator.pages.dev/
@@ -115,6 +115,39 @@
 - **设置导航**:analytics/README.md 详细 7 节步骤(创建 D1/绑定/环境变量/部署/验证/常见问题)
 - **安全**:无密码保护(公开版,与自用版不同)、无 /api/debug /api/test-email、CRON_SECRET 默认值更换、wrangler.toml 不入库
 - **在线访问改为 Cloudflare Pages**:https://calligraphy-sheet-generator.pages.dev/ 为主发布链接(统计功能仅 Cloudflare 生效)
+
+### v3.0.6 — AI Key 体系完整移植 + 笔顺弹窗按可视视口精确居中(2026-10-04)
+
+本轮两件事:① 把自用版(shuaixiaodai-calligraphy)已经打磨过的 **AI Key 处理体系与全部添加通道**整体移植过来,并且**用真浏览器 + 真 HTTP 证明「添加的 Key 确实能用」**;② 修掉笔顺演示弹窗在 pad / 手机上「单窗不居中、多窗排不优雅」的老问题。
+
+- **AI Key 体系移植**(新增 7 个源文件,改动 13 个):
+  - `src/modules/aiConsole.js` + `src/styles/aiConsole.css` —— 「⚙ AI 控制台(模型设置)」面板,挂在设置中心;左栏分组导航 + 右栏**扁平表单**(字段顺序 `Base URL → API 格式 → API Key → 模型列表`)
+  - `src/modules/aiProviders.js` —— 注册表 **16 → 18 家**(补入商汤 SenseNova、AMD Radeon Cloud;两者本机无 Key,CORS 状态如实记 `unverified` 而不谎报 verified);新增**自定义引擎**(`addCustomProviderWithKey`:自己的 Base URL + `openai`/`anthropic` 双协议 + 请求参数覆盖)
+  - `src/modules/aiKeyStore.js` —— **四种保存方式**:不保存(仅内存) / 记住到本标签页(sessionStorage) / 明文保存在本机 / 长期记住(口令加密,PBKDF2-SHA256 **20 万次** + AES-GCM-256);`MAX_KEY_ENTRIES = 200`;旧版明文 Key 首次加载**一次性迁入内存并从本地存储删除**(弹一次安全提示)
+  - `src/modules/aiKeyHealth.js` + `aiProbeHttp.js` + `aiDiagnostics.js` + `aiDiagView.js` —— 两阶段探测(零 token `/models` 鉴权 → 3 token chat 能力)+ 错误分类(401 鉴权 / 402–403 额度 / 404 模型不存在 / 429 限流视为非致命 / 网络与 CORS 不可达)+ Key 评分与 `pickBestKey`
+  - `src/modules/aiKeyImporter.js` —— 批量导入通道(json / csv / txt / 环境变量形状)
+  - `src/utils/sanitize.js` + `staticMarkup.js` —— XSS 收口:innerHTML 骨架全部是**编译期常量、零插值**,所有用户可控数据只走 `textContent` / `setAttribute` / `replaceChildren`
+  - **默认值变更(刻意)**:Key 默认**只存内存、不落盘**。刷新即消失是安全默认值而非缺陷,指南与 FAQ 已明确写出解法
+- **笔顺弹窗排布修复**(根因是**基准选错**,不是参数没调好):
+  - 根因:`position:fixed` + `left/top:50%` 解析的是**布局视口**(initial containing block),而用户看到的是**可视视口** `visualViewport`。软键盘弹出、双指缩放+平移(`offsetLeft/offsetTop`)、移动端地址栏收展、headless `isMobile` 四种情形下两者必然分叉;`100vh` 在移动端等于「大视口」,同样偏大
+  - 修法:JS 把 `visualViewport` 的可用宽高写进 `--sd-avail-w` / `--sd-avail-h`,弹窗一律以这两个变量为基准;缩放用 `.sd-slot` 外层 `transform: scale(var(--sd-s))` + `transform-origin: top left`,下限 `MIN_S = 0.72`、缩放因子设 `1e-4` 地板防塌成 0
+  - 末行孤窗:2/3/4 窗时 CSS Grid 的**整数列起点无法把奇数个项在偶数轨道里居中**,改为 `grid-column: 1 / -1` + `justify-self: center`
+  - 判定口径统一:`@media (hover:none),(pointer:coarse)` ↔ JS `isCoarsePointer()`(`src/utils/deviceEnv.js`)是**同一个谓词**,不做 UA 嗅探
+- **缺陷修复**:`aiZuci.js` 的 `callDeepSeekDirect` 文档化了 `providerInfo = null` 默认值,但参数装配那行直接解引用了该默认值(`getProvider(providerInfo.providerId)`),于是「只给 apiKey」必然 `TypeError: Cannot read properties of null (reading 'providerId')`。内部调用方一直传 `providerInfo`,故生产从未触发、测试也**零覆盖**。改为取已归一化的 `provider.providerId`,并在 A 仓补了两条回归用例锁住默认路径
+- **取证(全部真浏览器 / 真 HTTP,数字取自落盘报告而非记忆)**:
+  - `verify-v304-aikeys.cjs`(Node 侧,19 个子进程隔离组):**235 通过 / 0 失败 / 235 总计**
+  - `scripts/verify-aiconsole-ui.cjs`(新增,Puppeteer + 本地 mock 引擎,mock **先校验 `Authorization: Bearer` 才回 200**):**28/28 通过**,mock 侧记录到 **8 次命中**;其中 M2 证明**错误 Key 确实打到了服务器并确实被 401 拒绝**
+  - 同脚本负控 `AIUI_NEGATIVE=1`(mock 改回 **HTTP 200 + HTML 响应体**,即「代理配错 / baseUrl 写错」的真实形状):**25/25**,K7 / K10 按设计翻红 —— 探测如实报「端点有响应(HTTP 200)但响应体不是 chat completion」,真实调用链抛 `Unexpected token '<'`。这证明门禁**会咬人**,不是恒绿
+  - `scripts/measure-popup-layout.cjs`(新增,与 A 仓**字节级相同**):grid **28 行**(7 种设备 × n=1..4)**0 不稳定 / 0 可疑 / 最大居中偏差 0.1px / 溢出 0**;pinchZoom **10 行** **10 稳定 / 10 已分叉 / 修复后最大偏差 0px**,同一状态下**纯 CSS 对照组最大偏差 387.8px(水平,phone-360x640)/ 806.8px(垂直,phone-390x844)**(对照组随文档高度浮动,是量级证据;「修复后 = 0」那列才逐次可复现)
+  - 同脚本负控 `MEASURE_STABLE_TIMEOUT=1`:**28/28 + 10/10 全判可疑、几何稳定 0、退出码 1**,每行打印 `<<<UNSTABLE`
+- **文档**:`api-key-guide.md`(新增,未入库)与 `public/api-key-guide.html`(标题 16→18 家、新增 §3.6 自定义引擎与 AI 控制台、§五 整节重写为四种保存方式、FAQ 补 Q4–Q7);`public/stroke-demo-guide.html` 新增 §3.8 记录根因/三处修法/实测对照;`index.html` 指南链接 `title` 与页头版本、`README.md` / `README_contest.md` / `TASK_BOARD.md` 版本与功能表同步
+
+> [!WARNING]
+> 本轮踩到并写死为规矩的三个坑
+>
+> 1. **Puppeteer `page.evaluate(fn)` 只序列化传入的那个函数** —— 闭包引用 Node 作用域里的其它函数会在页面内 `ReferenceError`。取证脚本因此写成三个**自包含**页面函数,数据一律当参数传,绝不闭包捕获
+> 2. **Git Bash 的 `sed -i` 会把 CRLF 文件静默转成 LF**(全文件级 diff,526 行「全改」)。跨仓同步与批量改字**只用 `cp` + `cmp`**,或走编辑器工具;改完必须 `tr -cd '\r' | wc -c` 对账 CR 数
+> 3. **取证关口自己也会骗人**,本轮抓到两个:① 稳定判据「连续 2 次采样一致」太松,会在 desktop n=1 采到入场收尾的**平台期**(overlay 内联 top 已正确,窗口还偏 7.6px,1500ms 后自行归零)→ **假阳性**,抬到连续 6 次;② 负控 `MEASURE_STABLE_TIMEOUT=1` 会连带抹掉轮询等待,把 open/close 节奏拉满**跑崩渲染进程**(`detached Frame`)—— 退出码是 1,但那是「崩了」不是「判据咬人了」,负控等于失效 → 加固定沉降 `SETTLE_MS=700` 与轮询解耦。**规矩:「退出码非 0」不等于「负控生效」,必须看输出差分(本例是 `<<<UNSTABLE` 与「几何稳定 0/28」)**
 
 ### v3.0.5 — 隐私与合规加固 + 双击启动修复(2026-09-18)
 - **隐私加固**:移除硬编码个人邮箱(改为 fail closed)与公开仓库中的默认 `CRON_SECRET`(未配置即 401,setup.ps1 改生成 32 字节随机密钥);访问统计**不再存储原始 IP / 完整 User-Agent / 城市**,访客标识改为带密钥 SHA-256 哈希(IPv4 无盐哈希可秒级反查,故必须带密钥);移除作者真实姓名;清除 138 处泄露本机目录结构的 `file:///C:/...` 死链(119 处转为仓库内相对链接);新增 `PRIVACY.md`

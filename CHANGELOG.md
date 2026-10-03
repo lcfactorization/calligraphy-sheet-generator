@@ -5,6 +5,125 @@
 
 ---
 
+## v3.0.6 (2026-10-04) — AI Key 体系完整移植 + 笔顺弹窗按可视视口精确居中
+
+> 本版本做两件事：① 把自用版（`shuaixiaodai-calligraphy`）已经打磨过的 **AI Key 处理体系与全部添加通道**整体移植过来，
+> 并且**用真浏览器 + 真 HTTP 证明「添加进去的 Key 确实能用」**（不是「存下了就算成功」）；
+> ② 修掉笔顺演示弹窗在 pad / 手机上「单窗不居中、2–4 窗排不优雅」的老问题 —— 根因是**参照基准选错**，不是参数没调好。
+> 所有数字均取自落盘的取证报告（`scripts/*-report.json`），不是凭记忆写的；未实测处一律标注。
+
+### 🔑 AI Key 处理体系（移植 + 加强）
+
+新增 7 个源文件、改动 13 个，共 **+3595 / −824** 行。
+
+- **新增「⚙ AI 控制台（模型设置）」** —— `src/modules/aiConsole.js` + `src/styles/aiConsole.css`，入口挂在设置中心。
+  引擎 / 模型 / Key 的统一管理面板：左栏分组导航，右栏**扁平表单**（字段顺序 `Base URL → API 格式 → API Key → 模型列表`）。
+- **引擎注册表 16 → 18 家** —— `src/modules/aiProviders.js`。补入**商汤 SenseNova**与 **AMD Radeon Cloud**。
+  这两家本机没有 Key、没做过在线核实，因此 CORS 状态如实记为 `cors:'unverified'`，**不谎报 verified**，文档里也标注「未实测」。
+- **自定义引擎** —— `addCustomProviderWithKey()`：填自己的 Base URL、选 `openai` / `anthropic` 协议、可覆盖请求参数。
+  这 18 家之外想接任何兼容端点都不必改代码。
+- **Key 四种保存方式（默认不落盘）** —— `src/modules/aiKeyStore.js`：
+
+  | 保存方式 | 落到哪里 | 刷新后 | 说明 |
+  |:--|:--|:--|:--|
+  | **不保存**（默认） | 仅内存 | 消失 | 刻意的安全默认值，**不是 bug** |
+  | 记住到本标签页 | `sessionStorage` | 在，关标签页即失 | 一次会话内够用 |
+  | 明文保存在本机 | `localStorage` | 在 | 共享电脑请勿使用 |
+  | 长期记住（口令加密） | `localStorage`（密文） | 在 | PBKDF2-SHA256 **20 万次** + AES-GCM-256 |
+
+  上限 `MAX_KEY_ENTRIES = 200`。**旧版明文 Key 会在首次加载时一次性迁入内存并从本地存储删除**，同时弹一次安全提示。
+- **两阶段连通性体检** —— `aiKeyHealth.js` / `aiProbeHttp.js` / `aiDiagnostics.js` / `aiDiagView.js`：
+  先零 token 打 `/models` 验鉴权，再 3 token 打 chat 验能力；错误按 **401 鉴权失败 / 402–403 额度不足 / 404 模型不存在 / 429 限流（视为非致命）/ 网络与 CORS 不可达** 分类；`sk-` 歧义 Key 逐个探测自动消歧并回写 `providerId`；确定性评分 + `pickBestKey` 支撑「自动选择（推荐）」。
+- **批量导入通道** —— `aiKeyImporter.js`：json / csv / txt / 环境变量形状。
+- **XSS 收口** —— `src/utils/sanitize.js` + `src/utils/staticMarkup.js`：所有 innerHTML 骨架都是**编译期常量、零插值**，
+  用户可控数据一律走 `textContent` / `setAttribute` / `replaceChildren`。
+
+### 🐛 缺陷修复
+
+- **`callDeepSeekDirect` 空指针（潜伏缺陷）** —— `src/modules/aiZuci.js`。
+  函数签名文档化了 `providerInfo = null` 默认值并在入口做了归一化（`const provider = providerInfo || getAiProvider(apiKey)`），
+  但**参数装配那一行直接解引用了原始默认值**：`getProvider(providerInfo.providerId)`。
+  于是「只给 apiKey、不给 providerInfo」这条**文档承诺支持**的调用方式必然抛
+  `TypeError: Cannot read properties of null (reading 'providerId')`。
+  - 为什么一直没暴露：内部调用方始终传 `providerInfo`，而 A 仓 6 处既有用例**也都传了** —— 这条默认路径长期零覆盖。
+  - 修法：改取已归一化的 `provider.providerId`（`type === 'unknown'` 在更早一行就已抛友好错误，null 分支走不到这里）。
+  - 已在 A 仓补两条回归用例锁住默认路径：一条断言不抛 TypeError 且仍按注册表装配请求体，一条断言无法识别的 Key 抛「无法识别 API Key 类型」而不是空指针。
+
+### 📐 笔顺演示弹窗：按**可视视口**居中与排布
+
+- **根因**：`position:fixed` + `left/top:50%` 解析的是**布局视口**（initial containing block），而用户眼睛看到的是**可视视口** `visualViewport`。
+  四种情形下两者必然分叉：**软键盘弹出**、**双指缩放 + 平移**（`offsetLeft` / `offsetTop`）、**移动端地址栏收展**、headless `isMobile`。
+  另外 `100vh` 在移动端等于「大视口」，同样偏大 —— 所以「单窗口总在可见区域正中央」这个需求在纯 CSS 下**做不到**。
+- **修法一（居中基准）**：JS 把 `visualViewport` 的可用宽高写进 `--sd-avail-w` / `--sd-avail-h`，弹窗一律以这两个变量为基准，不再用 `100vh`。
+- **修法二（缩放）**：`.sd-window` 保持冻结的 340×440 内部几何，外层 `.sd-slot` 用 `transform: scale(var(--sd-s))` + `transform-origin: top left` 缩放；
+  粗略指针下限 `MIN_S = 0.72`、上限 `S_MAX_COARSE = 1.6`（桌面 `S_MAX_FINE = 1.0`，保证桌面不放大）；缩放因子**向下取整到 `1e-4`**，宁可略小也不因浮点误差溢出可用区。
+  低于 `MIN_S` 时按契约把最旧的展开窗口收成药丸，直到 `s >= MIN_S` 或只剩 1 个。
+- **修法三（末行孤窗）**：2 / 3 / 4 窗时 CSS Grid 的**整数列起点无法把奇数个项在偶数轨道里居中**（实测 3 窗 / 2 列偏离视口中心 198px）。
+  改为孤行条目 `grid-column: 1 / -1` + `justify-self: center` —— 这才是精确解。
+- **判定口径统一**：`@media (hover:none),(pointer:coarse)` ↔ JS `isCoarsePointer()`（`src/utils/deviceEnv.js`）现在是**同一个谓词**，不做 UA 嗅探。
+  此前 CSS 与 JS 各判各的，是「平板上有时排对了有时没排对」的来源。
+
+### ✅ 取证（真浏览器 / 真 HTTP，数字取自落盘报告）
+
+- **`verify-v304-aikeys.cjs`**（Node 侧，19 个子进程隔离组 —— Node ESM 没有缓存驱逐 API，子进程即等价于 `vi.resetModules()`）：
+  **235 通过 / 0 失败 / 235 总计**。
+- **`scripts/verify-aiconsole-ui.cjs`（新增）** —— Puppeteer + 本地 mock OpenAI 服务 + vite dev server。
+  mock **先校验 `Authorization: Bearer …` 才回 200**，并记录每一次命中，因此「Key 能用」是**网络层实证**而非自述。
+  - 正例：**28/28 通过**，mock 侧记录 **8 次命中**。覆盖 U1–U7（面板可打开、导航渲染、＋添加供应商 / 导入文件入口 / ⋯ 菜单存在、摘要非空）、
+    K1–K10（自定义引擎添加成功、存储条目数 1、保存方式 `memory`、**磁盘上 `ai_api_keys` 与 `deepseek_api_key` 均为 null**、有效 Key 解析、
+    探测结论 `ok`/200、**错误 Key → `auth`/401**、**不可达 baseUrl → 非 ok**、真实 `callDeepSeekDirect` 链路）、
+    M1–M3（mock 侧证据：正确 Bearer 命中 > 0、错误 Key 命中 > 0、`/chat/completions` 被打到）、C1–C3（刷新后新引擎仍在、页面无报错）。
+  - **负控 `AIUI_NEGATIVE=1`**：mock 改回 **HTTP 200 + HTML 响应体**（即「代理配错 / baseUrl 写错」的真实形状）。
+    结果 **25/25**，K7 / K10 **按设计翻红** —— 探测如实报「端点有响应（HTTP 200）但响应体不是 chat completion」，真实调用链抛 `Unexpected token '<'`。
+    **门禁会咬人，不是恒绿。**
+- **`scripts/measure-popup-layout.cjs`（新增，与 A 仓字节级相同）** —— CDP `Emulation.setDeviceMetricsOverride({…, scale:2})` 造出确定性的缩放稳态
+  （`Input.synthesizePinchGesture` 在本环境会抛 `Position out of bounds`）。
+  - grid：**28 行**（desktop-1920x1080 / laptop-1280x800 / tablet-1180x820 / tablet-820x1180 / phone-390x844 / phone-844x390 / phone-360x640 × n=1..4）
+    → **0 不稳定 / 0 可疑 / 最大居中偏差 0.1px（水平）/ 0px（垂直）/ 溢出 0**。
+  - pinchZoom：**10 行**（5 种移动设备 × 2 个方向）→ **10 稳定 / 10 已分叉 / 修复后最大偏差 0px**；
+    同一状态下**纯 CSS 对照组（清掉 JS 写入的内联 `left/top`，退化为 `left/top:50%` 旧行为）最大偏差 387.8px（水平，phone-360x640）/ 806.8px（垂直，phone-390x844）**
+    —— 这一列就是「不修会怎样」的量化答案。
+    ⚠ 对照组数值**随文档高度浮动**（布局视口高度 = 内容高度，每次渲染略有差异），因此它是一个量级证据而非可复现到小数位的常量；
+    「修复后 = 0」那一列才是逐次可复现的判据。
+  - **负控 `MEASURE_STABLE_TIMEOUT=1`**：**28/28 + 10/10 全部判为可疑、几何稳定 0、退出码 1**，每行打印 `<<<UNSTABLE`。
+    证明「几何稳定」这道判据会咬人，不是恒绿。
+  - **本轮把这道关口自己修硬了**（详见下面「工程卫生」）：稳定判据从「连续 2 次采样一致」抬到 **连续 6 次（600ms 静止）**，
+    并把采样前的固定沉降 `SETTLE_MS=700` 与稳定轮询**解耦**。修之前它会偶发**假阳性**，修之前它的负控还会**把渲染进程跑崩**。
+
+### 🧰 工程卫生
+
+- **`sed -i` 会把 CRLF 文件静默转成 LF**。本轮改 `README.md` 时踩中：两行改动却报 **526 insertions / 526 deletions**，
+  `tr -cd '\r' | wc -c` 从 526 掉到 0。已 `git checkout --` 还原并改用编辑器工具重做。
+  **规矩**：跨仓同步与批量改字只用 `cp` + `cmp`，改完必须对账 CR 数。
+- **Puppeteer `page.evaluate(fn)` 只序列化传入的那个函数** —— 闭包引用 Node 作用域里的其它函数会在页面内 `ReferenceError`。
+  取证脚本因此写成三个**自包含**页面函数（`openConsoleInPage` / `addAndProbeInPage` / `refreshConsoleInPage`），数据一律当参数传，绝不闭包捕获。
+- **取证关口自己也会骗人 —— 本轮抓到两个**（`scripts/measure-popup-layout.cjs`）：
+  1. **假阳性（判据太松）**：稳定判据原是「连续 2 次采样一致」（240ms 静止）。实测在 desktop-1920x1080 n=1 上采到一个**平台期**：
+     overlay 的内联 `top` 已经是正确值（540px），但窗口还在插槽内做入场收尾，包围盒中心偏 **7.6px**；再等 1500ms 自行回到 `dy=0`。
+     即**产品没错，是关口采早了**。这类假阳性最阴险 —— 它让人以为居中没修好，从而去改本来正确的代码。
+     修法：`STABLE_FOR` 默认 2 → **6**（600ms 静止），判据收紧，负控依旧成立。
+  2. **负控把渲染进程跑崩（判据与节奏耦合）**：`MEASURE_STABLE_TIMEOUT=1` 原本会连带抹掉轮询等待，于是 open/close 节奏被拉满，
+     Chromium 直接 `detached Frame` 崩掉。**退出码确实是 1，但那是「崩了」而不是「判据咬人了」—— 负控等于失效。**
+     修法：采样前加固定沉降 `SETTLE_MS=700`，与稳定轮询**解耦**；负控从此只改判据、不改节奏。
+     修完实测：`detached Frame` 0 次、`Navigation timeout` 0 次，28/28 + 10/10 如实判为 UNSTABLE、退出码 1。
+  - 附带教训：**「退出码 1」不等于「负控生效」**。必须看输出差分（本例是 `<<<UNSTABLE` 标记与「几何稳定 0/28」），
+    否则一个崩溃就能冒充一次成功的自证。
+- 构建：`dist/index.html` 3,353.45 kB（gzip 1,227.53 kB），PWA precache 13 条 / 3674.38 KiB，10.10s。
+
+### 📄 文档
+
+- **`public/api-key-guide.html`**：副标题与适用版本 → v3.0.6 / 2026-10-04 / 18 家引擎；§一 重写 + 新增 v3.0.6 提示；
+  §二 改为「快通道 / 完整通道」嵌套列表；3.1 标题 16 → 18；新增 **AMD Radeon Cloud** 与 **商汤 SenseNova** 两行（均标「未实测」、**不编造 URL**，
+  Base URL 以纯文本给出）；**新增 §3.6 自定义引擎与「⚙ AI 控制台」**（5 字段表）；**§五 整节重写**为 5.1 四种保存方式表 / 5.2 旧数据迁移 / 5.3 不变量；
+  FAQ 补 Q4（刷新后 Key 没了）/ Q5（怎么删）/ Q6（403）/ **Q7（怎么知道 Key 真的能用）**。`<section>` 开合 6/6 已核。
+- **`api-key-guide.md`（新增，未入库）**：与 HTML 同源同版本。
+- **`public/stroke-demo-guide.html`**：副标题与适用版本 → v3.0.6 / 2026-10-04；§一 补自适应条目；§3.6 补条目；
+  **新增 §3.8** 记录根因、三处修法、40px 下限、`1e-4` 地板、实测对照表，以及 `MEASURE_STABLE_TIMEOUT=1` 作为负控的用法。
+- **`index.html`**：页头版本标签 → v3.0.6，build-info → `build 2026-10-04 v3.0.6`，指南链接 `title` 补「AI 控制台 / 自定义引擎 / 批量导入 / 四种保存方式」。
+- **`README.md` / `README_contest.md` / `TASK_BOARD.md`**：版本号、徽章、功能表（第 17 项 16 → 18 家，新增第 19–21 项）、目录结构树（补 7 个新模块与 2 个取证脚本）全部同步。
+
+---
+
 ## v3.0.5 (2026-09-18) — 隐私与合规加固 + 双击启动修复
 
 > 本版本**不新增功能**，只做「上线前的合规与可靠性收口」：

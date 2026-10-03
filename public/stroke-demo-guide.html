@@ -258,8 +258,8 @@
 <div class="container">
     <header>
         <h1>✍️ 笔顺演示功能介绍</h1>
-        <p class="subtitle">字帖生成器 v3.0.5 · 离线笔画笔顺动态演示（双图层重构 + 暂停/恢复 + 触屏/平板自适应）</p>
-        <p class="meta">更新日期：2026-09-18 · 适用版本：v3.0.5 及以上</p>
+        <p class="subtitle">字帖生成器 v3.0.6 · 离线笔画笔顺动态演示（双图层重构 + 暂停/恢复 + 触屏/平板自适应 + 可视视口精确居中）</p>
+        <p class="meta">更新日期：2026-10-04 · 适用版本：v3.0.6 及以上</p>
         <a href="./" class="back-link">← 返回字帖主页</a>
     </header>
 
@@ -270,7 +270,7 @@
             <li><span class="badge badge-on">开启</span>默认开启，可由工具栏"笔顺演示"按钮切换</li>
             <li><span class="badge badge-on">离线</span>内置 <strong>9574 个汉字</strong>的笔画数据，完全离线可用</li>
             <li><span class="badge badge-on">多弹窗</span>最多同时弹出 <strong>4 个</strong>不同汉字的演示窗口</li>
-            <li><span class="badge badge-on">自适应</span>多弹窗自动排列为网格并自动缩放，触屏 / 平板优化（v3.0.4）</li>
+            <li><span class="badge badge-on">自适应</span>多弹窗自动排列为网格并自动缩放，触屏 / 平板优化（v3.0.4）；<strong>单窗口总在可视区正中央、末行孤窗精确居中</strong>（v3.0.6，见 3.8）</li>
             <li><span class="badge badge-on">标准窗口</span>支持最小化 / 最大化 / 关闭 / 拖拽</li>
             <li><span class="badge badge-on">主题适配</span>light / dark 模式自动切换</li>
         </ul>
@@ -396,7 +396,7 @@
             <li>最多同时弹出 <strong>4 个</strong>不同汉字的演示弹窗（<code>MAX_WINDOWS = 4</code>）</li>
             <li>超过 4 个时弹出 toast 提示：<em>"最多同时演示 4 个汉字，请先关闭部分弹窗"</em></li>
             <li>点击相同汉字的字格：聚焦已有弹窗（置顶 + 闪烁高亮，不自动播放）</li>
-            <li>自动排列：多弹窗由布局求解器自动排成网格，并自动缩放以适配屏幕（v3.0.4）</li>
+            <li>自动排列：多弹窗由布局求解器自动排成网格，并自动缩放以适配屏幕（v3.0.4）；<strong>整个网格锚定在可视视口正中心，末行孤窗精确居中</strong>（v3.0.6，见 3.8）</li>
             <li>桌面端：优先 1×N 水平排列，缩放恒为 1，布局与旧版逐像素一致</li>
             <li>移动端：自动选择列数并缩放；屏幕过小时最旧的弹窗自动收为最小化药丸</li>
         </ul>
@@ -416,6 +416,50 @@
         </ul>
         <div class="tip">
             <strong>说明：</strong>打印隐藏、最小化 / 最大化 / 关闭、<span class="kbd">Esc</span> 关闭最上层弹窗、"减少动态效果"偏好等既有行为全部保留。
+        </div>
+
+        <h3>3.8 「总在可视区正中央」+ 多窗口优雅排布（v3.0.6）</h3>
+        <p><span class="badge badge-new">v3.0.6</span> 修掉了 pad / 手机上两类长期存在的排布缺陷。<strong>根因不在 CSS 写得对不对，而在"以哪个视口为基准"</strong>：</p>
+        <ul>
+            <li><strong>根因</strong>：<code>position:fixed</code> + <code>left/top:50%</code> 的百分比基准是<strong>布局视口（初始包含块）</strong>，而用户真正看到的是 <strong><code>visualViewport</code>（可视视口）</strong>。二者在这些场景并不重合——软键盘弹出（可视高度骤减、布局视口不变 → 弹窗中心落到键盘后面）、双指缩放后平移（<code>offsetLeft/offsetTop</code> 非 0）、移动端地址栏收放、无头浏览器 <code>isMobile</code> 模拟。这正是"单窗口不在正中央"的成因</li>
+            <li><strong>修法（居中）</strong>：布局求解器按 <code>visualViewport</code> 计算可用区，并<strong>无条件</strong>把 overlay 锚到可视视口正中心（<code>left = offsetLeft + width/2</code>，<code>top</code> 同理）。之所以不做"发现跑出去了才纠偏"：诉求是<strong>总在正中央</strong>，"在可视区内但偏心"同样是缺陷。该式在两视口重合时与 CSS 基线<strong>逐像素等价</strong>（桌面 <code>left:50%</code> = <code>clientWidth/2</code> = <code>visualViewport.width/2 + offsetLeft(0)</code>），因此桌面端零回归</li>
+            <li><strong>修法（尺寸基准）</strong>：<code>max-width/max-height</code> 与"最大化"尺寸从 <code>100vw/100vh</code> 改为 <code>--sd-avail-w/--sd-avail-h</code>（由 JS 按可视视口写入）。移动端的 <code>100vh</code> 是"大视口"高度，比真正可见的区域高出一截</li>
+            <li><strong>修法（末行居中）</strong>：网格自动放置会把不满一行的"孤行"贴到<strong>最左列</strong>（实测 iPad 竖屏 3 窗口时孤行偏离视口中心 198px）。单个孤行条目改为 <code>grid-column: 1 / -1</code> + <code>justify-self: center</code> —— 这是<strong>精确</strong>居中；仅靠整数列起点做不到（列起点只能对齐整条轨道，奇数条目放进偶数列必然偏半格）</li>
+            <li><strong>可用区下界</strong>：取 40px 而非"恰好放得下一个窗口"——极端小视口下宁可把窗口缩得很小，也不让它溢出屏幕（任何情况下都必须可触达）</li>
+            <li><strong>缩放取整方向</strong>：求解出的 <code>s</code> 向下取整到 1e-4，宁可略小也不因浮点误差溢出可用区</li>
+        </ul>
+        <p><strong>实测取证</strong>（<code>scripts/measure-popup-layout.cjs</code>，只读测量、不改产品代码）：7 种设备（桌面 1920×1080 / 笔记本 1280×800 / 平板横竖 1180×820、820×1180 / 手机 390×844、844×390、360×640）× 1–4 窗口，另加 2× 页面缩放场景（用 CDP <code>Emulation.setDeviceMetricsOverride</code> 造出稳定的"布局视口 ≠ 可视视口"稳态），并在<strong>同一页面</strong>里做 A/B 对照：</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>场景</th>
+                    <th>修复后偏差</th>
+                    <th>纯 CSS 方案（对照列）偏差</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>网格排列（28 组：7 设备 × 1–4 窗口）</td>
+                    <td>最大 <strong>0.1px</strong>（几何稳定 28/28，可疑 0）</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td>2× 页面缩放（10 组）</td>
+                    <td><strong>0, 0</strong>（可视视口确已分离 10/10，几何稳定 10/10，可疑 0）</td>
+                    <td>最大 <strong>387.8px 横向</strong>（phone-360x640）<strong>/ 806.8px 纵向</strong>（phone-390x844）</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="tip">
+            <strong>怎么读这张表：</strong>「对照列」是把 JS 写入的内联 <code>left/top</code> 清掉、退回旧的纯 CSS <code>left/top:50%</code> 后<strong>当场量出来的</strong>，不是推算值。它的数值<strong>随文档高度浮动</strong>（布局视口高度取决于当时内容高度），所以它是一个<strong>量级证据</strong>——说明不修就会偏出几百像素；而「修复后 = 0」那一列才是逐次可复现的判据。
+        </div>
+        <div class="tip">
+            <strong>关于这套判据本身（两处自我修正，都是本轮抓到的）：</strong>
+            <ol>
+                <li><strong>假阳性</strong>：稳定性判据原是「连续 2 次采样一致」（240ms 静止），实测会在 desktop 单窗口采到一个<em>平台期</em>——overlay 的内联 <code>top</code> 已经是正确值，但窗口还在插槽内做入场收尾，包围盒中心偏 <strong>7.6px</strong>，再等 1500ms 自行回到 0。也就是<strong>产品没错、关口采早了</strong>。已把判据抬到<strong>连续 6 次（600ms 静止）</strong>。</li>
+                <li><strong>负控曾把渲染进程跑崩</strong>：<code>MEASURE_STABLE_TIMEOUT=1</code> 会连带抹掉轮询等待，于是开/关窗节奏被拉满，Chromium 抛 <code>detached Frame</code>。退出码确实是 1，<strong>但那是「崩了」而不是「判据咬人了」，负控等于失效</strong>。已加固定沉降 <code>MEASURE_SETTLE_MS=700</code> 与轮询解耦；修完实测 <code>detached Frame</code> 0 次、<strong>28/28 + 10/10 如实判为 UNSTABLE、退出码 1</strong>。</li>
+            </ol>
+            另踩过一次坑：早先稳定性判据写成在页面里调用另一个 Node 侧函数，而 <code>page.evaluate</code> 只序列化传入的函数本身，于是每次都抛 <code>ReferenceError</code> 又被 <code>catch</code> 吞掉，伪装成"几何不稳定"，整份报告 28/28 全红且原因不可见。<strong>判据自己也要能被证伪；而「退出码非 0」不等于「负控生效」，必须看输出差分。</strong>
         </div>
     </section>
 

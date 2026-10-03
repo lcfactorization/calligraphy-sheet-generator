@@ -165,6 +165,20 @@ function verdictBadge(v) {
     }
 }
 
+// v3.0.6：AI 控制台入口旁的一行实时摘要（Key 数 / 已配置引擎数 / 可选引擎总数）。
+// 摘要需要读 store 与注册表，因此异步；失败时保留空白，不影响主功能。
+// 一律 textContent 写入 —— 数字来自本地统计，但仍按不可信数据处理。
+function paintAiConsoleSummary(el) {
+    if (!el) return;
+    import('./aiConsole.js')
+        .then(m => m.getAiConsoleSummary())
+        .then(s => {
+            if (!s || !el.isConnected) return;
+            el.textContent = `${s.keys} 个 Key · ${s.configured} 个已配置引擎 · 共 ${s.providers} 个引擎可选`;
+        })
+        .catch(() => { /* 摘要不可用时静默 */ });
+}
+
 // v1.2.1（问题6）：刷新 AI Key 区 UI —— 单下拉菜单结构
 //   - 下拉始终显示（不隐藏）
 //   - 0 Key：仅一个 disabled 占位 option「尚未添加 API Key」
@@ -372,6 +386,13 @@ function createPanel() {
                         </label>
                     </div>
                     <div id="scAiConfig" style="display:${settings.aiZuciEnabled ? 'block' : 'none'};margin-top:10px;">
+                        <!-- v3.0.6：AI 控制台入口。引擎/模型/Key 的统一管理面板（借鉴 shuaixiaodai-calligraphy v1.5.6）：
+                             四种保存方式（不保存 / 标签页 / 明文 / 口令加密）、自定义引擎、批量导入、连通性体检。
+                             面板自带完整 UI，这里只放入口 + 一行实时摘要。 -->
+                        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                            <button class="btn btn-ghost" id="scAiConsoleOpen" type="button" style="padding:6px 12px;font-size:12px;">⚙ AI 控制台（模型设置）</button>
+                            <span id="scAiConsoleSummary" style="font-size:11px;color:#9ca3af;"></span>
+                        </div>
                         <div class="sc-field">
                             <label>API Key（可存多个，选中即生效）</label>
                             <!-- v1.2.1（问题6）：单下拉菜单结构：下拉 + 眼睛 + 复制 + 删除 一行；文件导入全宽一行 -->
@@ -1260,6 +1281,33 @@ function bindPanelEvents(overlay) {
         });
     }
 
+    // v3.0.6：AI 控制台入口 —— 引擎 / 模型 / Key 的完整管理面板（借鉴 shuaixiaodai-calligraphy）。
+    //   动态 import：aiConsole 约 2200 行，不进首屏依赖图（与本文件既有的懒加载约定一致）。
+    //   控制台改完 Key 不会对外发事件，但它关闭时会把自身 display 置为 none ——
+    //   观察这一点即可在回到设置中心时刷新下拉，避免显示过期的 Key 列表。
+    const aiConsoleBtn = overlay.querySelector('#scAiConsoleOpen');
+    const aiConsoleSummaryEl = overlay.querySelector('#scAiConsoleSummary');
+    if (aiConsoleBtn) {
+        aiConsoleBtn.addEventListener('click', async () => {
+            try {
+                const { openAiConsole } = await import('./aiConsole.js');
+                const panel = openAiConsole();
+                if (panel && !panel._scWatched) {
+                    panel._scWatched = true;
+                    new MutationObserver(() => {
+                        if (panel.style.display === 'none' && overlay.isConnected) {
+                            refreshKeyUI(overlay);
+                            paintAiConsoleSummary(aiConsoleSummaryEl);
+                        }
+                    }).observe(panel, { attributes: true, attributeFilter: ['style'] });
+                }
+            } catch (err) {
+                console.warn('[settingsCenter] 打开 AI 控制台失败:', err);
+                if (aiConsoleSummaryEl) aiConsoleSummaryEl.textContent = '⚠ 控制台不可用';
+            }
+        });
+    }
+
     // v1.2.1（问题6）：面板创建后异步加载 Key 列表并刷新下拉
     //   修复既有 bug：原代码 refreshKeyUI 仅由用户交互触发，首次打开面板时下拉为空
     getKeyStoreApi()
@@ -1268,6 +1316,8 @@ function bindPanelEvents(overlay) {
         .then(() => getHealthApi())
         .then(() => refreshKeyUI(overlay))
         .catch(err => console.warn('[settingsCenter] 加载 aiKeyStore 失败:', err));
+
+    paintAiConsoleSummary(aiConsoleSummaryEl);
 }
 
 /** 打开设置面板 */

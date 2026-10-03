@@ -263,6 +263,25 @@ function installAutoResolveFetch() {
     };
 }
 
+/**
+ * 让 DeepSeek 对 chat 探测返回 429（按分类算 ok:true），其余引擎本可接受该 Key 但永不被触及。
+ * 提到模块作用域：C11 与 C12 分属两个子进程分组，都要用同一份 fetch 剧本。
+ */
+function installRateLimitedDeepseek() {
+    fetchHandler = async (url, init) => {
+        if (url.includes('api.deepseek.com')) {
+            if (url.endsWith('/models')) return resp(200, { data: [] });
+            return resp(429, { error: 'rate limited' }); // ok:true per classification
+        }
+        if (url.includes('dashscope.aliyuncs.com')) {
+            if (url.endsWith('/models')) return resp(200, { data: [] });
+            return resp(200, GOOD_CHAT);
+        }
+        if (url.includes('/models')) return resp(401, {});
+        return resp(401, {});
+    };
+}
+
 async function testAutoResolution() {
     resetEnv();
     installAutoResolveFetch();
@@ -299,21 +318,6 @@ async function testAutoResolution() {
 
     // Adversarial: an EARLIER candidate returning 429 (ok:true) short-circuits the loop,
     // so a rate-limited ambiguous sk- key is permanently attributed to the wrong engine.
-    const installRateLimitedDeepseek = () => {
-        fetchHandler = async (url, init) => {
-            if (url.includes('api.deepseek.com')) {
-                if (url.endsWith('/models')) return resp(200, { data: [] });
-                return resp(429, { error: 'rate limited' }); // ok:true per classification
-            }
-            // All other engines would have accepted the key, but are never reached.
-            if (url.includes('dashscope.aliyuncs.com')) {
-                if (url.endsWith('/models')) return resp(200, { data: [] });
-                return resp(200, GOOD_CHAT);
-            }
-            if (url.includes('/models')) return resp(401, {});
-            return resp(401, {});
-        };
-    };
     resetEnv();
     installRateLimitedDeepseek();
     const v429 = await H.probeKey({ id: 'k1', key: SK });
@@ -323,16 +327,26 @@ async function testAutoResolution() {
         'should keep probing other candidates before attributing the key',
         'regression guard (was failing pre-fix): a rate-limited key must not be attributed to the first candidate');
 
+}
+
+// --- C12: 探测成功后把**正确**的引擎回写进 store ---
+// 单独成组：需要「先往磁盘塞旧明文 ai_api_keys，再让 aiKeyStore 首次加载并迁移」，
+// 而 store 的加载是一次性闩死的（见 Runner 处说明），组内无法二次重置。
+async function testWritebackAmbiguous() {
     resetEnv();
     installRateLimitedDeepseek();
     localStorage.setItem('ai_api_keys', JSON.stringify([
         { id: 'k1', type: 'deepseek', key: SK, label: 'DeepSeek', createdAt: 1 }
     ]));
     await H.probeAll([{ id: 'k1', key: SK }]);
-    const wb = JSON.parse(localStorage.getItem('ai_api_keys'));
-    record('C12 probeAll writes the mis-attributed providerId back to storage',
-        wb[0].providerId !== 'deepseek', { providerId: wb[0].providerId }, 'not deepseek',
+    // v3.0.6：回写不再直接改明文键，而是走 store 的 setKeyProviderRaw/setKeyModel。
+    //   memory 模式下磁盘上**不应该**再有任何明文 Key —— 这本身就是被测的安全属性。
+    const wb = S.getAllKeys();
+    record('C12 probeAll writes the mis-attributed providerId back to the store',
+        !wb[0] || wb[0].providerId !== 'deepseek', { providerId: wb[0] && wb[0].providerId }, 'not deepseek',
         'regression guard (was failing pre-fix): probeAll must persist the CORRECT engine');
+    eq('C12b memory mode leaves no plaintext key list on disk', localStorage.getItem('ai_api_keys'), null,
+        'security property of the v1.3.0 storage model: 明文迁移后必须删除磁盘副本');
 }
 
 // --- D: probeKey never throws ---
@@ -476,10 +490,14 @@ async function testProbeAll() {
     const out = await H.probeAll([{ id: 'k1', key: SK }], { onProgress: p => progress.push(p) });
 
     eq('H1 probeAll returns 1 verdict', out.length, 1);
-    const list = JSON.parse(localStorage.getItem('ai_api_keys'));
-    eq('H2 probeAll wrote providerId back into ai_api_keys', list[0].providerId, 'dashscope',
+    // v3.0.6：回写走 store（setKeyProviderRaw / setKeyModel），不再直接改明文键。
+    //   memory 模式下磁盘上不该出现任何 Key —— 这本身也是被测的安全属性。
+    const after = S.getAllKeys();
+    eq('H2 probeAll wrote providerId back into the store', (after[0] || {}).providerId, 'dashscope',
         'claimed feature: successful probe back-fills the engine');
-    eq('H3 probeAll wrote modelId back', list[0].modelId, 'qwen-turbo');
+    eq('H3 probeAll wrote modelId back', (after[0] || {}).modelId, 'qwen-turbo');
+    eq('H3b memory mode leaves no plaintext key list on disk', localStorage.getItem('ai_api_keys'), null,
+        'security property of the v1.3.0 storage model');
     eq('H4 onProgress fired once', progress.length, 1);
     eq('H5 onProgress payload', [progress[0].done, progress[0].total, progress[0].id, progress[0].ok],
         [1, 1, 'k1', true]);
@@ -655,19 +673,26 @@ async function testPickBest() {
 }
 
 // --- K: backwards compatibility ---
-async function testBackwardsCompat() {
+async function testBcLegacy() {
     resetEnv();
     localStorage.setItem('deepseek_api_key', '  ' + SK + '  ');
     const legacyList = S.getAllKeys();
     eq('K1 legacy migration creates exactly 1 entry', legacyList.length, 1);
-    const e = legacyList[0];
-    eq('K2 migrated entry key set', Object.keys(e).sort(), ['createdAt', 'id', 'key', 'label', 'type']);
+    const e = legacyList[0] || {};
+    eq('K2 migrated entry keeps the legacy field set', ['createdAt', 'id', 'key', 'label', 'type'].every(k => k in e), true,
+        'a migrated entry must stay readable by old code paths');
     eq('K3 migrated type', e.type, 'deepseek');
     eq('K4 migrated label', e.label, 'DeepSeek');
     eq('K5 migrated key trimmed', e.key, SK);
-    truthy('K6 migrated id generated', typeof e.id === 'string' && e.id.startsWith('k_'), e.id);
-    eq('K7 legacy key removed after migration', localStorage.getItem('deepseek_api_key'), null);
-    eq('K8 active id points at the migrated entry', localStorage.getItem('ai_active_key_id'), e.id);
+    truthy('K6 migrated id generated', typeof e.id === 'string' && e.id.length > 0, e.id);
+    // v3.0.6：内存优先存储模型下，迁移会把明文从磁盘**删除**，活跃 id 也只存内存。
+    //   旧断言（读 localStorage['ai_active_key_id']）测的是已被刻意移除的行为。
+    eq('K7 legacy plaintext key removed from disk after migration', localStorage.getItem('deepseek_api_key'), null,
+        'security property: 旧版明文 Key 迁移后必须从磁盘删除');
+    eq('K8 no plaintext key list left on disk', localStorage.getItem('ai_api_keys'), null);
+    truthy('K8b migration notice is consumable exactly once', S.consumeKeyMigrationNotice() === true,
+        'UI 需要一次性告知用户 Key 已不再落盘');
+    eq('K8c migration notice is one-shot', S.consumeKeyMigrationNotice(), false);
 
     eq('K9 getActiveKeyValue() works for legacy user', S.getActiveKeyValue(), SK);
     eq('K10 getActiveKey() works', S.getActiveKey().id, e.id);
@@ -692,8 +717,10 @@ async function testBackwardsCompat() {
     } else {
         record('K16-K18 aiZuci import failed', false, ZUCI_LOAD_ERROR, 'module loads');
     }
+}
 
-    // backfillProviderIds
+// --- K19-K23: backfillProviderIds（单独成组：需先塞磁盘再让 store 首次加载）---
+async function testBcBackfill() {
     resetEnv();
     localStorage.setItem('ai_api_keys', JSON.stringify([
         { id: 'a', type: 'deepseek', key: 'sk-aaaaaaaaaaaaaaaaaaaa', label: 'DeepSeek', createdAt: 1 },
@@ -701,15 +728,17 @@ async function testBackwardsCompat() {
         { id: 'c', type: 'unknown', key: 'gsk_aaaaaaaaaaaaaaaaaaaa', label: '未知引擎', createdAt: 3 }
     ]));
     const n = S.backfillProviderIds();
-    const bl = JSON.parse(localStorage.getItem('ai_api_keys'));
+    const bl = S.getAllKeys();
     eq('K19 backfill changed 2 entries', n, 2);
-    eq('K20 deepseek entry got providerId', bl.find(x => x.id === 'a').providerId, 'deepseek');
-    eq('K21 volcano entry got providerId', bl.find(x => x.id === 'b').providerId, 'volcano');
-    eq('K22 unknown entry left untouched', 'providerId' in bl.find(x => x.id === 'c'), false,
+    eq('K20 deepseek entry got providerId', (bl.find(x => x.id === 'a') || {}).providerId, 'deepseek');
+    eq('K21 volcano entry got providerId', (bl.find(x => x.id === 'b') || {}).providerId, 'volcano');
+    eq('K22 unknown entry left untouched', 'providerId' in (bl.find(x => x.id === 'c') || { providerId: 1 }), false,
         'spec: unknown must not be guessed');
     eq('K23 backfill is idempotent (2nd run = 0)', S.backfillProviderIds(), 0);
+}
 
-    // auto/manual effective-key resolution
+// --- K24-K31: 自动/手动生效 Key 解析（单独成组，同上）---
+async function testBcEffective() {
     resetEnv();
     localStorage.setItem('ai_api_keys', JSON.stringify([
         { id: 'k1', type: 'deepseek', key: 'sk-11111111111111111111', label: 'DeepSeek', createdAt: 1 },
@@ -719,7 +748,8 @@ async function testBackwardsCompat() {
     eq('K24 auto mode without auto id falls back to active id (documented deviation)', S.getEffectiveKeyEntry().id, 'k2');
     S.setAutoKeyId('k1');
     eq('K25 auto id wins in auto mode', S.getEffectiveKeyEntry().id, 'k1');
-    eq('K26 setAutoKeyId did not clobber ai_active_key_id', localStorage.getItem('ai_active_key_id'), 'k2');
+    // v3.0.6：ai_active_key_id 不再落盘，改为断言 store 的活跃指针未被 setAutoKeyId 覆盖
+    eq('K26 setAutoKeyId did not clobber the user selection', S.getActiveKey().id, 'k2');
     S.setKeyMode('manual');
     eq('K27 manual mode uses the user selection', S.getEffectiveKeyEntry().id, 'k2');
     S.setKeyMode('auto');
@@ -728,7 +758,7 @@ async function testBackwardsCompat() {
 
     // removeKey housekeeping
     S.removeKey('k1');
-    eq('K30 removing the auto-selected key clears ai_auto_key_id', S.getAutoKeyId(), null);
+    eq('K30 removing the auto-selected key clears the auto id', S.getAutoKeyId(), null);
     eq('K31 remaining key intact', S.getAllKeys().length, 1);
 }
 
@@ -803,13 +833,17 @@ async function testRouting() {
     const pLegacy = Z.getAiProvider(legacyEntry);
     eq('L14c legacy sk- entry still resolves to deepseek (BC preserved)', pLegacy.type, 'deepseek');
     eq('L14d generic sk- is NOT certain (detectProviderId null) => certainty gate opens', P.detectProviderId(SK), null);
+}
 
-    // Recovery path: running probeAll DOES disambiguate and write back, after which routing is correct.
+// --- L15: 探测后路由自愈（单独成组：需先塞磁盘再让 store 首次加载）---
+async function testRoutingRecovery() {
     resetEnv();
+    if (!Z) { record('L15 recovery', false, ZUCI_LOAD_ERROR, 'module loads'); return; }
+    const legacyEntry = { id: 'k1', key: SK, type: 'deepseek', label: 'DeepSeek', createdAt: 1 };
     installAutoResolveFetch();
     localStorage.setItem('ai_api_keys', JSON.stringify([legacyEntry]));
     await H.probeAll([legacyEntry]);
-    const fixed = JSON.parse(localStorage.getItem('ai_api_keys'))[0];
+    const fixed = S.getAllKeys().find(x => x.id === 'k1') || {};
     const pFixed = Z.getAiProvider(fixed);
     record('L15 probeAll recovers the legacy sk- key (writes providerId, re-routes correctly)',
         pFixed.type === 'dashscope' && String(pFixed.endpoint).includes('dashscope'),
@@ -934,62 +968,138 @@ async function testMisc() {
 // 5. Runner
 // ===========================================================================
 
-async function main() {
-    console.log('v3.0.4 AI-key subsystem — independent verification');
-    console.log('node ' + process.version + ' · no network · stubbed fetch\n');
+// v3.0.6：每个分组跑在**独立子进程**里。
+// 原因：aiKeyStore 已改为「内存优先」（借鉴 shuaixiaodai-calligraphy v1.3.0）——
+//   模块首次被访问时把磁盘上的旧明文 Key 搬进内存并**删除磁盘副本**，此后
+//   `localStorage.clear()` 再也清不掉内存里的条目（`_loaded` 已闩死）。
+//   同一进程连跑多组 → 前一组遗留的 Key 会污染后一组（J11 就是这么假红的）。
+//   Node ESM 没有清缓存的 API；给 URL 加 `?v=N` 也只会让 aiKeyHealth 拿到
+//   **另一个** aiKeyStore 实例（它静态 import 的是不带 query 的路径）→ 更假。
+//   子进程换来「每组一张干净的模块图」，等价于 A 的 vitest 里 `vi.resetModules()`。
+// 因此：凡是需要「先往磁盘塞旧数据、再让 store 首次加载」的场景，
+//   都必须自成一组（见 testBc* / testWriteback* / testRoutingRecovery 的拆分）。
+const GROUPS = [
+    ['Registry / detection', 'testProviders'],
+    ['Registry sanity', 'testRegistry'],
+    ['Candidate auto-resolution', 'testAutoResolution'],
+    ['probe writeback (ambiguous sk-)', 'testWritebackAmbiguous'],
+    ['probeKey never throws', 'testNeverThrows'],
+    ['Error classification', 'testClassification'],
+    ['response_format downgrade', 'testJsonDowngrade'],
+    ['Offline behaviour', 'testOffline'],
+    ['probeAll', 'testProbeAll'],
+    ['Scoring', 'testScoring'],
+    ['pickBestKey tie-break', 'testPickBest'],
+    ['BC: legacy plaintext migration', 'testBcLegacy'],
+    ['BC: backfillProviderIds', 'testBcBackfill'],
+    ['BC: effective-key resolution', 'testBcEffective'],
+    ['getAiProvider routing', 'testRouting'],
+    ['routing recovery via probeAll', 'testRoutingRecovery'],
+    ['callDeepSeekDirect / fillMissingZuci', 'testCallDirect'],
+    ['Key importer', 'testImporter'],
+    ['maskKey / misc', 'testMisc']
+];
 
+const GROUP_FNS = {
+    testProviders, testRegistry, testAutoResolution, testWritebackAmbiguous,
+    testNeverThrows, testClassification, testJsonDowngrade, testOffline,
+    testProbeAll, testScoring, testPickBest,
+    testBcLegacy, testBcBackfill, testBcEffective,
+    testRouting, testRoutingRecovery, testCallDirect, testImporter, testMisc
+};
+
+const RESULT_MARKER = '\n__AIKEYS_RESULT__';
+
+async function runOneGroup(index) {
     await loadModules();
-    if (ZUCI_LOAD_ERROR) console.log('[warn] aiZuci.js could not be imported: ' + ZUCI_LOAD_ERROR + '\n');
+    const [title, name] = GROUPS[index];
+    const fn = GROUP_FNS[name];
+    if (typeof fn !== 'function') throw new Error(`分组函数缺失: ${name}`);
+    try {
+        await fn();
+    } catch (e) {
+        // 带上前几帧调用栈：只有 message 时定位不到是产品代码还是剧本的问题
+        const where = (e && e.stack ? String(e.stack).split('\n').slice(0, 4).join(' | ') : '');
+        record(`[${title}] GROUP THREW`, false, ((e && e.message) || String(e)) + (where ? '  @ ' + where : ''), 'no throw');
+    }
+    return { title, rows, nPass, nFail, zuciLoadError: ZUCI_LOAD_ERROR };
+}
 
-    const groups = [
-        ['Registry / detection', testProviders],
-        ['Registry sanity', testRegistry],
-        ['Candidate auto-resolution', testAutoResolution],
-        ['probeKey never throws', testNeverThrows],
-        ['Error classification', testClassification],
-        ['response_format downgrade', testJsonDowngrade],
-        ['Offline behaviour', testOffline],
-        ['probeAll', testProbeAll],
-        ['Scoring', testScoring],
-        ['pickBestKey tie-break', testPickBest],
-        ['Backwards compatibility', testBackwardsCompat],
-        ['getAiProvider routing', testRouting],
-        ['callDeepSeekDirect / fillMissingZuci', testCallDirect],
-        ['Key importer', testImporter],
-        ['maskKey / misc', testMisc]
-    ];
+/** 父进程侧：fork 一个子进程只跑第 index 组，取回结构化结果 */
+function runGroupInChild(index) {
+    const { spawnSync } = require('node:child_process');
+    const r = spawnSync(process.execPath, [__filename], {
+        encoding: 'utf8',
+        env: { ...process.env, AIKEYS_GROUP: String(index) },
+        maxBuffer: 64 * 1024 * 1024
+    });
+    const out = String(r.stdout || '');
+    const at = out.lastIndexOf(RESULT_MARKER);
+    if (at >= 0) {
+        try { return JSON.parse(out.slice(at + RESULT_MARKER.length)); } catch { /* 落到下面的失败分支 */ }
+    }
+    return {
+        title: GROUPS[index][0], nPass: 0, nFail: 1,
+        rows: [{
+            name: `[${GROUPS[index][0]}] 子进程未返回结果`, pass: false,
+            actual: `exit=${r.status} signal=${r.signal} stderr=${String(r.stderr || '').slice(0, 400)}`,
+            expected: 'JSON result'
+        }]
+    };
+}
 
-    for (const [title, fn] of groups) {
-        const before = rows.length;
-        try {
-            await fn();
-        } catch (e) {
-            record(`[${title}] GROUP THREW`, false, (e && e.message) || String(e), 'no throw');
+async function main() {
+    console.log('v3.0.6 AI-key subsystem — independent verification');
+    console.log('node ' + process.version + ' · no network · stubbed fetch · 每组独立子进程\n');
+
+    const all = [];
+    let pass = 0, fail = 0;
+    for (let i = 0; i < GROUPS.length; i++) {
+        const res = runGroupInChild(i);
+        if (res.zuciLoadError) console.log(`[warn] ${res.title}: aiZuci.js could not be imported: ${res.zuciLoadError}`);
+        console.log(`\n### ${res.title}`);
+        for (const row of res.rows) {
+            all.push(row);
+            console.log(`[${row.pass ? 'PASS' : 'FAIL'}] ${row.name}`);
+            console.log(`        observed: ${row.actual}`);
+            if (!row.pass || process.env.VERBOSE) console.log(`        expected: ${row.expected}`);
+            if (row.note) console.log(`        note:     ${row.note}`);
         }
-        console.log(`\n### ${title}`);
-        for (const r of rows.slice(before)) {
-            const tag = r.pass ? 'PASS' : 'FAIL';
-            console.log(`[${tag}] ${r.name}`);
-            console.log(`        observed: ${r.actual}`);
-            if (!r.pass || process.env.VERBOSE) console.log(`        expected: ${r.expected}`);
-            if (r.note) console.log(`        note:     ${r.note}`);
-        }
+        pass += res.nPass; fail += res.nFail;
     }
 
     console.log('\n' + '='.repeat(78));
-    console.log(`SUMMARY: ${nPass} passed, ${nFail} failed, ${rows.length} total`);
-    if (nFail > 0) {
+    console.log(`SUMMARY: ${pass} passed, ${fail} failed, ${all.length} total`);
+    if (fail > 0) {
         console.log('\nFAILED ASSERTIONS:');
-        rows.filter(r => !r.pass).forEach(r => {
-            console.log(`  - ${r.name}\n      observed: ${r.actual}\n      expected: ${r.expected}`);
+        all.filter(x => !x.pass).forEach(x => {
+            console.log(`  - ${x.name}\n      observed: ${x.actual}\n      expected: ${x.expected}`);
         });
     }
     console.log('='.repeat(78));
 
-    process.exitCode = nFail > 0 ? 1 : 0;
+    process.exitCode = fail > 0 ? 1 : 0;
 }
 
-main().catch(e => {
-    console.error('HARNESS CRASH:', e && e.stack ? e.stack : e);
-    process.exitCode = 2;
-});
+// ── 子进程模式：只跑一组，把结果以 JSON 交回父进程 ──
+if (process.env.AIKEYS_GROUP !== undefined) {
+    const idx = Number(process.env.AIKEYS_GROUP);
+    runOneGroup(idx)
+        .then((res) => {
+            process.stdout.write(RESULT_MARKER + JSON.stringify(res) + '\n');
+            process.exitCode = res.nFail > 0 ? 1 : 0;
+        })
+        .catch((e) => {
+            process.stdout.write(RESULT_MARKER + JSON.stringify({
+                title: (GROUPS[idx] || ['?'])[0],
+                rows: [{ name: 'HARNESS CRASH', pass: false, actual: (e && e.stack) || String(e), expected: 'no crash' }],
+                nPass: 0, nFail: 1
+            }) + '\n');
+            process.exitCode = 2;
+        });
+} else {
+    main().catch(e => {
+        console.error('HARNESS CRASH:', e && e.stack ? e.stack : e);
+        process.exitCode = 2;
+    });
+}

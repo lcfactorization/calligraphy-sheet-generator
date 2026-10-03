@@ -31,7 +31,7 @@
 import HanziWriter from 'hanzi-writer';
 import { getCharDataAsync, ready as hanziDataReady, isReady } from './hanziDataStore.js';
 import { getSettings, updateSetting } from './settingsCenter.js';
-import { isCoarsePointer, getViewport, onViewportChange } from '../utils/deviceEnv.js';
+import { isCoarsePointer, getViewportRect, onViewportChange } from '../utils/deviceEnv.js';
 import '../styles/strokeDemoModal.css';
 
 const MAX_WINDOWS = 4;
@@ -89,8 +89,15 @@ export function solveLayout(n, availW, availH, sMax) {
 
 /**
  * 混合尺寸排列求解（内部使用）：窗口 340×440 与药丸 240×40 混排时，
- * solveLayout 的"等高行"假设不成立，故按行取最大高度计算。
- * 当所有条目尺寸相同时，结果与 solveLayout 完全一致（因此内部优先走 solveLayout）。
+ * solveLayout 的"等高行"假设不成立。
+ *
+ * 尺寸模型必须与 CSS Grid 的实际渲染一致，否则求出的 s 会偏大 → 溢出：
+ *   - 列宽 = max-content = **该列所有条目的最大宽**；网格总宽 = Σ列宽 + (cols-1)*gap
+ *   - 行高 = **该行所有条目的最大高**；网格总高 = Σ行高 + (rows-1)*gap
+ * 早前版本用"最宽一行的行内宽度之和"当总宽，但混排时窄条目（药丸）所在列
+ * 会被同列的宽条目（窗口）撑宽，真实总宽 > 最宽行 → 实测溢出并触发意外换行。
+ *
+ * 当所有条目尺寸相同时，两种模型等价，结果与 solveLayout 完全一致。
  * @param {{w:number,h:number}[]} sizes
  * @returns {{cols:number, rows:number, s:number}}
  */
@@ -101,25 +108,20 @@ function _solveMixed(sizes, availW, availH, sMax) {
     let best = { cols: 1, rows: n, s: 0 };
     for (let cols = 1; cols <= n; cols++) {
         const rows = Math.ceil(n / cols);
-        let maxRowW = 0;
-        let totalH = 0;
-        for (let r = 0; r < rows; r++) {
-            const start = r * cols;
-            const end = Math.min(n, start + cols);
-            let rowW = 0;
-            let rowH = 0;
-            for (let i = start; i < end; i++) {
-                rowW += sizes[i].w;
-                rowH = Math.max(rowH, sizes[i].h);
-            }
-            rowW += Math.max(0, (end - start) - 1) * GAP;
-            maxRowW = Math.max(maxRowW, rowW);
-            totalH += rowH;
+        // Σ 每列最大宽（= max-content 轨道宽之和）
+        const colMax = new Array(cols).fill(0);
+        const rowMax = new Array(rows).fill(0);
+        for (let i = 0; i < n; i++) {
+            const c = i % cols;
+            const r = Math.floor(i / cols);
+            colMax[c] = Math.max(colMax[c], sizes[i].w);
+            rowMax[r] = Math.max(rowMax[r], sizes[i].h);
         }
-        totalH += (rows - 1) * GAP;
+        const totalW = colMax.reduce((a, b) => a + b, 0) + (cols - 1) * GAP;
+        const totalH = rowMax.reduce((a, b) => a + b, 0) + (rows - 1) * GAP;
         const s = Math.min(
             maxScale,
-            availW / Math.max(1, maxRowW),
+            availW / Math.max(1, totalW),
             availH / Math.max(1, totalH)
         );
         if (s > best.s + 1e-9 || (Math.abs(s - best.s) <= 1e-9 && cols > best.cols)) {
@@ -164,7 +166,7 @@ function _getPersistedSpeed() {
 function _persistSpeed(speed) {
     try {
         updateSetting('strokeDemoSpeed', speed);
-    } catch (e) { /* 静默降级 */ }
+    } catch { /* 静默降级 */ }
 }
 
 let _overlay = null;
@@ -284,6 +286,35 @@ function _ensureViewBox(stageEl) {
  * 插槽是网格条目（尺寸由 CSS 依据 --sd-s 计算），窗口是插槽内的冻结 340×440 盒子。
  * @returns {{slot:HTMLElement, win:HTMLElement}}
  */
+/**
+ * 写入窗口标题。
+ *
+ * 刻意用 textContent 而不是把汉字拼进 innerHTML 模板：
+ * 弹窗骨架是编译期常量（零插值），所有来自数据的字符一律经 DOM API 写入。
+ * 这样 innerHTML 汇聚点永远是静态字面量，可被 no-unsanitized 一类静态门禁机械校验。
+ *
+ * @param {HTMLElement} win .sd-window 元素
+ * @param {string} char 单个汉字
+ */
+function _fillWindowTitle(win, char) {
+    const title = win.querySelector('.sd-window-title');
+    if (!title) return;
+    title.textContent = char + ' · 笔画笔顺';
+    title.title = char + ' 的笔画笔顺演示';
+}
+
+/**
+ * 把初始播放速度写入速度滑块与数值标签（同样不拼进标记字符串）。
+ * @param {HTMLElement} win .sd-window 元素
+ * @param {number} initialSpeed 1–5
+ */
+function _fillSpeedDisplay(win, initialSpeed) {
+    const slider = win.querySelector('.sd-speed-slider');
+    if (slider) slider.value = String(initialSpeed);
+    const val = win.querySelector('.sd-speed-val');
+    if (val) val.textContent = initialSpeed + 'x';
+}
+
 function _createSlotAndWindow(char, extraWinClass) {
     const overlay = _ensureOverlay();
     overlay.style.display = 'grid';
@@ -324,7 +355,7 @@ function _createWindow(char, data) {
 
     win.innerHTML = `
         <div class="sd-window-header" role="toolbar" aria-label="弹窗控制">
-            <span class="sd-window-title" title="${char} 的笔画笔顺演示">${char} · 笔画笔顺</span>
+            <span class="sd-window-title"></span>
             <div class="sd-window-controls">
                 <button type="button" class="sd-btn-min" title="最小化" aria-label="最小化">▱</button>
                 <button type="button" class="sd-btn-max" title="最大化" aria-label="最大化">▢</button>
@@ -348,13 +379,16 @@ function _createWindow(char, data) {
                 </button>
                 <div class="sd-speed-row">
                     <span>速度</span>
-                    <input type="range" class="sd-speed-slider" min="1" max="5" step="1" value="${initialSpeed}">
-                    <span class="sd-speed-val">${initialSpeed}x</span>
+                    <input type="range" class="sd-speed-slider" min="1" max="5" step="1">
+                    <span class="sd-speed-val"></span>
                 </div>
             </div>
             <div class="sd-info"></div>
         </div>
     `;
+
+    _fillWindowTitle(win, char);
+    _fillSpeedDisplay(win, initialSpeed);
 
     // v2.9.9：抽取窗口控件绑定与主体设置（与 _createLoadingWindow 共用）
     _bindWindowControls(win);
@@ -563,11 +597,11 @@ function _setupWindowBody(win, char, data, initialSpeed) {
             if (isPaused) {
                 isPaused = false;
                 _showPauseState();
-                try { fgWriter.resumeAnimation(); } catch (e) { /* 静默 */ }
+                try { fgWriter.resumeAnimation(); } catch { /* 静默 */ }
             } else {
                 isPaused = true;
                 _showPlayState();
-                try { fgWriter.pauseAnimation(); } catch (e) { /* 静默 */ }
+                try { fgWriter.pauseAnimation(); } catch { /* 静默 */ }
             }
             return;
         }
@@ -612,7 +646,7 @@ function _createLoadingWindow(char) {
 
     win.innerHTML = `
         <div class="sd-window-header" role="toolbar" aria-label="弹窗控制">
-            <span class="sd-window-title" title="${char} 的笔画笔顺演示">${char} · 笔画笔顺</span>
+            <span class="sd-window-title"></span>
             <div class="sd-window-controls">
                 <button type="button" class="sd-btn-min" title="最小化" aria-label="最小化">▱</button>
                 <button type="button" class="sd-btn-max" title="最大化" aria-label="最大化">▢</button>
@@ -625,6 +659,7 @@ function _createLoadingWindow(char) {
         </div>
     `;
 
+    _fillWindowTitle(win, char);
     _bindWindowControls(win);
 
     // 占位注册到 _windows，避免数据未就绪期间相同字重复打开新弹窗
@@ -647,7 +682,7 @@ function _createLoadingWindow(char) {
             }
             _promoteLoadingWindow(win, char, data, initialSpeed);
         })
-        .catch(err => {
+        .catch(() => {
             if (isCancelled()) return;
             _showLoadingError(win, '笔画数据加载失败，请刷新页面重试');
             _windows.delete(char);
@@ -678,12 +713,13 @@ function _promoteLoadingWindow(win, char, data, initialSpeed) {
             </button>
             <div class="sd-speed-row">
                 <span>速度</span>
-                <input type="range" class="sd-speed-slider" min="1" max="5" step="1" value="${initialSpeed}">
-                <span class="sd-speed-val">${initialSpeed}x</span>
+                <input type="range" class="sd-speed-slider" min="1" max="5" step="1">
+                <span class="sd-speed-val"></span>
             </div>
         </div>
         <div class="sd-info"></div>
     `;
+    _fillSpeedDisplay(win, initialSpeed);
     _setupWindowBody(win, char, data, initialSpeed);
 }
 
@@ -695,7 +731,11 @@ function _showLoadingError(win, msg) {
     win.classList.add('sd-loading-error');
     const body = win.querySelector('.sd-window-body');
     if (body) {
-        body.innerHTML = `<div class="sd-loading-error-text">${msg}</div>`;
+        // 错误文案可能来自底层异常（不可信），一律 textContent 写入，不拼 HTML
+        const box = document.createElement('div');
+        box.className = 'sd-loading-error-text';
+        box.textContent = msg;
+        body.replaceChildren(box);
     }
 }
 
@@ -714,7 +754,7 @@ function _closeWindow(win, removeFromMap = true) {
 
     // S9：移除拖拽期间挂在 document 上的监听
     if (typeof win._sdDetachDrag === 'function') {
-        try { win._sdDetachDrag(); } catch (e) { /* 静默 */ }
+        try { win._sdDetachDrag(); } catch { /* 静默 */ }
         win._sdDetachDrag = null;
     }
 
@@ -911,13 +951,10 @@ function _enableDrag(win, handle) {
             _syncSlotState(win);
         }
 
-        const vp = getViewport();
-        const minLeft = MARGIN - overlayRect.left;
-        const minTop = MARGIN - overlayRect.top;
-        const maxLeft = Math.max(minLeft, vp.w - MARGIN - winW - overlayRect.left);
-        const maxTop = Math.max(minTop, vp.h - MARGIN - winH - overlayRect.top);
-        const nl = Math.min(maxLeft, Math.max(minLeft, origLeft + dx));
-        const nt = Math.min(maxTop, Math.max(minTop, origTop + dy));
+        const vp = getViewportRect();
+        const b = _freeBounds(vp, overlayRect, winW, winH);
+        const nl = Math.min(b.maxLeft, Math.max(b.minLeft, origLeft + dx));
+        const nt = Math.min(b.maxTop, Math.max(b.minTop, origTop + dy));
         win.style.left = nl + 'px';
         win.style.top = nt + 'px';
         if (e.cancelable) e.preventDefault();
@@ -945,7 +982,31 @@ function _enableDrag(win, handle) {
 }
 
 /**
+ * 自由拖拽窗口的合法 left/top 区间（overlay 局部坐标系）。
+ *
+ * 边界取「可视视口」而非「布局视口」：free 窗口的 left/top 是相对 overlay 的，
+ * 而 overlay 锚在可视视口中心，因此要把可视视口的原点偏移一并折算进来，
+ * 否则双指缩放平移后 clamp 会把窗口夹到一个用户看不见的位置。
+ *
+ * @param {{left:number,top:number,w:number,h:number}} vp 可视视口几何
+ * @param {{left:number,top:number}} overlayRect overlay 的 boundingClientRect
+ * @param {number} winW 窗口视觉宽（已乘缩放）
+ * @param {number} winH 窗口视觉高（已乘缩放）
+ */
+function _freeBounds(vp, overlayRect, winW, winH) {
+    const minLeft = vp.left + MARGIN - overlayRect.left;
+    const minTop = vp.top + MARGIN - overlayRect.top;
+    return {
+        minLeft,
+        minTop,
+        maxLeft: Math.max(minLeft, vp.left + vp.w - MARGIN - winW - overlayRect.left),
+        maxTop: Math.max(minTop, vp.top + vp.h - MARGIN - winH - overlayRect.top),
+    };
+}
+
+/**
  * 视口变化时把"自由拖拽"的窗口重新 clamp 回可视区（S3）。
+ * @param {{left:number,top:number,w:number,h:number}} vp
  */
 function _clampFreeWindows(vp) {
     if (!_overlay) return;
@@ -960,12 +1021,9 @@ function _clampFreeWindows(vp) {
         const curT = parseFloat(win.style.top);
         if (!Number.isFinite(curL) || !Number.isFinite(curT)) continue;
 
-        const minLeft = MARGIN - overlayRect.left;
-        const minTop = MARGIN - overlayRect.top;
-        const maxLeft = Math.max(minLeft, vp.w - MARGIN - winW - overlayRect.left);
-        const maxTop = Math.max(minTop, vp.h - MARGIN - winH - overlayRect.top);
-        const nl = Math.min(maxLeft, Math.max(minLeft, curL));
-        const nt = Math.min(maxTop, Math.max(minTop, curT));
+        const b = _freeBounds(vp, overlayRect, winW, winH);
+        const nl = Math.min(b.maxLeft, Math.max(b.minLeft, curL));
+        const nt = Math.min(b.maxTop, Math.max(b.minTop, curT));
         if (nl !== curL) win.style.left = nl + 'px';
         if (nt !== curT) win.style.top = nt + 'px';
     }
@@ -984,36 +1042,28 @@ function _arrangementItems(wins) {
 }
 
 /**
- * 把 overlay 对准"可视区"（默认由 CSS 的 left/top 50% + translate(-50%,-50%) 完成）。
+ * 把 overlay 锚定到「可视视口」的正中心（无条件）。
  *
- * 为什么需要：fixed 元素的定位基准是**初始包含块（布局视口）**，
- * 而 visualViewport 才是用户真正看得到的区域。两者在以下场景会不一致：
- *   - 双指缩放 / 地址栏收放（移动端）
- *   - 无头浏览器的 isMobile 模拟（布局视口被放大，clientWidth/visualViewport 正常）
- * 不一致时仅靠 left:50% 会把弹窗推出可视区 —— 正是 S1/S2 要消灭的"不可达"。
+ * 为什么不能只靠 CSS 的 left/top:50% + translate(-50%,-50%)：
+ * fixed 元素的百分比基准是**初始包含块（布局视口）**，而 visualViewport 才是
+ * 用户真正看得到的区域。二者在以下场景不重合：
+ *   - 软键盘弹出（可视高度骤减，布局视口不变 → 弹窗中心落到键盘后面）
+ *   - 双指缩放后平移（offsetLeft/offsetTop 非 0）
+ *   - 移动端地址栏收放、无头浏览器 isMobile 模拟
+ * 此时 left:50% 会把弹窗推出可见区或偏离中心 —— 正是"单窗口不在正中央"的成因。
  *
- * 实现要点：先清空内联 left/top 量出"CSS 居中基线"，只有基线确实落在可视区之外才纠偏。
- * 因此真实设备（两者一致，基线必然在可视区内）**完全不会**触发纠偏，
- * 行为与旧版逐像素一致 —— 不会因滚动条宽度等差异产生偏移。
+ * 为什么无条件写死（而不是"发现跑出去了才纠偏"）：
+ * 用户诉求是**总在正中央**，"在可视区内但偏心"同样是缺陷；条件式纠偏只保证前者。
+ * 且该式在布局视口与可视视口重合时与 CSS 基线**逐像素等价**：
+ *   桌面 left:50% = clientWidth/2（不含滚动条）= visualViewport.width/2 + offsetLeft(0)，
+ * 因此对桌面与真实手机都不引入偏移，无回归。
+ *
+ * @param {{left:number,top:number,w:number,h:number}} vp 可视视口几何
  */
-function _syncOverlayPosition(vp) {
-    if (!_overlay || typeof window === 'undefined') return;
-    const vv = window.visualViewport || null;
-    const visLeft = vv ? (vv.offsetLeft || 0) : 0;
-    const visTop = vv ? (vv.offsetTop || 0) : 0;
-
-    _overlay.style.left = '';
-    _overlay.style.top = '';
-    const rect = _overlay.getBoundingClientRect();
-
-    const inside = rect.left >= visLeft - 1 &&
-                   rect.right <= visLeft + vp.w + 1 &&
-                   rect.top >= visTop - 1 &&
-                   rect.bottom <= visTop + vp.h + 1;
-    if (inside) return;
-
-    _overlay.style.left = (visLeft + vp.w / 2) + 'px';
-    _overlay.style.top = (visTop + vp.h / 2) + 'px';
+function _anchorOverlay(vp) {
+    if (!_overlay) return;
+    _overlay.style.left = (vp.left + vp.w / 2) + 'px';
+    _overlay.style.top = (vp.top + vp.h / 2) + 'px';
 }
 
 /**
@@ -1034,7 +1084,7 @@ function _reflow(opts = {}) {
     }
     if (all.length === 0) { _maybeHideOverlay(); return; }
 
-    const vp = getViewport();
+    const vp = getViewportRect();
     // 注意：下界取 40px 而非"恰好放得下一个窗口"，是为了在极端小视口下宁可把窗口缩得很小，
     // 也不让它溢出屏幕（S1/S2 的硬要求：任何情况下都可触达）。
     const availW = Math.max(40, vp.w - MARGIN * 2);
@@ -1065,27 +1115,50 @@ function _reflow(opts = {}) {
     const cols = Math.max(1, solved.cols);
     _overlay.style.setProperty('--sd-cols', String(cols));
     _overlay.style.setProperty('--sd-s', String(s));
+    // 可用区交给 CSS：max-width/max-height 与"最大化"尺寸都必须以**可视视口**为准。
+    // 用 100vw/100vh 会取到布局视口（移动端 = 大视口），比真正可见的区域高出一截。
+    _overlay.style.setProperty('--sd-avail-w', availW + 'px');
+    _overlay.style.setProperty('--sd-avail-h', availH + 'px');
     _overlay.style.display = 'grid';
-    _syncOverlayPosition(vp);
+    _anchorOverlay(vp);
 
-    // 末行居中：网格自动放置会把"孤行"贴在最左侧，视觉上不齐（用户诉求之一）。
-    // 给末行条目显式指定列起点即可让末行整体居中。
+    _placeLastRow(items, cols);
+    _clampFreeWindows(vp);
+}
+
+/**
+ * 末行居中。
+ *
+ * 网格自动放置会把不满一行的"孤行"贴在最左侧列，视觉上明显偏斜
+ * （实测 iPad 竖屏 3 窗口时孤行偏离视口中心 198px）。
+ *
+ * 单个孤行条目（MAX_WINDOWS=4 时这是唯一会出现的不满行形态：3窗/2列、4窗/3列）
+ * 让它横跨所有列并 justify-self:center —— 这是**精确**居中。
+ * 仅靠整数列起点做不到：列起点只能对齐到整条轨道，奇数条目放进偶数列必然偏半格。
+ *
+ * @param {{win:HTMLElement}[]} items 参与排列的条目（DOM 顺序）
+ * @param {number} cols 求解出的列数
+ */
+function _placeLastRow(items, cols) {
     const n = items.length;
     const rows = Math.max(1, Math.ceil(n / cols));
     const lastRowCount = n - (rows - 1) * cols;
+    const incomplete = lastRowCount < cols;
     const offset = Math.floor((cols - lastRowCount) / 2);
+
     items.forEach((it, i) => {
         const slot = it.win && it.win._sdSlot;
         if (!slot) return;
-        const isLastRow = Math.floor(i / cols) === rows - 1;
-        if (isLastRow && lastRowCount < cols) {
+        const inLastRow = Math.floor(i / cols) === rows - 1;
+        const orphan = inLastRow && incomplete;
+        // 单条目孤行：跨满所有列后居中（精确）
+        slot.classList.toggle('sd-slot--orphan', orphan && lastRowCount === 1);
+        if (orphan && lastRowCount > 1) {
             slot.style.gridColumnStart = String(offset + (i - (rows - 1) * cols) + 1);
         } else if (slot.style.gridColumnStart) {
             slot.style.gridColumnStart = '';
         }
     });
-
-    _clampFreeWindows(vp);
 }
 
 /** 简易 toast 提示 */
