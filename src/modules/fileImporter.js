@@ -503,6 +503,20 @@ function showToast(message, type) {
 }
 
 /**
+ * v3.0.7：通知「生字内容已变更」，由 main.js 全量重新生成整张字帖。
+ *
+ * 为什么用独立事件而不是复用 calligraphy:settings-updated：
+ *   后者在 main.js 里已改为按设置快照 diff 分流（只改网格颜色/式样时走定向重绘），
+ *   导入生字改的是输入框与 ai_zuci 缓存、并不改设置，靠"diff 为空"去推断意图太隐晦。
+ *   一个显式事件把"这是内容变更、必须全量重建"写在名字里。
+ *
+ * 调用时机必须在 this.textarea.value 写入**之后** —— 早于写入会让字帖按旧文本生成。
+ */
+function notifyContentUpdated() {
+    document.dispatchEvent(new CustomEvent('calligraphy:content-updated'));
+}
+
+/**
  * 根据文件扩展名处理内容
  * txt/md/csv 统一在此走文本解析路径
  * 优先尝试增强解析（多音字/组词/拼音指定），未命中回退过滤纯汉字
@@ -532,8 +546,13 @@ function processFileContent(name, content) {
             document.dispatchEvent(new CustomEvent('calligraphy:import-enhanced', {
                 detail: { type: 'enhanced', count: written, chars: Object.keys(enhanced.cache) }
             }));
-            // ③ 触发重渲染（main.js 已监听 settings-updated）
-            document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+            // v3.0.7：这里**不再**派发重渲染事件。
+            //   原代码在此处派发 calligraphy:settings-updated，但本函数只是把解析结果
+            //   return 给调用方，调用方要到之后才写 this.textarea.value —— 也就是说
+            //   重渲染发生在输入框被填入**之前**，字帖是按上一次的旧文本生成的。
+            //   增强导入看似"生效了"（缓存写进去了），字帖却是旧内容，
+            //   要等用户手动点一次按钮才对得上。
+            //   现统一由调用方在填完输入框之后派发 calligraphy:content-updated。
             console.log('[FileImporter] 增强解析命中：' + written + ' 字（含拼音/组词指定）');
         } catch (err) {
             console.error('[FileImporter] 增强解析写入缓存失败，回退纯汉字:', err);
@@ -574,13 +593,16 @@ class FileImporter {
             return;
         }
 
-        // 创建"📁 导入文件"按钮（复用现有 .btn .btn-secondary 样式）
+        // 创建"📁 导入生字"按钮（复用现有 .btn .btn-secondary 样式）
+        // v3.0.7：原名"导入文件"。它导入的从来不是"文件"这个物件，
+        //   而是从文件里提取出的**生字**（txt/md/csv/xlsx/docx 一律先过滤成纯汉字串，
+        //   增强格式还会带上指定拼音/组词）。按钮名说成"文件"会让用户以为是在打开文档。
         this.button = document.createElement('button');
         this.button.id = 'fileImportBtn';
         this.button.className = 'btn btn-secondary file-import-btn';
         this.button.type = 'button';
-        this.button.title = '导入 txt/md/csv/xlsx/docx 文件到输入框';
-        this.button.innerHTML = '📁 导入文件';
+        this.button.title = '从 txt/md/csv/xlsx/docx 文件提取生字填入输入框，并自动重新生成字帖';
+        this.button.innerHTML = '📁 导入生字';
 
         // 创建隐藏的 file input
         this.fileInput = document.createElement('input');
@@ -659,8 +681,9 @@ class FileImporter {
                 // 优先尝试增强解析（xlsx 单列"字/拼音/组词"或双列"字,拼音,组词"经 parseXLSX 行拼接后自然落入增强解析）
                 const enhanced = tryParseEnhanced(processed);
                 if (enhanced && enhanced.text) {
+                    // v3.0.7：只写缓存，不在此处派发重渲染 —— 此刻输入框还没填，
+                    //   派发只会让字帖按旧文本重建一遍（详见 processFileContent 内同类说明）
                     preloadAiZuciCache(enhanced.cache);
-                    document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
                     processed = enhanced.text;
                 } else {
                     // 过滤出纯汉字字符（标点、字母、数字、空白等统统忽略）
@@ -678,6 +701,8 @@ class FileImporter {
                 this.textarea.value = processed;
                 this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
                 this.textarea.focus();
+                // v3.0.7：导入生效**之后**才派发，让整张字帖按新输入的生字重新生成
+                notifyContentUpdated();
                 showToast('已导入 ' + processed.length + ' 个汉字', 'success');
             } catch (err) {
                 console.error('[FileImporter] 解析二进制文件失败:', err);
@@ -722,6 +747,10 @@ class FileImporter {
                 // 聚焦输入框
                 this.textarea.focus();
 
+                // v3.0.7：文本文件路径原先**完全不派发**任何重渲染事件
+                //   （onboarding 文案也因此写着"填入后不会自动刷新字帖，需手动点按钮"）。
+                //   现与二进制路径一致：导入生效后自动重新生成整张字帖。
+                notifyContentUpdated();
                 showToast('已导入 ' + processed.length + ' 个汉字', 'success');
             } catch (err) {
                 console.error('[FileImporter] 处理文件失败:', err);

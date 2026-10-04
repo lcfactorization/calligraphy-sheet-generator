@@ -2,9 +2,19 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import tailwindcss from '@tailwindcss/vite';
+import { readFileSync } from 'node:fs';
+
+// v3.0.7：把 package.json 的 version 注入为编译期常量，作为运行时版本号的单一真源。
+// 根因：src/main.js 向启动器 iframe 报告的 version 原是硬编码字符串 'v3.0.5'，
+//   v3.0.6 发版时漏改（一直报到本次才发现）。凡是「多处必须保持同一个版本号」的地方，
+//   都应由构建期注入，而不是靠人肉手抄 —— 手抄的东西迟早会漂移。
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 export default defineConfig({
     base: './',
+    define: {
+        __APP_VERSION__: JSON.stringify(pkg.version)
+    },
     plugins: [
         tailwindcss(),
         viteSingleFile(),

@@ -1,0 +1,500 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "rows": [
+    {
+      "name": "S1 初始渲染已触发",
+      "pass": true,
+      "observed": true,
+      "expected": true,
+      "note": ""
+    },
+    {
+      "name": "S2 初始渲染重新排队了笔画（说明队列探针是活的）",
+      "pass": true,
+      "observed": 2,
+      "expected": ">0",
+      "note": "firstChars=[\"永\",\"字\"]"
+    },
+    {
+      "name": "S3 字格行数 = 2",
+      "pass": true,
+      "observed": 2,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "S4 辅助行笔画 path 已画出",
+      "pass": true,
+      "observed": 97,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "S5 用户字体文字节点存在",
+      "pass": true,
+      "observed": 22,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "S6 辅助行拼音节点存在",
+      "pass": true,
+      "observed": 2,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "S7 网格线存在",
+      "pass": true,
+      "observed": 64,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "S8 生字 = 永/字",
+      "pass": true,
+      "observed": "永字",
+      "expected": "永字",
+      "note": ""
+    },
+    {
+      "name": "S9 探针已打标",
+      "pass": true,
+      "observed": 338,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "F0 字体确实切到了另一个值",
+      "pass": true,
+      "observed": "LXGWWenKai",
+      "expected": "LXGWWenKai",
+      "note": "from=TW-Kai"
+    },
+    {
+      "name": "F1 切字体没有重新排队笔画",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "F2 探针总数不变（容器内无任何节点被重建）",
+      "pass": true,
+      "observed": 338,
+      "expected": 338,
+      "note": ""
+    },
+    {
+      "name": "F3 辅助行笔画 path 全部带探针（笔画笔顺未重建）",
+      "pass": true,
+      "observed": 97,
+      "expected": 97,
+      "note": ""
+    },
+    {
+      "name": "F4 辅助行拼音全部带探针（拼音未重建）",
+      "pass": true,
+      "observed": 2,
+      "expected": 2,
+      "note": ""
+    },
+    {
+      "name": "F5 辅助行拼音文本未变",
+      "pass": true,
+      "observed": "yǒng|zì",
+      "expected": "yǒng|zì",
+      "note": ""
+    },
+    {
+      "name": "F6 组词文本未变",
+      "pass": true,
+      "observed": "永|别|永|不|赤|字|错|字",
+      "expected": "永|别|永|不|赤|字|错|字",
+      "note": ""
+    },
+    {
+      "name": "F7 生字未变",
+      "pass": true,
+      "observed": "永字",
+      "expected": "永字",
+      "note": ""
+    },
+    {
+      "name": "F8 用户字体文字的 font-family 确实改了",
+      "pass": true,
+      "observed": [
+        "LXGWWenKai, serif",
+        "LXGWWenKai, serif",
+        "LXGWWenKai, serif"
+      ],
+      "expected": "LXGWWenKai, serif",
+      "note": ""
+    },
+    {
+      "name": "F9 拼音 font-family 未被误改（固定 TeXGyreAdventor）",
+      "pass": true,
+      "observed": "TeXGyreAdventor, serif|TeXGyreAdventor, serif",
+      "expected": "TeXGyreAdventor, serif|TeXGyreAdventor, serif",
+      "note": [
+        "TeXGyreAdventor, serif",
+        "TeXGyreAdventor, serif"
+      ]
+    },
+    {
+      "name": "F10 网格线颜色未变",
+      "pass": true,
+      "observed": "#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C",
+      "expected": "#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#66BB6A|#66BB6A|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C|#388E3C",
+      "note": ""
+    },
+    {
+      "name": "F11 网格式样未变",
+      "pass": true,
+      "observed": "mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian|mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian",
+      "expected": "mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian|mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian",
+      "note": ""
+    },
+    {
+      "name": "C0a 颜色预设按钮存在",
+      "pass": true,
+      "observed": 4,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "C0b 颜色预设按钮点到了",
+      "pass": true,
+      "observed": true,
+      "expected": true,
+      "note": "preset=red"
+    },
+    {
+      "name": "C1 切颜色没有重新排队笔画",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "C2 辅助行笔画 path 全部带探针（笔画笔顺未重建）",
+      "pass": true,
+      "observed": 97,
+      "expected": 97,
+      "note": ""
+    },
+    {
+      "name": "C3 辅助行拼音全部带探针（拼音未重建）",
+      "pass": true,
+      "observed": 2,
+      "expected": 2,
+      "note": ""
+    },
+    {
+      "name": "C4 组词格文字全部带探针（组词未重建）",
+      "pass": true,
+      "observed": 8,
+      "expected": 8,
+      "note": ""
+    },
+    {
+      "name": "C5 生字未变",
+      "pass": true,
+      "observed": "永字",
+      "expected": "永字",
+      "note": ""
+    },
+    {
+      "name": "C6 组词文本未变",
+      "pass": true,
+      "observed": "永|别|永|不|赤|字|错|字",
+      "expected": "永|别|永|不|赤|字|错|字",
+      "note": ""
+    },
+    {
+      "name": "C7 拼音文本未变",
+      "pass": true,
+      "observed": "yǒng|zì|yǒng|bié|yǒng|bù|chì|zì|cuò|zì",
+      "expected": "yǒng|zì|yǒng|bié|yǒng|bù|chì|zì|cuò|zì",
+      "note": ""
+    },
+    {
+      "name": "C8 网格线颜色确实改了",
+      "pass": true,
+      "observed": [
+        "#B14A4B",
+        "#B14A4B",
+        "#D97777"
+      ],
+      "expected": "!= [\"#388E3C\",\"#388E3C\",\"#66BB6A\"]",
+      "note": ""
+    },
+    {
+      "name": "C9 --grid-primary-color 确实改了",
+      "pass": true,
+      "observed": "#9E2A2B",
+      "expected": "!= #2E7D32",
+      "note": ""
+    },
+    {
+      "name": "C10 网格式样未变",
+      "pass": true,
+      "observed": "mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian|mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian",
+      "expected": "mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian|mizi|mizi|mizi|mizi|mizi|pinyin-zuci|tian|tian|pinyin-zuci|tian|tian",
+      "note": ""
+    },
+    {
+      "name": "C11 用户字体文字的 font-family 未被误改",
+      "pass": true,
+      "observed": "LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif",
+      "expected": "LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif|LXGWWenKai, serif",
+      "note": ""
+    },
+    {
+      "name": "G0a 网格类型按钮存在",
+      "pass": true,
+      "observed": 5,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "G0b 网格类型按钮点到了",
+      "pass": true,
+      "observed": true,
+      "expected": true,
+      "note": "mizi -> tian"
+    },
+    {
+      "name": "G1 切式样没有重新排队笔画（最贵的一段没重跑）",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "G2 用户格 data-grid-type 确实改了",
+      "pass": true,
+      "observed": "tian|tian|tian|tian|tian|tian|tian|tian|tian|tian",
+      "expected": "tian|tian|tian|tian|tian|tian|tian|tian|tian|tian",
+      "note": ""
+    },
+    {
+      "name": "G3 辅助行笔画 path 全部带探针（笔画笔顺未重建）",
+      "pass": true,
+      "observed": 97,
+      "expected": 97,
+      "note": ""
+    },
+    {
+      "name": "G4 辅助行拼音全部带探针（拼音未重建）",
+      "pass": true,
+      "observed": 2,
+      "expected": 2,
+      "note": ""
+    },
+    {
+      "name": "G5 生字未变",
+      "pass": true,
+      "observed": "永字",
+      "expected": "永字",
+      "note": ""
+    },
+    {
+      "name": "G6 组词文本未变",
+      "pass": true,
+      "observed": "永|别|永|不|赤|字|错|字",
+      "expected": "永|别|永|不|赤|字|错|字",
+      "note": ""
+    },
+    {
+      "name": "G7 拼音文本未变",
+      "pass": true,
+      "observed": "yǒng|zì|yǒng|bié|yǒng|bù|chì|zì|cuò|zì",
+      "expected": "yǒng|zì|yǒng|bié|yǒng|bù|chì|zì|cuò|zì",
+      "note": ""
+    },
+    {
+      "name": "G8 组词格文字全部带探针（右侧固定版式格未重建）",
+      "pass": true,
+      "observed": 8,
+      "expected": 8,
+      "note": ""
+    },
+    {
+      "name": "G9 网格层确实被重画了（它的探针应当消失）",
+      "pass": true,
+      "observed": 0,
+      "expected": "< 64",
+      "note": ""
+    },
+    {
+      "name": "G10 非用户格（拼音组词格）式样保持固定",
+      "pass": true,
+      "observed": 4,
+      "expected": 4,
+      "note": ""
+    },
+    {
+      "name": "T0 描红节点存在",
+      "pass": true,
+      "observed": 12,
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "T0b 找到可用的透明度档位",
+      "pass": true,
+      "observed": "0.05",
+      "expected": "a legal step != current",
+      "note": ""
+    },
+    {
+      "name": "T1 拖透明度没有重新排队笔画",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "T2 描红 opacity 确实改了",
+      "pass": true,
+      "observed": [
+        "0.05",
+        "0.05",
+        "0.05"
+      ],
+      "expected": "!= [\"0.1\",\"0.1\",\"0.1\"]",
+      "note": "slider=traceOpacitySlider"
+    },
+    {
+      "name": "T3 辅助行笔画 path 全部带探针（笔画笔顺未重建）",
+      "pass": true,
+      "observed": 97,
+      "expected": 97,
+      "note": ""
+    },
+    {
+      "name": "T4 生字未变",
+      "pass": true,
+      "observed": "永字",
+      "expected": "永字",
+      "note": ""
+    },
+    {
+      "name": "N0 负控已触发（改输入文本 + 点刷新字帖）",
+      "pass": true,
+      "observed": true,
+      "expected": true,
+      "note": ""
+    },
+    {
+      "name": "N1 负控：内容变更确实重新排队了笔画（探针方法有效）",
+      "pass": true,
+      "observed": 2,
+      "expected": ">0",
+      "note": "firstChars=[\"山\",\"水\"]"
+    },
+    {
+      "name": "N2 负控：探针全部消失（容器被整体重建）",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "N3 负控：辅助行笔画 path 不再带探针",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    },
+    {
+      "name": "N4 负控：生字换成了新输入",
+      "pass": true,
+      "observed": "山水",
+      "expected": "山水",
+      "note": ""
+    },
+    {
+      "name": "P0 侧栏「预设场景」列表已渲染",
+      "pass": true,
+      "observed": 9,
+      "expected": "a list",
+      "note": ""
+    },
+    {
+      "name": "P1 三个学期各自成一个分组（组名＝学期名）",
+      "pass": true,
+      "observed": "true,true,true",
+      "expected": "true,true,true",
+      "note": "实际分组=[\"唐诗宋词\",\"三字经\",\"千字文\",\"常用字\",\"成语\",\"节日\",\"五年级上册\",\"五年级下册\",\"六年级上册\"]"
+    },
+    {
+      "name": "P2 学期分组按 五上→五下→六上 排序",
+      "pass": true,
+      "observed": [
+        "五年级上册",
+        "五年级下册",
+        "六年级上册"
+      ],
+      "expected": "五年级上册 < 五年级下册 < 六年级上册",
+      "note": ""
+    },
+    {
+      "name": "P3 每个学期分组内恰好一条整册字表",
+      "pass": true,
+      "observed": "1,1,1",
+      "expected": "1,1,1",
+      "note": ""
+    },
+    {
+      "name": "P4 三条字表标注的字数为 217/180/180",
+      "pass": true,
+      "observed": "217字,180字,180字",
+      "expected": "217字,180字,180字",
+      "note": ""
+    },
+    {
+      "name": "P5 点到「五年级下册」那条预设",
+      "pass": true,
+      "observed": true,
+      "expected": true,
+      "note": ""
+    },
+    {
+      "name": "P6 输入框被填入 180 字",
+      "pass": true,
+      "observed": 180,
+      "expected": 180,
+      "note": ""
+    },
+    {
+      "name": "P7 填入内容首尾与教材原序一致",
+      "pass": true,
+      "observed": "昼耘桑晓蝴蚂…渺享庸憎",
+      "expected": "昼耘桑晓蝴蚂…渺享庸憎",
+      "note": ""
+    },
+    {
+      "name": "P8 字帖重排为 180 行（每字一行）",
+      "pass": true,
+      "observed": 180,
+      "expected": 180,
+      "note": ""
+    },
+    {
+      "name": "P9 180 行逐字等于输入框内容（顺序也未被打乱）",
+      "pass": true,
+      "observed": "昼耘桑晓蝴蚂蚱嗡樱拔瞎铲锄割尾承拴瓢逛妒忌曹督委鲁遮寨擂呐插冈饥碟斤俺榜杖申兼勿拖悉坠膛截仞岳摩遗涕巫彭拟谋瑞损锻炼眷赴搞殊尊签革庆诊沃龄匪绷审剂施吭崭衷慈祥荣跤搂仗鞭欺挠扳腕剃腮疤监侄喉咙浆傅袱桶障芝圣犯馅轰堪诈傻捏怔矛盾誉吾赢拳擦策荐艘航肆帽桅撕逗唬钩扭咧舱鸥瞄尼斯艇纵艄翘垫帘姆祷雇簇哗码笼仪眺骏驰辽绵凳吆铛罐恢踢牲畜梁诣禽拇搔痒秽轧拧螺纽扣貌仓渺享庸憎",
+      "expected": "昼耘桑晓蝴蚂蚱嗡樱拔瞎铲锄割尾承拴瓢逛妒忌曹督委鲁遮寨擂呐插冈饥碟斤俺榜杖申兼勿拖悉坠膛截仞岳摩遗涕巫彭拟谋瑞损锻炼眷赴搞殊尊签革庆诊沃龄匪绷审剂施吭崭衷慈祥荣跤搂仗鞭欺挠扳腕剃腮疤监侄喉咙浆傅袱桶障芝圣犯馅轰堪诈傻捏怔矛盾誉吾赢拳擦策荐艘航肆帽桅撕逗唬钩扭咧舱鸥瞄尼斯艇纵艄翘垫帘姆祷雇簇哗码笼仪眺骏驰辽绵凳吆铛罐恢踢牲畜梁诣禽拇搔痒秽轧拧螺纽扣貌仓渺享庸憎",
+      "note": ""
+    },
+    {
+      "name": "Z1 全程无未捕获页面异常",
+      "pass": true,
+      "observed": 0,
+      "expected": 0,
+      "note": ""
+    }
+  ]
+}

@@ -1256,7 +1256,10 @@ function bindPanelEvents(overlay) {
                 setStatus(msg, result.timedOut ? '#f59e0b' : '#16a34a');
 
                 // 触发重渲染
-                document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+                // v3.0.7：AI 补齐改的是拼音/组词缓存（内容），设置一个字都没动。
+                //   改派显式的 content-updated —— main.js 现在对 settings-updated
+                //   做「设置快照 diff」分流，空 diff 会被判为无事可做。
+                document.dispatchEvent(new CustomEvent('calligraphy:content-updated'));
             } catch (err) {
                 if (err && err.name === 'AbortError') {
                     setStatus('已中断', '#6b7280');

@@ -29,8 +29,8 @@
     <!-- ════════ 标题区（v2.5.4：压缩高度，左对齐，副标题保留但紧凑） ════════ -->
     <div class="app-header">
         <div class="header-title">
-            <h1>✏️ <span class="accent">字帖生成器</span> <span class="version-tag">v3.0.6</span></h1>
-            <p>输入汉字 → 选择字体 → 生成字帖 → 打印/导出PDF <span class="build-info">· build 2026-10-04 v3.0.6（18 家 AI 引擎 + 自定义引擎 · ⚙ AI 控制台 · Key 四种保存方式 · 笔顺弹窗按可视视口精确居中）</span></p>
+            <h1>✏️ <span class="accent">字帖生成器</span> <span class="version-tag">v3.0.7</span></h1>
+            <p>输入汉字 → 选择字体 → 刷新字帖 → 打印/导出PDF <span class="build-info">· build 2026-10-04 v3.0.7（切字体 / 网格颜色 / 网格式样即时定向重绘，不再重算拼音·组词·笔画 · 导入生字后自动重排 · 部编版五上/五下/六上整册生字预设 · 18 家 AI 引擎 + ⚙ AI 控制台）</span></p>
         </div>
         <div class="app-header-actions">
             <!-- 帮助链接垂直排列三行（笔顺演示 / API Key 使用 / 导入与修改） -->
@@ -42,7 +42,7 @@
         </div>
     </div>
 
-    <!-- ════════ 输入面板（v2.4.3 调整控件顺序：字体→汉字输入+清除→生成字帖） ════════ -->
+    <!-- ════════ 输入面板（v2.4.3 调整控件顺序：字体→汉字输入+清除→刷新字帖） ════════ -->
     <div class="panel" id="input-container">
         <div class="panel-title">
             <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -97,11 +97,14 @@
             <span class="char-counter" id="charCounter" title="推荐上限 330 字（约 30 页），超出可继续输入，将生成更多页">0 / 330</span>
         </div>
 
-        <!-- 3. 生成字帖（主按钮，保留文字以明确主操作） -->
+        <!-- 3. 刷新字帖（主按钮，保留文字以明确主操作） -->
+        <!-- v3.0.7：原名"生成字帖"。字帖在首屏就已经生成好了，此后这个按钮做的是
+             "按当前输入与设置重新生成一遍"，语义上是刷新而不是首次生成；
+             且切换字体/网格颜色/网格式样已改为自动定向重绘，不再需要点它 -->
         <div class="field-row">
-            <button class="btn btn-primary" id="generate-btn" style="width:100%">
+            <button class="btn btn-primary" id="generate-btn" style="width:100%" title="刷新字帖（按当前输入与设置重新生成预览）" aria-label="刷新字帖">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                生成字帖
+                刷新字帖
             </button>
         </div>
 

@@ -32,14 +32,16 @@ const OB_NEVER_SHOW_KEY = 'onboarding_never_show';
 const OB_VERSION = 'v3.0.5';
 
 // 引导步骤数据：每项含 selector、title、desc、position、hintCorner
-// v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"生成"）
+// v2.9.7：标注每个控件是否触发字帖自动刷新（🔄自动刷新 / ✋需手动点"刷新字帖"）
+// v3.0.7：字体切换、上传字体、导入生字均改为自动生效，标记由 ✋ 改为 🔄；
+//         网格类型 / 线框颜色 / 描红透明度虽早已自动，但 v3.0.7 起是"定向重绘"而非全量重建。
 // v2.9.8：新增 autoOpen（'sidebar' / 'history' / null）和 tooltipText 字段
 // v2.9.9：新增 autoOpen: 'settings'（主动打开设置面板，介绍 AI 组词补齐）
 const ONBOARDING_STEPS = [
     {
         selector: '#settingsBtn',
         title: '⚙️ 设置中心 🔄',
-        desc: '右上角是设置中心，可调整网格类型、颜色、显示开关等。改完关闭面板即自动刷新字帖，无需手动点"生成"。',
+        desc: '右上角是设置中心，可调整网格类型、颜色、显示开关等。改完即时生效，无需手动点"刷新字帖"；其中网格颜色与式样只做定向重绘，不会重算拼音、组词和笔画。',
         tooltipText: '设置中心',
         position: 'bottom',
         hintCorner: 'top-right',
@@ -92,8 +94,8 @@ const ONBOARDING_STEPS = [
     },
     {
         selector: '#font-select',
-        title: '🔤 字体选择 ✋',
-        desc: '输入区上方是字体下拉框，可在霞鹜文楷、思源宋体等字体间切换。切换后需手动点"生成"或"🔄"按钮才生效。',
+        title: '🔤 字体选择 🔄',
+        desc: '输入区上方是字体下拉框，可在霞鹜文楷、思源宋体等字体间切换。v3.0.7 起切换即刻生效，无需点任何按钮：只改写范字/描红/组词这些"用户字体"文字的 font-family，拼音（固定用 TeXGyreAdventor）、笔画笔顺、网格线一个节点都不重建。',
         tooltipText: '字体',
         position: 'bottom',
         hintCorner: 'top-right',
@@ -101,8 +103,8 @@ const ONBOARDING_STEPS = [
     },
     {
         selector: '.font-upload-btn',
-        title: '⬆ 自定义字体 ✋',
-        desc: '字体下拉框右侧的上传按钮，支持 ttf/otf/woff/woff2 格式。加载后需手动点"生成"才生效。',
+        title: '⬆ 自定义字体 🔄',
+        desc: '字体下拉框右侧的上传按钮，支持 ttf/otf/woff/woff2 格式。加载完成后自动选中该字体并立即重绘字帖，无需再点"刷新字帖"。',
         tooltipText: '添加自己的字体文件（支持 ttf/otf/woff/woff2 格式，加载后可在字体下拉框中选择）',
         position: 'bottom',
         hintCorner: 'top-right',
@@ -120,7 +122,7 @@ const ONBOARDING_STEPS = [
     {
         selector: '#recommendBtn',
         title: '✨ 智能推荐 ✋',
-        desc: '输入框下方按钮行最左侧是智能推荐，含按难度/主题/场景三个维度（离线规则，非 AI）。单字点击追加到输入框尾部，模板点击覆盖原内容。改完输入框不会自动刷新字帖，需手动点"生成"或"🔄"按钮。不影响任何设置（网格/颜色/字体等都不动）。',
+        desc: '输入框下方按钮行最左侧是智能推荐，含按难度/主题/场景三个维度（离线规则，非 AI）。单字点击追加到输入框尾部，模板点击覆盖原内容。改完输入框不会自动刷新字帖，需手动点"刷新字帖"或"🔄"按钮。不影响任何设置（网格/颜色/字体等都不动）。',
         tooltipText: 'AI 智能推荐汉字与模板',
         position: 'top',
         hintCorner: 'bottom-left',
@@ -128,9 +130,9 @@ const ONBOARDING_STEPS = [
     },
     {
         selector: '#fileImportBtn',
-        title: '📁 导入生词文件 ✋',
-        desc: '输入框下方按钮行中间是文件导入按钮，支持 txt/md/csv/xlsx/docx 格式，自动提取汉字填入输入框。填入后不会自动刷新字帖，需手动点"生成"或"🔄"按钮。',
-        tooltipText: '导入 txt/md/csv/xlsx/docx 文件到输入框',
+        title: '📁 导入生字 🔄',
+        desc: '输入框下方按钮行中间是"导入生字"按钮，支持 txt/md/csv/xlsx/docx 格式，自动提取汉字填入输入框。v3.0.7 起填入后会自动重新生成整个字帖，无需再点"刷新字帖"。',
+        tooltipText: '导入生字：从 txt/md/csv/xlsx/docx 文件提取汉字填入输入框，并自动重新生成字帖',
         position: 'top',
         hintCorner: 'bottom-left',
         autoOpen: null
@@ -139,7 +141,7 @@ const ONBOARDING_STEPS = [
     {
         selector: '.grid-type-group',
         title: '📐 网格类型 🔄',
-        desc: '左侧栏的"网格类型"切换组，支持田字格 / 米字格 / 九宫格 / 回字格 / 拼音田五种字格。点击立即刷新字帖。',
+        desc: '左侧栏的"网格类型"切换组，支持田字格 / 米字格 / 九宫格 / 回字格 / 拼音田五种字格。v3.0.7 起点击即时生效，且只做定向重绘：重画格子线条，范字/拼音/组词/笔画笔顺节点原地保留，不重新计算。',
         tooltipText: '点击切换字格类型',
         position: 'right',
         hintCorner: 'top-left',
@@ -148,7 +150,7 @@ const ONBOARDING_STEPS = [
     {
         selector: '.opacity-slider-wrap',
         title: '🖌️ 描红透明度 🔄',
-        desc: '左侧栏的"描红透明度"滑块，调整字帖中范字的透明度（0.05 ~ 0.30）。拖动立即刷新字帖。',
+        desc: '左侧栏的"描红透明度"滑块，调整字帖中范字的透明度（0.05 ~ 0.30）。v3.0.7 起拖动即时生效，且只改写描红范字的 opacity 属性，网格、拼音、组词、笔画笔顺一个节点都不重建。',
         tooltipText: '描红透明度',
         position: 'right',
         hintCorner: 'top-left',
@@ -157,7 +159,7 @@ const ONBOARDING_STEPS = [
     {
         selector: '.color-preset-group',
         title: '🎨 线框颜色 🔄',
-        desc: '左侧栏的"线框颜色"快切，支持传统绿 / 朱砂红 / 靛青蓝 / 墨黑四种配色。点击立即刷新字帖（页眉页脚颜色同步）。',
+        desc: '左侧栏的"线框颜色"快切，支持传统绿 / 朱砂红 / 靛青蓝 / 墨黑四种配色。v3.0.7 起点击即时生效（页眉页脚颜色同步），且只做定向重绘：重画格子线条并改写拼音/组词的填充色，生字、组词内容、笔画笔顺都不重新生成。',
         tooltipText: '点击切换线框颜色',
         position: 'right',
         hintCorner: 'top-left',
@@ -166,7 +168,7 @@ const ONBOARDING_STEPS = [
     {
         selector: '.preset-list',
         title: '📚 预设场景 🔄',
-        desc: '左侧栏底部是"预设场景"列表，按年级 / 主题 / 场景分类。点击模板自动填入输入框并生成字帖。',
+        desc: '左侧栏底部是"预设场景"列表，按年级 / 主题 / 场景分类，含唐诗宋词、三字经、千字文、常用字、成语、节日，以及 v3.0.7 新增的部编版整册生字 —— 一个学期一个分组：「五年级上册」217 字 /「五年级下册」180 字 /「六年级上册」180 字（人教社统编教材课后写字表，按教材原序整册收录）。点击模板自动填入输入框并刷新字帖。',
         tooltipText: '点击应用预设场景',
         position: 'right',
         hintCorner: 'top-left',
@@ -241,7 +243,7 @@ const ONBOARDING_STEPS = [
     {
         selector: null,
         title: '📥 导入格式与手动修改',
-        desc: '导入文件支持带拼音/组词/多音字指定的增强格式，也可手动编辑单个汉字的拼音和组词。点击右上角「导入与修改」可查看详情。',
+        desc: '导入生字文件支持带拼音/组词/多音字指定的增强格式，也可手动编辑单个汉字的拼音和组词。点击右上角「导入与修改」可查看详情。',
         tooltipText: null,
         position: 'center',
         hintCorner: 'top',

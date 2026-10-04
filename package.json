@@ -1,12 +1,13 @@
 {
   "name": "calligraphy-sheet-generator",
-  "version": "3.0.6",
+  "version": "3.0.7",
   "type": "module",
-  "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.6 完整移植 AI Key 处理体系（18 家引擎 + 自定义引擎 + ⚙ AI 控制台 + 四种保存方式 + 连通性体检）+ 笔顺弹窗按可视视口精确居中与多窗口优雅排布",
+  "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.7 定向重绘（切字体 / 网格颜色 / 网格式样 / 描红透明度即时生效，不再重算拼音·组词·笔画）+「导入生字」正名与派发时序修复 + 人教社部编版五上/五下/六上整册生字预设",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "verify:refresh": "node scripts/verify-incremental-refresh.cjs",
     "pdf": "node puppeteer-pdf.cjs",
     "pdf:help": "node puppeteer-pdf.cjs --help",
     "pdf:test": "node puppeteer-pdf.cjs --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"

@@ -1,6 +1,8 @@
 // v1.2.0 模块：手动修改模式（简化版）
 // 点击字帖行右侧"拼音+组词"区域 → 弹出轻量编辑浮层 → 写 ai_zuci_cache_v1（userEdited 标记）
-// → dispatch calligraphy:settings-updated 全量重绘。优先级：手动 > AI > 默认词库。
+// → dispatch calligraphy:content-updated 全量重绘。优先级：手动 > AI > 默认词库。
+// v3.0.7：改派 content-updated 而不是 settings-updated —— 这里改的是拼音/组词内容，
+//   设置一个字都没动；main.js 现在只对"设置真的变了"做定向重绘，内容变更走显式信号。
 // 复用 .sc-overlay / .sc-modal / .sc-field 样式（settingsCenter.css），不依赖字格 DOM 节点。
 
 import { updateAiZuciCache, clearUserEdit } from './aiZuci.js';
@@ -77,12 +79,12 @@ function openEditModal(char, pinyin, zuci) {
             zuci: [z1, z2].filter(Boolean)   // 留空字段由 updateAiZuciCache 保留旧值
         });
         closeEditModal();
-        document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+        document.dispatchEvent(new CustomEvent('calligraphy:content-updated'));
     });
     overlay.querySelector('#meClear').addEventListener('click', () => {
         clearUserEdit(char);
         closeEditModal();
-        document.dispatchEvent(new CustomEvent('calligraphy:settings-updated'));
+        document.dispatchEvent(new CustomEvent('calligraphy:content-updated'));
     });
     // 自动聚焦拼音框
     overlay.querySelector('#mePinyin').focus();

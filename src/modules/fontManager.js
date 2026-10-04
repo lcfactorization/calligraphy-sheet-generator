@@ -77,6 +77,10 @@ export function handleFontUpload(file) {
             opt.dataset.fontDataUrl = ev.target.result;
             opt.dataset.fontDisplayName = displayName;
             select.appendChild(opt);
+            // v3.0.7：opt.selected = true 是**编程式**赋值，浏览器不会因此派发 change 事件，
+            //   于是上传完字体后字帖仍显示旧字体。显式派发一次，让 main.js 走定向重绘。
+            select.value = fontName;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
             console.log('自定义字体已加载: ' + displayName);
         }).catch(function(err) {
             alert('字体加载失败: ' + err.message);

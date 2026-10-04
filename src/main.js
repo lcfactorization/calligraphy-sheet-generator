@@ -2,12 +2,13 @@ import './styles/main.css';
 import { loadFonts, handleFontUpload, detectSystemFonts } from './modules/fontManager.js';
 import { applyTheme, toggleTheme, updateCharCounter, resetHF } from './modules/settings.js';
 // v2.4.0：切换到新 SVG 矢量字格引擎 + jsPDF/svg2pdf 双轨 PDF（保留旧模块作回退）
-import { renderSheet } from './components/GridEngine.js';
+// v3.0.7：额外引入三个定向重绘 API —— 换字体/换网格色/换网格式样不再全量重建字帖
+import { renderSheet, applySheetFont, applySheetTraceOpacity, repaintSheetGrid } from './components/GridEngine.js';
 import { exportPDF } from './utils/pdfExport.js';
 import { initSidebar, getSidebarState } from './components/Sidebar.js';
 import './modules/puppeteerClient.js'; // side-effect 导入
 import { initHistory, saveHistory } from './modules/history.js';
-import { initSettingsCenter } from './modules/settingsCenter.js';
+import { initSettingsCenter, getSettings } from './modules/settingsCenter.js';
 import { initDifficulty } from './modules/difficulty.js';
 import { registerFileImporter } from './modules/fileImporter.js';
 import { registerRecommender } from './modules/recommender.js';
@@ -70,7 +71,9 @@ if (import.meta.env.PROD && location.protocol !== 'file:' && 'serviceWorker' in 
 // 同步初始化到此已完成，界面骨架已存在，此时切换显示不会出现空白帧。
 try {
     if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: 'calligraphy:ready', version: 'v3.0.5' }, '*');
+        // v3.0.7：版本号改由 vite define 从 package.json 注入（原先硬编码，v3.0.6 漏改）
+        const reportedVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+        window.parent.postMessage({ type: 'calligraphy:ready', version: reportedVersion }, '*');
     }
 } catch (e) { /* 跨源限制下忽略：启动器会走超时兜底 */ }
 
@@ -86,21 +89,88 @@ function getRenderOptions() {
     };
 }
 
-// 生成字帖（新 SVG 引擎）
+function getGridContainer() {
+    return document.getElementById('grid-container');
+}
+
+/** 字帖容器是否已有内容（决定能否走定向重绘；空容器只能全量生成） */
+function hasRenderedSheet(container) {
+    return !!container && container.childElementCount > 0;
+}
+
+/** 视觉反馈：字格容器边框闪一下 */
+function flashUpdated(container) {
+    if (!container) return;
+    container.classList.add('just-updated');
+    setTimeout(() => container.classList.remove('just-updated'), 400);
+}
+
+/** 保存历史记录（全量生成与切换字体共用） */
+function recordHistory() {
+    const inputEl = document.getElementById('inputText');
+    const fontSelect = document.getElementById('font-select');
+    if (!inputEl || !fontSelect) return;
+    saveHistory(inputEl.value, fontSelect.value, fontSelect.options[fontSelect.selectedIndex].text);
+}
+
+// ── v3.0.7：外观变更 vs 内容变更的分流 ──────────────────────────
+// 背景：'calligraphy:settings-updated' 原先是一个被**多方复用**的事件 ——
+//   设置中心改网格/颜色/透明度会发它，手动改拼音组词、导入生字、AI 组词补齐
+//   完成后也发它（后三者派发时不带任何设置变化）。
+//   原先 main.js 一律全量重绘，于是「换个网格颜色」也要把每个汉字的拼音
+//   重新过一遍 pinyin-pro、组词重新查库、笔画重新排进 hanzi-writer 异步队列。
+//
+// v3.0.7 的分工：
+//   · 内容变更（生字 / 拼音 / 组词）一律派发**显式**信号 'calligraphy:content-updated'
+//     → 全量重生成。派发方：fileImporter、manualEdit、settingsCenter 的 AI 组词补齐。
+//   · 设置变更仍走 'calligraphy:settings-updated'，用「设置快照 diff」判断改了什么：
+//       - diff 全部落在外观键内（网格颜色 / 网格式样 / 描红透明度）→ 定向重绘；
+//       - diff 含任何非外观键（显示开关、格子尺寸等）或没有基线 → 全量重绘；
+//       - diff 为空 → 什么都不做（设置没变就没有要重绘的东西）。
+//   用快照 diff 而不是事件 detail：detail 的六个派发点载荷形状不一致，靠不住。
+const GRID_REPAINT_KEYS = ['gridColorPreset', 'gridType'];
+const APPEARANCE_KEYS = new Set([...GRID_REPAINT_KEYS, 'traceOpacity']);
+
+let settingsSnapshot = null;
+
+function takeSettingsSnapshot() {
+    try {
+        settingsSnapshot = JSON.stringify(getSettings());
+    } catch {
+        settingsSnapshot = null;
+    }
+}
+
+/** @returns {string[]|null} 相对上次全量渲染变化的设置键；null = 无基线 */
+function diffSettings() {
+    if (!settingsSnapshot) return null;
+    let prev;
+    try {
+        prev = JSON.parse(settingsSnapshot);
+    } catch {
+        return null;
+    }
+    const cur = getSettings();
+    const keys = new Set([...Object.keys(prev), ...Object.keys(cur)]);
+    const changed = [];
+    for (const k of keys) {
+        if (prev[k] !== cur[k]) changed.push(k);
+    }
+    return changed;
+}
+
+// 生成字帖（新 SVG 引擎）—— 全量重建，含拼音/组词/笔画
 function handleGenerate() {
     const input = document.getElementById('inputText').value;
-    const container = document.getElementById('grid-container');
+    const container = getGridContainer();
     if (!container) return;
     container.innerHTML = '';
     container.classList.add('svg-mode');
     const frag = renderSheet(input, getRenderOptions());
     container.appendChild(frag);
 
-    // 保存历史记录
-    const fontSelect = document.getElementById('font-select');
-    const fontValue = fontSelect.value;
-    const fontName = fontSelect.options[fontSelect.selectedIndex].text;
-    saveHistory(input, fontValue, fontName);
+    recordHistory();
+    takeSettingsSnapshot();
 }
 
 // 字体加载完成后首屏生成
@@ -171,21 +241,73 @@ document.getElementById('hf-reset').addEventListener('click', function() {
 });
 document.getElementById('inputText').addEventListener('input', updateCharCounter);
 
+// v3.0.7：切换字体 → 定向重绘，不再全量重建。
+// 两个原先的问题：
+//   ① #font-select 在全仓**没有任何 change 监听**，换字体后必须手动点「刷新字帖」才生效；
+//   ② 即便点了，走的也是 handleGenerate 全量重建 —— 拼音、组词、笔画全部重算重载。
+// 字体只影响带 data-ge-font="user" 的文字节点（范字/描红/组词汉字）；
+// 拼音文字固定用 TeXGyreAdventor、笔画是 hanzi-writer 的路径数据、网格线是几何线条，
+// 三者都与字体无关，因此这里只写 font-family 属性，一个节点都不重建。
+const fontSelectEl = document.getElementById('font-select');
+if (fontSelectEl) {
+    fontSelectEl.addEventListener('change', () => {
+        const container = getGridContainer();
+        if (!hasRenderedSheet(container)) {
+            handleGenerate();
+            return;
+        }
+        const { texts } = applySheetFont(container, fontSelectEl.value);
+        recordHistory();
+        flashUpdated(container);
+        console.log(`[main] 字体切换 → 定向重绘 ${texts} 个文字节点（拼音/组词/笔画/网格均未重建）`);
+    });
+}
+
 // 侧栏状态变化（预设模板）时实时重渲染
+// v3.0.7：模板改的是**输入框里的生字**，属于内容变更，必须全量重建
 document.addEventListener('calligraphy:sidebar-updated', () => {
     handleGenerate();
 });
 
-// v2.4.7：设置中心状态变化（网格类型 / 描红透明度 / 格子大小等）时实时重渲染
-// 与侧栏按钮等效，改的是同一全局变量（settingsCenter）
+// v2.4.7：设置中心状态变化时实时重渲染
+// v3.0.7：改为按「外观 / 内容」分流，只改网格颜色或式样时不再动生字、组词、拼音、笔画
 document.addEventListener('calligraphy:settings-updated', () => {
-    handleGenerate();
-    // 视觉反馈：字格容器边框闪一下
-    const c = document.getElementById('grid-container');
-    if (c) {
-        c.classList.add('just-updated');
-        setTimeout(() => c.classList.remove('just-updated'), 400);
+    const container = getGridContainer();
+    const changed = diffSettings();
+    const appearanceOnly = !!changed && changed.length > 0 && changed.every(k => APPEARANCE_KEYS.has(k));
+
+    if (appearanceOnly && hasRenderedSheet(container)) {
+        if (changed.some(k => GRID_REPAINT_KEYS.includes(k))) {
+            const r = repaintSheetGrid(container);
+            console.log(`[main] 网格颜色/式样变更 → 重画 ${r.repainted} 个网格层，` +
+                `其中 ${r.rebuiltContent} 格因式样改变而重建内容层（拼音/组词/笔画未重算）`);
+        }
+        if (changed.includes('traceOpacity')) {
+            const r = applySheetTraceOpacity(container, getSettings().traceOpacity);
+            console.log(`[main] 描红透明度变更 → 改写 ${r.texts} 个节点的 opacity 属性`);
+        }
+        takeSettingsSnapshot();
+        flashUpdated(container);
+        return;
     }
+
+    // diff 为空 = 这次事件里设置一个字都没变（同一个值重复写入、或派发方根本不是在改设置）。
+    // 此时什么都不做：内容变更有它自己的显式信号 'calligraphy:content-updated'，
+    // 不靠"diff 为空"去反推。反推很脆 —— 滑块连发两次同值 input 就会误触发一次全量重建。
+    if (changed && changed.length === 0) return;
+
+    // diff 含非外观键（显示开关、格子大小、每字格数等）或没有基线
+    // → 这些确实会改变字帖结构，保持原有的全量重绘行为
+    handleGenerate();
+    flashUpdated(container);
+});
+
+// v3.0.7：显式的「生字内容已变更」信号。派发方：导入生字（写入输入框之后）、
+// 手动编辑拼音/组词、AI 组词补齐完成。不依赖任何推断，直接全量重生成整张字帖。
+document.addEventListener('calligraphy:content-updated', () => {
+    const container = getGridContainer();
+    handleGenerate();
+    flashUpdated(container);
 });
 
 // ── Lucide 图标：替换打印按钮图标为标准 Lucide printer SVG ──

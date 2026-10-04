@@ -41,6 +41,9 @@ This project is an entry in the [TRAE AI Creativity Contest](https://forum.trae.
 | ⚙ AI Console (Model Settings) | Unified panel for engines / models / keys: add **custom providers** (your own Base URL + OpenAI/Anthropic protocol + request-param overrides), bulk import (json/csv/txt), and **connectivity check-up** (two-stage probe + error taxonomy: auth failure / quota / model-not-found / rate-limited / unreachable) | v3.0.6 |
 | 4 Key Storage Modes (off-disk by default) | Don't save (memory only, gone on reload) / remember for this tab (`sessionStorage`) / save in plain text on this device / remember long-term (PBKDF2-SHA256 **200 000** iterations + AES-GCM-256 passphrase encryption). Legacy plain-text keys are migrated into memory once on first load and **deleted from local storage** | v3.0.6 |
 | Stroke Popup Centred on the *Visual* Viewport | Sized against `visualViewport` (not the layout viewport / `100vh`) via `--sd-avail-w/h`; a single popup sits at the **exact centre of the visible area** — including with the soft keyboard up, under pinch-zoom + pan, and while the mobile address bar shows/hides; 2–4 popups lay out as a grid with the **orphan last row centred** | v3.0.6 |
+| Incremental Repaint (font / grid colour / grid style) | Each cell SVG is split into a grid layer + a content layer. Switching font only rewrites the `font-family` attribute; switching colour only repaints lines; switching style only repaints the grid. Pinyin, word-association and stroke-decomposition nodes **stay in place** — `pinyin()` / `getZuCi()` / `loadStrokes()` are never re-invoked. Verified in a real browser (`npm run verify:refresh`): after a font switch all **338 probes survive** and the stroke queue stays at `pending=0`; the negative control (changing the input text) wipes them to **0/338** with `pending=2`, proving the assertions are not vacuously true | v3.0.7 |
+| Auto-Reflow After Importing Characters | "Import File" renamed to "Import Characters"; fixed a dispatch-order bug — the re-render event used to fire *before* the textarea was filled (so enhanced-format imports reflowed the sheet from the **old** text), and the plain-text path fired nothing at all | v3.0.7 |
+| Full-Volume Textbook Character Presets | Three new groups, **one per semester**: "Grade 5 Vol.1" (217 chars), "Grade 5 Vol.2" (180), "Grade 6 Vol.1" (180) — taken from the PEP unified-edition textbook's per-lesson character-writing tables, kept in textbook order. Grade 6 Vol.2 can be added by copying one entry once the data is available | v3.0.7 |
 
 ## Quick Start
 
@@ -78,7 +81,7 @@ npm run preview      # preview at http://localhost:4173
 calligraphy-sheet-generator/
 ├── index.html               # Vite entry HTML (dual-column layout + FABs + input panel)
 ├── vite.config.js           # Vite config (PWA + SingleFile + Tailwind, cssMinify:false)
-├── package.json             # Dependencies (v3.0.6, ES Module)
+├── package.json             # Dependencies (v3.0.7, ES Module)
 ├── puppeteer-pdf.cjs        # Puppeteer vector PDF CLI script (CommonJS)
 ├── puppeteer-server.cjs     # Puppeteer HTTP server (/health + /api/generate-pdf + static dist)
 ├── matepad-simulate.cjs     # MatePad print simulation test script
@@ -86,7 +89,7 @@ calligraphy-sheet-generator/
 ├── 字帖生成器.html          # Legacy standalone HTML (contest initial version, kept for history)
 ├── README.md / README_EN.md # Chinese/English main docs
 ├── README_contest.md        # Original contest doc + iteration appendix
-├── CHANGELOG.md             # Version history (v1.0 → v3.0.6)
+├── CHANGELOG.md             # Version history (v1.0 → v3.0.7)
 ├── TASK_BOARD.md            # v2.4.0 refactor task board + evolution
 ├── .github/workflows/       # GitHub Actions auto-deploy to GitHub Pages (trigger: main / retake)
 ├── functions/
