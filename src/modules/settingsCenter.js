@@ -1293,8 +1293,9 @@ function bindPanelEvents(overlay) {
     if (aiConsoleBtn) {
         aiConsoleBtn.addEventListener('click', async () => {
             try {
-                const { openAiConsole } = await import('./aiConsole.js');
-                const panel = openAiConsole();
+                const mod = await import('./aiConsole.js');
+                const panel = mod.openAiConsole();
+                paintAiConsoleSummary(aiConsoleSummaryEl);
                 if (panel && !panel._scWatched) {
                     panel._scWatched = true;
                     new MutationObserver(() => {
@@ -1305,8 +1306,11 @@ function bindPanelEvents(overlay) {
                     }).observe(panel, { attributes: true, attributeFilter: ['style'] });
                 }
             } catch (err) {
-                console.warn('[settingsCenter] 打开 AI 控制台失败:', err);
-                if (aiConsoleSummaryEl) aiConsoleSummaryEl.textContent = '⚠ 控制台不可用';
+                console.warn('[settingsCenter] AI 控制台打开失败:', err);
+                if (aiConsoleSummaryEl) {
+                    // 失败时保留"不可用"即可（不显示堆栈吓用户）
+                    aiConsoleSummaryEl.textContent = '⚠ 控制台不可用';
+                }
             }
         });
     }

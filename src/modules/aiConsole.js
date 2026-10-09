@@ -84,6 +84,57 @@ const STATUS_PRESENTATION = {
 /** 档位 → 中文短标签（与注册表的 tier 一一对应） */
 const TIER_LABEL = { free: '免费', cheap: '低价', paid: '付费' };
 
+/**
+ * 分区与计费语义 → 中文标签。
+ * ⚠ 这里的每一档都来自 scripts/provider-catalog-override.json 里**带官方出处**的事实，
+ *   没核实的一律 unknown —— 界面上不能把"没查过"显示成"免费"。
+ */
+const ZONE_PRESENTATION = {
+    free: { label: '免费专区', tone: 'ok' },
+    paid: { label: '付费专区', tone: null }
+};
+const KIND_LABEL = {
+    'free-endpoint': '免费端点',
+    'free-tier-rate-limited': '免费层·限速',
+    'free-credits-on-signup': '注册送额度',
+    'new-user-credits': '新人额度·用尽转付费',
+    'limited-time-free': '限时免费·需领取',
+    'pay-as-you-go': '按量付费',
+    unknown: '计费方式未核实'
+};
+
+/**
+ * 单价（美元 / 百万 token，models.dev 口径）→ 一行紧凑文案。
+ * 快照价不是实时价，所以后缀一律带 asOf，避免被读成"现价"。
+ */
+function priceLabel(price, asOf) {
+    if (!price) return null;
+    const n = (v) => (v == null ? null : (Math.round(v * 1000) / 1000));
+    const parts = [];
+    if (n(price.input) != null) parts.push(`入 ${n(price.input)}`);
+    if (n(price.output) != null) parts.push(`出 ${n(price.output)}`);
+    if (n(price.cacheRead) != null) parts.push(`缓存读 ${n(price.cacheRead)}`);
+    if (!parts.length) return null;
+    return `刊例 $${parts.join(' / ')} 每 1M tokens${asOf ? `（快照 ${asOf}）` : ''}`;
+}
+
+/** 上下文窗口 → 紧凑标签（200000 → 200K，1048576 → 1M） */
+function fmtContext(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v) || v <= 0) return null;
+    if (v >= 1000000) return `${Math.round(v / 100000) / 10}M`;
+    if (v >= 1000) return `${Math.round(v / 1000)}K`;
+    return String(v);
+}
+
+/** 悬停提示用的单行计费摘要：先说额度，再说核实日期，最后兜底"未核实"。 */function billingSummary(provider) {
+    const b = (provider && provider.billing) || {};
+    const head = b.zone === 'free' ? '免费专区' : '付费专区';
+    const kind = KIND_LABEL[b.kind] || KIND_LABEL.unknown;
+    const asOf = b.quota && b.quota.length ? b.quota[0].asOf : '';
+    return `${head} · ${kind}${asOf ? ` · 核至于 ${asOf}` : ''}`;
+}
+
 /** 协议 → 展示名。**与 ZCode 的写法一致**：`Anthropic Messages (/v1/messages)` */
 const PROTOCOL_DISPLAY = {
     openai: { name: 'Chat Completions', path: '/chat/completions' },
@@ -142,6 +193,12 @@ const STATE = {
     diagRunning: false,
     /** 引擎模板选择页是否展开「从零自定义」表单（纯展示状态，不落盘） */
     showCustomForm: false,
+    /** 左栏里被展开的长分组（默认只露前若干家；纯展示状态，不落盘） */
+    navExpanded: new Set(),
+    /** 从零自定义表单的预填值（从同源目录点进来的厂商），null = 真空白表单 */
+    customPrefill: null,
+    /** 同源全量目录 public/ai-providers.json：按需拉取（约 390KB），只在内存里缓存 */
+    catalog: { doc: null, loading: false, error: null, query: '', shown: 24 },
     /** 每个引擎一把的「高级请求参数」展开记忆（纯展示状态，不落盘） */
     advancedOpen: new Set(),
     /** 「全部 Key 体检结果」缓存（放在 STATE 里，才能经得起重绘） */
@@ -571,6 +628,13 @@ function navItem(model, provider) {
     node.appendChild(providerAvatar(provider, 'sm'));
     const main = el('span', 'aic-nav-main');
     main.appendChild(el('span', 'aic-nav-label', provider.label));
+    // 分区徽标：只标"免费"那一侧。付费区是默认档，标它只会让导航更吵，
+    // 而且"未核实"被显示成"付费"已经是保守结果，不需要再强调。
+    if (model.provApi.zoneOf(provider) === 'free') {
+        const chip = el('span', 'aic-nav-zone', '免');
+        chip.title = billingSummary(provider);
+        main.appendChild(chip);
+    }
     node.appendChild(main);
     if (count > 0) node.appendChild(el('span', 'aic-nav-count', String(count)));
 
@@ -587,7 +651,7 @@ function navItem(model, provider) {
 }
 
 /** 一个导航分组（标题 + 若干项）。空分组不渲染。 */
-function navGroup(title, items, badge) {
+function navGroup(title, items, badge, opts = {}) {
     if (items.length === 0) return null;
     const group = el('div', 'aic-nav-group');
     const head = el('div', 'aic-nav-group-head');
@@ -595,7 +659,20 @@ function navGroup(title, items, badge) {
     if (badge) head.appendChild(el('span', 'aic-nav-group-badge', badge));
     group.appendChild(head);
     const list = el('div', 'aic-nav-list');
-    for (const item of items) list.appendChild(item);
+    // 目录扩容后付费区有三十多家，一次铺开会把左栏（窄屏还是图标栏）撑成一堵墙，
+    // 所以默认只露 limit 家，其余按需展开 —— 展开状态记在 STATE，重绘后仍在。
+    const limit = opts.limit || 0;
+    const expanded = !limit || STATE.navExpanded.has(title);
+    const shown = expanded ? items : items.slice(0, limit);
+    for (const item of shown) list.appendChild(item);
+    if (limit && items.length > limit) {
+        const toggle = btn('aic-nav-more', expanded ? '收起' : `显示全部 ${items.length} 家`);
+        toggle.addEventListener('click', () => {
+            if (expanded) STATE.navExpanded.delete(title); else STATE.navExpanded.add(title);
+            renderAll();
+        });
+        list.appendChild(toggle);
+    }
     group.appendChild(list);
     return group;
 }
@@ -605,9 +682,15 @@ function renderNav(model) {
     clearChildren(_navEl);
 
     const configured = model.providers.filter((p) => (model.byProvider.get(p.id) || []).length > 0);
-    const restBuiltin = model.providers.filter(
+    const rest = model.providers.filter(
         (p) => !p.custom && (model.byProvider.get(p.id) || []).length === 0
     );
+    // 免费/付费两个专区（用户要的就是这个区分）：内置手写在前、目录新增在后，
+    // 自定义供应商单独一组 —— 它们的计费事实我们一无所知，不能混进任一专区。
+    const builtinFirst = (a, b) => (a.generated ? 1 : 0) - (b.generated ? 1 : 0)
+        || String(a.label).localeCompare(String(b.label), 'zh-Hans-CN');
+    const freeRest = rest.filter((p) => model.provApi.zoneOf(p) === 'free').sort(builtinFirst);
+    const paidRest = rest.filter((p) => model.provApi.zoneOf(p) !== 'free').sort(builtinFirst);
     const customs = model.providers.filter((p) => p.custom);
 
     // 需要注意：归属待确认
@@ -628,12 +711,14 @@ function renderNav(model) {
         if (g) _navEl.appendChild(g);
     }
 
-    for (const [title, list, badge] of [
-        ['已配置', configured, String(configured.length)],
-        ['内置引擎', restBuiltin, String(restBuiltin.length)],
-        ['自定义供应商', customs, String(customs.length)]
+    for (const [title, list, badge, opts] of [
+        ['已配置', configured, String(configured.length), null],
+        ['免费专区', freeRest, String(freeRest.length), null],
+        // 付费区是"其余全部"，包括 90 多家未内联的目录厂商不在这里 —— 它们只在「添加供应商」页
+        ['付费专区', paidRest, String(paidRest.length), { limit: 10 }],
+        ['自定义供应商', customs, String(customs.length), null]
     ]) {
-        const g = navGroup(title, list.map((p) => navItem(model, p)), badge);
+        const g = navGroup(title, list.map((p) => navItem(model, p)), badge, opts || {});
         if (g) _navEl.appendChild(g);
     }
 
@@ -671,6 +756,7 @@ function renderProviderDetail(model, providerId) {
     const keys = model.byProvider.get(provider.id) || [];
 
     wrap.appendChild(renderDetailHead(model, provider, keys));
+    wrap.appendChild(renderBillingSection(model, provider));
     wrap.appendChild(renderBaseUrlField(model, provider));
     wrap.appendChild(renderProtocolField(model, provider));
     if (provider.custom) wrap.appendChild(renderAdvancedParams(model, provider));
@@ -686,7 +772,13 @@ function renderDetailHead(model, provider, keys) {
     const nameBox = el('div', 'aic-detail-namebox');
     nameBox.appendChild(el('h2', 'aic-detail-name', provider.label));
     const tags = el('div', 'aic-detail-tags');
-    tags.appendChild(tag(provider.custom ? '自定义' : '内置'));
+    tags.appendChild(tag(provider.custom ? '自定义' : (provider.generated ? '目录收录' : '内置')));
+    if (!provider.custom) {
+        const z = model.provApi.zoneOf(provider);
+        const zTag = tag(ZONE_PRESENTATION[z].label, ZONE_PRESENTATION[z].tone);
+        zTag.title = billingSummary(provider);
+        tags.appendChild(zTag);
+    }
     const proto = provider.protocol === 'anthropic' ? 'anthropic' : 'openai';
     tags.appendChild(tag(PROTOCOL_DISPLAY[proto].name));
     if (!provider.custom) {
@@ -755,6 +847,89 @@ function renderDetailHead(model, provider, keys) {
     });
     head.appendChild(more);
     return head;
+}
+
+/** 外链：地址用 setAttribute 落，文案用 textContent 落 —— 目录数据里有厂商自报的 URL。 */
+function docLink(url, text) {
+    const a = document.createElement('a');
+    a.className = 'aic-quota-source';
+    a.href = String(url);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = String(text || url);
+    return a;
+}
+
+/**
+ * 「额度与计费」—— 免费/付费专区的落地面板。
+ *
+ * 这里写的每一句额度都来自 scripts/provider-catalog-override.json（带 https 出处 + 核实日期），
+ * 生成器不给无出处的额度留位置；所以界面上也必须如实：没有 quota 就明说"未核实"，
+ * 绝不显示成"免费"。定价一律标注快照日期（刊例价不是实时价）。
+ */
+function renderBillingSection(model, provider) {
+    const section = el('section', 'aic-section aic-billing');
+    section.appendChild(el('h3', 'aic-section-title', '额度与计费'));
+
+    if (provider.custom) {
+        section.appendChild(el('p', 'aic-hint',
+            '自定义供应商的计费方式未经核实 —— 是否收费、有无额度请以厂商页面为准。'
+            + '本应用不猜测，也不会把它列进免费专区。'));
+        if (provider.baseUrl) {
+            const row = el('div', 'aic-quota-row');
+            row.appendChild(docLink(provider.baseUrl, provider.baseUrl));
+            section.appendChild(row);
+        }
+        return section;
+    }
+
+    const b = provider.billing || {};
+    const zone = model.provApi.zoneOf(provider);
+    const banner = el('div', `aic-zone-banner ${zone === 'free' ? 'is-free' : 'is-paid'}`);
+    banner.appendChild(el('span', 'aic-zone-name', ZONE_PRESENTATION[zone].label));
+    banner.appendChild(el('span', 'aic-zone-kind', KIND_LABEL[b.kind] || KIND_LABEL.unknown));
+    section.appendChild(banner);
+
+    if (zone === 'free') {
+        section.appendChild(el('p', 'aic-hint',
+            '额度是时效数据，厂商随时可能调整（公测转收费、活动到期）。下面每条都标了出处与核实日期，'
+            + '用之前请以来源页为准。'));
+    } else if (!(b.quota && b.quota.length)) {
+        section.appendChild(el('p', 'aic-hint',
+            '没有查到带出处的免费额度事实，因此留在付费专区。若厂商近期放过免费额度，'
+            + '请把官方定价页链接补进 scripts/provider-catalog-override.json 并重跑 npm run gen:catalog。'));
+    }
+
+    for (const q of (b.quota || [])) {
+        const row = el('div', 'aic-quota-row');
+        row.appendChild(el('p', 'aic-quota-detail', q.detail));
+        const meta = el('div', 'aic-quota-meta');
+        if (/^https:\/\//.test(q.source || '')) meta.appendChild(docLink(q.source, q.source));
+        if (q.asOf) meta.appendChild(el('span', 'aic-quota-asof', `核实于 ${q.asOf}`));
+        row.appendChild(meta);
+        section.appendChild(row);
+    }
+
+    const foot = el('div', 'aic-billing-foot');
+    if (b.priceAsOf) {
+        foot.appendChild(el('p', 'aic-hint',
+            `模型行的单价是 ${b.priceSource || 'models.dev'} 在 ${b.priceAsOf} 的快照刊例价，不是实时价，也不代表免费。`));
+    }
+    if (provider.generated) {
+        const d = provider.direct || {};
+        const twin = provider.sameAs ? model.providers.find((p) => p.id === provider.sameAs) : null;
+        foot.appendChild(el('p', 'aic-hint',
+            `目录条目 ${provider.catalogId || provider.id}：浏览器直连实测 ${d.verdict || 'unprobed'}`
+            + `${d.probedAt ? `（${d.probedAt}）` : ''}`
+            + `${twin ? `；与内置「${twin.label}」同主机，是两个独立入口` : ''}。`));
+    }
+    if (provider.signupUrl) {
+        const go = btn('aic-btn aic-btn-sm', '↗ 去申请 / 管理 Key');
+        go.addEventListener('click', () => window.open(provider.signupUrl, '_blank', 'noopener,noreferrer'));
+        foot.appendChild(go);
+    }
+    section.appendChild(foot);
+    return section;
 }
 
 function renderBaseUrlField(model, provider) {
@@ -1095,6 +1270,21 @@ function renderModelSection(model, provider) {
 
     addBtn.addEventListener('click', () => {
         if (!provider.custom) {
+            if (provider.generated) {
+                // 目录条目的模型清单是快照抽样，运行时不可写（写进 localStorage 会变成
+                // 第二个"影子注册表"）；正解是照同一地址建一个自定义供应商再自己加模型。
+                STATE.customPrefill = {
+                    baseUrl: provider.baseUrl || '',
+                    label: provider.label || '',
+                    modelId: (provider.models || []).map((m) => m.id).join(', '),
+                    protocol: provider.protocol === 'anthropic' ? 'anthropic' : 'openai'
+                };
+                STATE.showCustomForm = true;
+                STATE.view = { type: 'templates' };
+                renderAll();
+                toast(`请在表单里补充模型 ID（${provider.label} 的地址已带入）`, 'ok');
+                return;
+            }
             toast('内置引擎的模型清单由注册表维护，请用「＋ 添加供应商」建一个自定义供应商', 'warn');
             return;
         }
@@ -1125,7 +1315,9 @@ function renderModelSection(model, provider) {
         section.appendChild(el('p', 'aic-hint',
             provider.custom
                 ? '该供应商还没有登记模型。点右上角「＋ 添加模型」填一个模型 ID。'
-                : '注册表里没有该引擎的模型记录。'));
+                : (provider.generated
+                    ? '目录里没有该厂商的模型记录。点右上角「＋ 添加模型」可照它的地址建一个自定义供应商并自填模型。'
+                    : '注册表里没有该引擎的模型记录。')));
         return section;
     }
 
@@ -1135,9 +1327,13 @@ function renderModelSection(model, provider) {
     section.appendChild(list);
 
     if (!provider.custom) {
-        section.appendChild(el('p', 'aic-hint',
-            '内置引擎的模型清单由注册表（源码）维护，不能在界面上增删。'
-            + '若需要清单外的模型，请用「＋ 添加供应商」建一个自定义供应商。'));
+        const hint = provider.generated
+            ? '目录条目的模型清单是 models.dev 快照的抽样（刊例价同样来自快照），不能在界面上增删。'
+            + '需要清单外的模型：点右上角「＋ 添加模型」，会带着该厂商的地址打开自定义表单。'
+            + '带「单价 0」的模型不等于免费 —— 是否免费只看上方「额度与计费」里带出处的额度事实。'
+            : '内置引擎的模型清单由注册表（源码）维护，不能在界面上增删。'
+            + '若需要清单外的模型，请用「＋ 添加供应商」建一个自定义供应商。';
+        section.appendChild(el('p', 'aic-hint', hint));
     }
     return section;
 }
@@ -1152,10 +1348,26 @@ function renderModelRow(model, provider, m, active) {
 
     // 标签只显示我们**真实拥有**的事实（不编造上下文窗口 / 视觉能力）
     if (m.tier && TIER_LABEL[m.tier]) row.appendChild(tag(TIER_LABEL[m.tier], m.tier === 'free' ? 'ok' : null));
+    if (m.context) row.appendChild(tag(fmtContext(m.context), 'info'));
+    const price = m.price && (m.price.input != null || m.price.output != null)
+        ? `$${m.price.input ?? 0}/${m.price.output ?? 0}` : null;
+    if (price) row.appendChild(tag(price));
+    // 单价 0 ≠ 免费：多数是计费不在这个 token 上（订阅套餐 / 限时额度内），
+    // 所以只标事实、给完整解释的 title，不替厂商宣布"免费"。
+    if (m.zeroPrice) {
+        const t = tag('单价 0', 'warn');
+        t.title = '单价为 0 通常意味着计费不在 token 上（订阅套餐 / 额度内 / 限时活动），不等于免费。是否免费请看上方「额度与计费」的出处。';
+        row.appendChild(t);
+    }
     if (m.jsonMode === true) row.appendChild(tag('JSON'));
     if (m.fullCheck) row.appendChild(tag('全量检查', 'info'));
     if (m.slow) row.appendChild(tag('较慢', 'warn'));
     if (isCurrent) row.appendChild(tag('当前使用', 'ok'));
+    const facts = [];
+    if (m.context) facts.push(`上下文 ${m.context.toLocaleString('en-US')} tokens`);
+    const pl = priceLabel(m.price, provider.billing && provider.billing.priceAsOf);
+    if (pl) facts.push(pl);
+    if (facts.length) row.title = facts.join(' · ');
 
     row.appendChild(el('span', 'aic-grow'));
 
@@ -1493,8 +1705,9 @@ function renderTemplatePicker(model) {
     const nameBox = el('div', 'aic-detail-namebox');
     nameBox.appendChild(el('h2', 'aic-detail-name', '添加供应商'));
     nameBox.appendChild(el('p', 'aic-hint',
-        '选一个内置引擎模板即可直接添加（只需再填一把 Key）；'
-        + '注册表里没有的厂商请用「从零自定义供应商」。'));
+        '选一个引擎模板即可直接添加（只需再填一把 Key）；分「免费专区 / 付费专区」两组，'
+        + '分区依据见每个引擎详情页的「额度与计费」。'
+        + '列表里没有的厂商，用页面底部「目录扩充」按需载入同源全量目录，再添加为自定义供应商。'));
     head.appendChild(nameBox);
     wrap.appendChild(head);
 
@@ -1514,13 +1727,15 @@ function renderTemplatePicker(model) {
     }));
     customSection.appendChild(customGrid);
     wrap.appendChild(customSection);
-    if (STATE.showCustomForm) wrap.appendChild(buildCustomProviderForm(model));
+    if (STATE.showCustomForm) wrap.appendChild(buildCustomProviderForm(model, STATE.customPrefill));
 
     const already = new Set([...model.byProvider.keys()]);
     const builtins = model.providers.filter((p) => !p.custom);
+    const rest = builtins.filter((p) => !already.has(p.id));
     for (const g of [
-        { title: '内置引擎（尚未添加）', items: builtins.filter((p) => !already.has(p.id)) },
-        { title: '内置引擎（已添加过，再选即复用）', items: builtins.filter((p) => already.has(p.id)) }
+        { title: '免费专区（尚未添加）', items: rest.filter((p) => model.provApi.zoneOf(p) === 'free') },
+        { title: '付费专区（尚未添加）', items: rest.filter((p) => model.provApi.zoneOf(p) !== 'free') },
+        { title: '已添加过（再选即复用，不会重复建）', items: builtins.filter((p) => already.has(p.id)) }
     ]) {
         if (g.items.length === 0) continue;
         const section = el('section', 'aic-section');
@@ -1531,6 +1746,8 @@ function renderTemplatePicker(model) {
                 provider: p,
                 label: p.label,
                 sub: p.baseUrl,
+                note: p.billing && p.billing.quota && p.billing.quota.length
+                    ? (KIND_LABEL[p.billing.kind] || null) : null,
                 onClick: () => {
                     STATE.view = { type: 'provider', id: p.id };
                     renderAll();
@@ -1541,15 +1758,125 @@ function renderTemplatePicker(model) {
         section.appendChild(grid);
         wrap.appendChild(section);
     }
+
+    wrap.appendChild(renderCatalogSection(model));
     return wrap;
 }
 
-function pickerCard({ provider, glyph, label, sub, onClick }) {
+/** 直连实测结论 → 一句实话（不写"可用"，未确证的绝不含糊） */
+const DIRECT_LABEL = {
+    'DIRECT-CONFIRMED': '实测可直连',
+    'NEEDS-KEY': '需带 Key 复核',
+    'CORS-BLOCKED': '浏览器被 CORS 拦',
+    'HOST-UNREACHABLE': '主机不可达',
+    unprobed: '未实测'
+};
+
+/**
+ * 「目录扩充」—— 内联只收了实测可直连的二十几家，剩下的两百多家放在同源 JSON 里按需拉。
+ * 未内联的厂商一律走「自定义供应商」入口：它们的端点我们没有浏览器实测证据，
+ * 让它直接进注册表就等于把"能直连"变成一句没有依据的承诺。
+ */
+function renderCatalogSection(model) {
+    const st = STATE.catalog;
+    const section = el('section', 'aic-section');
+    section.appendChild(el('h3', 'aic-section-title', '目录扩充（同源全量）'));
+
+    if (!st.doc) {
+        section.appendChild(el('p', 'aic-hint',
+            '内联进应用的厂商全部经过浏览器直连实测；其余厂商的端点、协议与模型清单放在同源的 '
+            + 'ai-providers.json（约 390KB，不自动下载）。需要时可以按需载入并添加为自定义供应商。'));
+        const load = btn('aic-btn aic-btn-sm', st.loading ? '载入中…' : '载入全量目录');
+        if (st.loading) load.disabled = true;
+        load.addEventListener('click', async () => {
+            if (st.loading) return;
+            st.loading = true; st.error = null; renderAll();
+            try {
+                const url = new URL('ai-providers.json', document.baseURI).href;
+                const resp = await fetch(url, { cache: 'no-cache' });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                st.doc = await resp.json();
+            } catch (e) {
+                st.error = (e && e.message) || String(e);
+            }
+            st.loading = false;
+            renderAll();
+        });
+        section.appendChild(load);
+        if (st.error) {
+            section.appendChild(el('p', 'aic-hint',
+                `载入失败：${st.error}。常见原因是离线，或服务 Worker 还在发旧版本 —— 强制刷新后再试。`));
+        }
+        return section;
+    }
+
+    const known = new Set(model.providers.map((p) => p.id));
+    const all = (st.doc.providers || []).filter((p) => !known.has(p.id) && !p.sameAs);
+    const verdictRank = (p) => (p.direct && p.direct.verdict === 'DIRECT-CONFIRMED' ? 0 : 1);
+    const sorted = [...all].sort((a, b) => verdictRank(a) - verdictRank(b)
+        || String(a.label).localeCompare(String(b.label), 'zh-Hans-CN'));
+
+    section.appendChild(el('p', 'aic-hint',
+        `全量目录 ${st.doc.providers.length} 家（实测日 ${st.doc.probedAt}）；其中 ${all.length} 家尚未进入注册表。`
+        + '「需带 Key 复核」= 无 Key 时读不到响应体，只证明端点存在，不证明浏览器能直连 —— 添加前请先自行验证。'));
+
+    const search = el('input', 'aic-input');
+    search.type = 'search';
+    search.spellcheck = false;
+    search.placeholder = '搜索厂商 / 端点 / 模型 ID';
+    search.value = st.query;
+    search.id = 'aicCatalogSearch';
+    const grid = el('div', 'aic-picker-grid');
+    const refresh = () => {
+        clearChildren(grid);
+        const q = st.query.trim().toLowerCase();
+        const hit = (p) => !q || String(p.label).toLowerCase().includes(q)
+            || String(p.id).toLowerCase().includes(q)
+            || String(p.baseUrl || '').toLowerCase().includes(q)
+            || (p.models || []).some((m) => String(m.id).toLowerCase().includes(q));
+        const shown = sorted.filter(hit).slice(0, st.shown);
+        for (const p of shown) {
+            const first = (p.models || [])[0];
+            grid.appendChild(pickerCard({
+                glyph: '🌐',
+                label: p.label,
+                sub: `${p.baseUrl || '（无端点）'} · ${(p.models || []).length} 个模型`,
+                note: DIRECT_LABEL[(p.direct && p.direct.verdict) || 'unprobed'] || '未实测',
+                onClick: () => {
+                    STATE.customPrefill = {
+                        baseUrl: p.baseUrl || '',
+                        label: p.label || '',
+                        modelId: first ? first.id : '',
+                        protocol: p.protocol === 'anthropic' ? 'anthropic' : 'openai'
+                    };
+                    STATE.showCustomForm = true;
+                    renderAll();
+                    toast(`已带入「${p.label}」的端点，填一把 Key 即可添加`, 'ok');
+                }
+            }));
+        }
+        const total = sorted.filter(hit).length;
+        if (total > shown.length) {
+            const more = btn('aic-btn aic-btn-sm', `再显示 24 家（已显示 ${shown.length} / ${total}）`);
+            more.addEventListener('click', () => { st.shown += 24; refresh(); });
+            grid.appendChild(more);
+        }
+        if (total === 0) grid.appendChild(el('p', 'aic-hint', '没有匹配的厂商。'));
+    };
+    search.addEventListener('input', () => { st.query = search.value; st.shown = 24; refresh(); });
+    section.appendChild(search);
+    section.appendChild(grid);
+    refresh();
+    return section;
+}
+
+function pickerCard({ provider, glyph, label, sub, note, onClick }) {
     const card = btn('aic-picker-card', '', label);
     if (provider) card.appendChild(providerAvatar(provider, 'md'));
     else card.appendChild(el('span', 'aic-picker-glyph', glyph));
     const main = el('span', 'aic-picker-main');
     main.appendChild(el('span', 'aic-picker-label', label));
+    if (note) main.appendChild(tag(note, note === '实测可直连' ? 'ok' : null));
     if (sub) main.appendChild(el('span', 'aic-picker-sub', sub));
     card.appendChild(main);
     card.appendChild(el('span', 'aic-picker-arrow', '›'));
@@ -1558,11 +1885,11 @@ function pickerCard({ provider, glyph, label, sub, onClick }) {
 }
 
 /** 「从零自定义供应商」表单（纯构建函数：只返回节点，不碰 STATE、不触发重绘） */
-function buildCustomProviderForm(model) {
+function buildCustomProviderForm(model, prefill) {
     const card = el('div', 'aic-card aic-card-focus');
     const head = el('div', 'aic-card-head');
-    head.appendChild(el('h3', null, '＋ 从零自定义供应商'));
-    head.appendChild(iconBtn('✕', '收起表单', () => { STATE.showCustomForm = false; renderAll(); }));
+    head.appendChild(el('h3', null, prefill ? `从目录添加：${prefill.label || prefill.baseUrl}` : '＋ 从零自定义供应商'));
+    head.appendChild(iconBtn('✕', '收起表单', () => { STATE.showCustomForm = false; STATE.customPrefill = null; renderAll(); }));
     card.appendChild(head);
 
     const inputs = {};
@@ -1578,6 +1905,8 @@ function buildCustomProviderForm(model) {
         if (type === 'password') input.autocomplete = 'off';
         input.spellcheck = false;
         input.placeholder = placeholder;
+        // 从目录带进来的地址/模型是生成器里实测过的值，预填后用户只补一把 Key
+        if (prefill && prefill[name] != null) input.value = String(prefill[name]);
         inputs[name] = input;
         box.appendChild(input);
         card.appendChild(box);
@@ -1590,6 +1919,7 @@ function buildCustomProviderForm(model) {
         opt.value = value;
         proto.appendChild(opt);
     }
+    if (prefill && (prefill.protocol === 'openai' || prefill.protocol === 'anthropic')) proto.value = prefill.protocol;
     protoBox.appendChild(proto);
     card.appendChild(protoBox);
 
@@ -2071,8 +2401,10 @@ function setBusy(busy, text) {
 // ---------------------------------------------------------------------------
 
 function createPanel() {
-    const existing = document.getElementById(AI_CONSOLE_ID);
-    if (existing) return existing;
+    // 每次都新建（避免复用上次失败/已隐藏的面板）
+    const old = document.getElementById(AI_CONSOLE_ID);
+    if (old) { old.remove(); }
+
     const overlay = el('div', 'aic-overlay');
     overlay.id = AI_CONSOLE_ID;
     overlay.appendChild(staticNodes(SHELL));
