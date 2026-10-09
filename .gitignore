@@ -89,3 +89,9 @@ scripts/aiconsole-ui-report.json
 
 # v3.0.6：HTML → Markdown 的临时转换脚本与产物，不是交付物
 _tmp_html2md/
+
+# v3.0.8：触屏布局关口与截图产物（verify-touch-layout.cjs / shot-touch.cjs 一条命令即可重跑，
+# 进仓库只会变成冻结在某个时刻的旧证据，反而误导后续判断）
+_shots/
+_touch_layout_report/
+_touch_layout_report_v297/

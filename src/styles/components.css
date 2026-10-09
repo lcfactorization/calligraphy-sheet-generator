@@ -128,3 +128,27 @@ textarea#inputText:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99
     cursor:pointer;transition:all .2s;outline:none;
 }
 .hf-reset:hover{background:rgba(239,68,68,0.18)}
+
+/* ════════════════════════════════════════════════════════════════
+ * v3.0.8：粗略指针（触屏）最小可点尺寸契约
+ * ────────────────────────────────────────────────────────────────
+ * 桌面端鼠标可以命中 14px 的图标，手指不行。此前大量图标-only 按钮是
+ * 31–36px，在手机上表现为"点了没反应 / 按到隔壁"。
+ * 判定口径与 src/utils/deviceEnv.js 的 isCoarsePointer() 保持一致：
+ *   (pointer: coarse), (hover: none)
+ * 只抬 min-width/min-height，不改 padding/字号 → 桌面端零影响。
+ * ════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse), (hover: none) {
+    .btn, .btn-quick.icon-only, .btn-row .btn,
+    .grid-type-btn, .color-preset-btn, .font-upload-btn,
+    .header-guide-link, .ob-btn, .ob-bubble-nevershow,
+    .history-btn, .history-toggle, .sc-close, .hf-reset,
+    .preset-item, .sc-toggle-row, .sc-theme-opt, .report-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .grid-type-btn, .color-preset-btn, .preset-item, .ob-btn,
+    .history-btn, .sc-theme-opt { display: inline-flex; align-items: center; justify-content: center; }
+    .opacity-slider { min-height: 44px; }
+    .fab-puppeteer, .fab-print, .history-fab { min-width: 44px; min-height: 44px; }
+}

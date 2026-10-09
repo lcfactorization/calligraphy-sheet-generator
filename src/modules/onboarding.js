@@ -23,6 +23,8 @@
 import '../styles/onboarding.css';
 // v2.9.9：静态导入 openSettings（settingsCenter 仅动态 import onboarding，无静态循环依赖）
 import { openSettings } from './settingsCenter.js';
+// v3.0.8：气泡定位改用可视视口（visualViewport），不再用 window.innerWidth/Height
+import { getViewportRect } from '../utils/deviceEnv.js';
 
 const OB_COMPLETED_KEY = 'onboarding_completed';
 const OB_VERSION_KEY = 'onboarding_version';
@@ -493,13 +495,19 @@ function positionBubble(target, position) {
             left = rect.left;
     }
 
-    // 边界检查：避免气泡超出视口
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    if (top < 12) top = 12;
-    if (top + bh > vh - 12) top = vh - bh - 12;
-    if (left < 12) left = 12;
-    if (left + bw > vw - 12) left = vw - bw - 12;
+    // 边界检查：避免气泡超出**可视**视口。
+    // fixed 元素的定位基准是布局视口，而用户看得见的是 visualViewport；
+    // 双指缩放平移 / 软键盘弹出 / 地址栏收放时两者不重合，
+    // 因此必须以可视视口在布局视口中的原点 + 宽高做约束。
+    const vp = getViewportRect();
+    const EDGE = 12;
+    const minLeft = vp.left + EDGE;
+    const minTop = vp.top + EDGE;
+    // 可视区比气泡还窄/还高时，取下界（保证至少有一侧贴边可见），不产生反向越界
+    if (left < minLeft) left = minLeft;
+    else if (left + bw > vp.left + vp.w - EDGE) left = Math.max(minLeft, vp.left + vp.w - bw - EDGE);
+    if (top < minTop) top = minTop;
+    else if (top + bh > vp.top + vp.h - EDGE) top = Math.max(minTop, vp.top + vp.h - bh - EDGE);
 
     bubbleEl.style.top = top + 'px';
     bubbleEl.style.left = left + 'px';
@@ -825,11 +833,12 @@ function updateHintVisibilityFallback() {
         const target = document.querySelector(selector);
         if (!target || !isElementVisible(target)) return;
         const rect = target.getBoundingClientRect();
-        // 控件是否在视口内（含容差）
-        const inViewport = rect.top >= -rect.height
-            && rect.bottom <= window.innerHeight + rect.height
-            && rect.left >= -rect.width
-            && rect.right <= window.innerWidth + rect.width
+        // 控件是否在**可视**视口内（含容差）——同 positionBubble，基准取 visualViewport
+        const vp = getViewportRect();
+        const inViewport = rect.top >= vp.top - rect.height
+            && rect.bottom <= vp.top + vp.h + rect.height
+            && rect.left >= vp.left - rect.width
+            && rect.right <= vp.left + vp.w + rect.width
             && rect.width > 0 && rect.height > 0;
         toggleHint(corner, selector, inViewport);
     });

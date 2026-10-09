@@ -150,20 +150,31 @@
     break-after: page;
 }
 
-/* ── 屏幕预览容器 ── */
+/* ── 屏幕预览容器 ──
+   v3.0.8：横向滚动容器在**所有**宽度下生效，不再只挂 680px 断点。
+   字格行是固定物理宽度（178.2mm ≈ 672px），一旦可用列窄于此值就会溢出；
+   把它关在 #grid-container 内部滚动，文档本身才不会横向溢出
+   （文档溢出会连带把 position:fixed 的控件推到屏外）。
+   居中用行上的 auto 外边距而不是 align-items:center —— 无剩余空间时 auto 边距
+   归零，行左端贴住滚动起点，不会出现"左半边滚不到"的死区。 */
 #grid-container.svg-mode {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 8mm 0;
 }
+#grid-container.svg-mode > .grid-svg-row,
+#grid-container.svg-mode > .grid-svg-aux-row {
+    margin-left: auto;
+    margin-right: auto;
+    flex: 0 0 auto;
+}
 
-/* ── 移动端横向滚动 ── */
+/* ── 移动端：缩小上下留白 ── */
 @media (max-width: 680px) {
     #grid-container.svg-mode {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        align-items: flex-start;
         padding: 4mm 0;
     }
     .grid-svg-row,

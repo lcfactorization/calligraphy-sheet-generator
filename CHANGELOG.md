@@ -5,6 +5,75 @@
 
 ---
 
+## v3.0.8 (2026-10-09) — 触屏 / 移动端布局修复：控件不再跑出屏幕
+
+> 现象（用户报告）：触屏版从某个版本起 DOM 跑偏、无法对齐、导航与控件乱七八糟，v2.9.7 看上去还可以。
+> 结论：**根因是 v3.0.1 给页头加的两处内容把整页撑出了横向溢出**，而 `position:fixed` 的 `right/bottom`
+> 是以**被撑大的布局视口**为基准解析的 —— 于是所有右锚控件（设置/主题/打印/笔顺 4 个 FAB、toast、引导气泡）
+> 整体画到屏幕外。"看上去还可以"的 v2.9.7 并不是没问题，而是**整页一起横滚**，右锚控件跟着滚，
+> 视觉上没跑偏，代价是页头和字帖永远对不齐。
+
+### 🔍 根因（实测，不是猜的）
+
+390px 视口下 `documentElement.scrollWidth`：
+
+| 版本 | scrollWidth | `.fab-settings` 左边缘 | 说明 |
+|:-----|:-----------|:----------------------|:-----|
+| v3.0.7（修复前） | **1480** | 1412 | 屏外 1022px，点不到也看不见 |
+| v2.9.7 基线 | 729 | 654 | 同样溢出，但整页横滚掩盖了它 |
+| v3.0.8（修复后） | 390 | 322 | 与视口齐平 |
+
+元凶是 `.app-header p .build-info` —— 一条逐年加长的 `white-space:nowrap` 构建说明，
+加上 `.header-guide-links` 的 inline `flex-direction:column`；两者叠加让页头最小宽度 1480px，
+**在任何视口下都溢出**（媒体查询跟 `clientWidth` 走，所以断点看起来"是对的"，控件却画在屏外 —— 这正是难查的地方）。
+
+### 🛠 修复清单
+
+1. **页头**（`base.css` + `index.html`）：`h1`/`p` 去掉 `white-space:nowrap`、改 `overflow-wrap:anywhere`；
+   `.build-info` 在 ≤900px 隐藏；`.header-guide-links` 从 inline 竖排改为 CSS 横排换行
+   （inline 优先级压过断点规则，原先移动端只能靠 `!important` 对抗）；
+   ≤1416px 时页头 `padding-right:76px` 为右上角 FAB 列让位 —— `.app.app-dual` 最宽 1280px 居中，
+   视口小于 `1280 + 2×68` 时 FAB 必然压在页头上（实测"学习报告"按钮曾被主题 FAB 盖掉 78%）。
+2. **网格轨道 min-content**（`theme.css`）：`1fr` → `minmax(0,1fr)`，`.app-canvas`/`.a4-preview` 补 `min-width:0`。
+   这是 v2.9.7 就存在的隐性 bug：`1fr` 轨道的下限是 min-content，A4 行宽 178.2mm≈672px 直接把轨道顶到 729px。
+3. **层叠静默覆盖**（`settingsCenter.css`）：删掉后到的一份重复 `.fab-settings{top:20px;right:20px}`
+   （含 ≤680px 断点）—— 它把 `fab.css` 的移动端摆放无声改回了桌面值。
+4. **FAB 拖拽**（`fabDrag.js`）：`clampToViewport` 改用 `deviceEnv.getViewportRect()`（可视视口）而不是
+   `window.innerWidth`；启用条件加 `!isCoarsePointer()` —— 原先在触摸平板上启用拖拽 + 按被撑大的 `innerWidth`
+   夹紧，会把屏外坐标**永久写进** `localStorage['calligraphy_fab_positions']`，刷新后控件再也回不来。
+   实测：1280 鼠标端可拖、落点 `left=1216 ≤ 1280` 且已持久化；800 触摸端 `draggable=false`、不写存储。
+5. **引导气泡 / 滚动提示**（`onboarding.js`）：`positionBubble()` 与 `updateHintVisibilityFallback()`
+   改用可视视口原点 + 宽高做边界约束（软键盘、地址栏收放、双指缩放平移时布局视口 ≠ 看得见的那块）。
+6. **触摸目标**（`components.css`）：新增 `@media (pointer: coarse), (hover: none)` 块，
+   按钮 / 网格类型 / 颜色预设 / 引导链接 / FAB 等统一 `min-width/min-height:44px`（WCAG 2.5.5），
+   只抬下限不改 padding 字号 → 桌面端零影响。
+
+### ✅ 新增可重跑关口：`npm run verify:touch`
+
+`scripts/verify-touch-layout.cjs` —— 8 设备（390×844 / 844×390 / 360×740 / 800×1280 / 820×1180 / 1180×820 /
+1280×800 / 1920×1080）× 7 类断言：L1 整页横向溢出、L2 出屏元素、L3 固定控件互压、
+**L3b 固定 FAB 压住流程按钮**（L3 只比 fixed×fixed，抓不到"主题 FAB 挖掉学习报告按钮"这类）、
+L4 触摸目标、L5 抽屉可达、L6 滚动容器可达性。
+
+关口每次运行**先跑 10 项负控夹具自证**（会咬人才允许出结论，任一夹具失效直接 `exit 3`）：
+含 1 项**防误报**夹具（滚动容器已裁掉的区域不得算遮挡）。
+
+- 本版本产物：**FAIL=0 WARN=0 PASS=50**，10/10 夹具咬合。
+- 同一关口回跑 v2.9.7 基线：**FAIL=12 WARN=6**（手机整页溢出 340–370px、`#printBtn`/`#themeToggle` 出屏、
+  1180 与 1280 下 `#settingsBtn` 压住 `#reportOpenBtn` 64%）→ 关口能区分好坏两侧，不是恒真。
+
+判据本身的三处修正是**量具修正**而非放宽标准，逐条留了负控：
+L2 改为累加可滚祖先的 `scrollWidth-clientWidth`（A4 字帖在手机上横滚是既定设计，`overflow-x:hidden` 的静默裁切仍判 FAIL）；
+L3b 用"裁切后的实际绘制矩形"比较；L6 不能用 `scrollWidth` 做门槛 —— Chrome 不把左侧溢出计入
+`scrollWidth`（实测 200px 容器装 2×150px + `justify-content:flex-end`，`scrollWidth` 仍是 200，而首个子元素已在 `-92px`）。
+
+### 📌 已知边界（不是本版本回归）
+
+A4 字帖在手机上仍需**在预览容器内横向拖动**才能看全一行 —— 打印保真要求物理尺寸恒定
+（`print.css` 明令禁止 fit-to-width 缩放），预览按同一尺寸渲染，属既定设计。
+
+---
+
 ## v3.0.7 (2026-10-04) — 定向重绘：切字体 / 网格颜色 / 网格式样不再重算拼音·组词·笔画
 
 > 本版本做三件事：① 把「改一个外观参数就要整张字帖全量重建」这条老路拆掉，换成**分层定向重绘**；

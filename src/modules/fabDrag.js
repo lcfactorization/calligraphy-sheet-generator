@@ -1,9 +1,17 @@
 // src/modules/fabDrag.js
 // v2.9.5：桌面端 FAB 拖拽功能
 // 技术方案：原生 JS + Pointer Events + 5px 位移阈值防误触
-// 启用条件：window.matchMedia('(min-width: 681px)').matches
+// 启用条件：window.matchMedia('(min-width: 681px)') 且**不是**粗略指针
 // 位置持久化：localStorage key = calligraphy_fab_positions
 // 注意：不替代 FAB 现有 click 事件，仅通过位移阈值区分 click/drag
+//
+// v3.0.8：新增"粗略指针不启用拖拽"。带触摸屏的平板（MatePad 等）宽度天然 > 681px，
+// 原先会被判为桌面端 → 手指一滑就把 FAB 拖到任意位置并永久写入 localStorage，
+// 之后每次打开都从存储里恢复那个错位坐标 —— 这是"控件找不到/对不齐"在平板上
+// 反复复现的一条根因。fab.css 的 cursor:grab 本就只在 >680px 桌面样式里给，
+// 现在 JS 的启用口径与它对齐。
+
+import { getViewportRect, isCoarsePointer } from '../utils/deviceEnv.js';
 
 const STORAGE_KEY = 'calligraphy_fab_positions';
 const DRAG_THRESHOLD = 5;     // 位移阈值 px，< 5px 视为 click
@@ -20,7 +28,8 @@ const FAB_SELECTORS = [
 ];
 
 // 状态
-let mqDesktop = null;             // matchMedia 句柄
+let mqDesktop = null;             // matchMedia 句柄（宽度断点）
+let mqFine = null;                // matchMedia 句柄（(pointer: fine)）
 let resizeListenerBound = false;
 let enabled = false;              // 当前是否已启用拖拽
 const dragState = new WeakMap();  // 每个元素的拖拽状态
@@ -83,13 +92,18 @@ function snapToGrid(value) {
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
-/** 视口边界约束（基于元素当前 offset 尺寸） */
+/** 视口边界约束
+ *  v3.0.8：改用 visualViewport（deviceEnv.getViewportRect）而不是 window.innerWidth。
+ *  innerWidth 是**布局视口**宽度，页面一旦横向溢出，它就会大于用户实际可见的宽度，
+ *  于是持久化过的 left 值"看起来没越界"、实际停在屏幕外看不见的地方，且刷新后复现。
+ *  fixed 元素的坐标基准是布局视口原点，因此可视区要按 offset(left/top) 平移后再夹取。 */
 function clampToViewport(left, top, el) {
-    const maxX = window.innerWidth - el.offsetWidth - EDGE_MARGIN;
-    const maxY = window.innerHeight - el.offsetHeight - EDGE_MARGIN;
+    const vp = getViewportRect();
+    const maxX = vp.left + vp.w - el.offsetWidth - EDGE_MARGIN;
+    const maxY = vp.top + vp.h - el.offsetHeight - EDGE_MARGIN;
     return {
-        left: clamp(left, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxX)),
-        top: clamp(top, EDGE_MARGIN, Math.max(EDGE_MARGIN, maxY))
+        left: clamp(left, vp.left + EDGE_MARGIN, Math.max(vp.left + EDGE_MARGIN, maxX)),
+        top: clamp(top, vp.top + EDGE_MARGIN, Math.max(vp.top + EDGE_MARGIN, maxY))
     };
 }
 
@@ -260,7 +274,7 @@ export function resetFabPositions() {
             el.style.bottom = '';
             el.classList.remove('dragging');
             // 如果当前已启用拖拽，重新走一次 enableDragFor（不会应用任何位置，因 localStorage 已清）
-            if (el._fabDragEnabled && mqDesktop && mqDesktop.matches) {
+            if (el._fabDragEnabled && dragAllowed()) {
                 disableDragFor(el);
                 enableDragFor(el);
             }
@@ -269,6 +283,11 @@ export function resetFabPositions() {
 }
 
 // ───────────────────────── 全局启停 ─────────────────────────
+
+/** 拖拽是否应当启用：足够宽（桌面/横屏）且为精细指针（鼠标）。 */
+function dragAllowed() {
+    return !!(mqDesktop && mqDesktop.matches) && !isCoarsePointer();
+}
 
 function enableAll() {
     FAB_SELECTORS.forEach(sel => {
@@ -292,14 +311,14 @@ function onResize() {
     if (resizeRafId) cancelAnimationFrame(resizeRafId);
     resizeRafId = requestAnimationFrame(() => {
         resizeRafId = 0;
-        const isDesktop = mqDesktop.matches;
-        if (isDesktop && !enabled) {
+        const allow = dragAllowed();
+        if (allow && !enabled) {
             enableAll();
-        } else if (!isDesktop && enabled) {
-            // 窗口缩小到移动端：禁用拖拽并恢复 CSS 默认布局
+        } else if (!allow && enabled) {
+            // 退出可拖拽形态（窗口收窄 / 切换为触摸指针）：禁用并恢复 CSS 默认布局
             disableAll();
-        } else if (isDesktop && enabled) {
-            // 桌面端窗口尺寸变化：仅 clamp 超出视口的 FAB（不重置已存储位置）
+        } else if (allow && enabled) {
+            // 桌面端窗口尺寸变化：仅 clamp 超出可视视口的 FAB（不重置已存储位置）
             FAB_SELECTORS.forEach(sel => {
                 document.querySelectorAll(sel).forEach(el => {
                     const rect = el.getBoundingClientRect();
@@ -317,13 +336,14 @@ function onResize() {
 
 /**
  * 初始化桌面端 FAB 拖拽
- * 仅在 (min-width: 681px) 匹配时启用；监听断点变化自动启停
+ * 仅在 (min-width: 681px) 且指针精细时启用；监听两个断点变化自动启停
  */
 export function initFabDrag() {
     if (typeof window === 'undefined') return;
     mqDesktop = window.matchMedia('(min-width: 681px)');
+    mqFine = window.matchMedia('(pointer: fine)');
 
-    if (mqDesktop.matches) {
+    if (dragAllowed()) {
         // 等 DOM 渲染完成后再启用，确保 offsetWidth/Height 准确
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', enableAll, { once: true });
@@ -333,8 +353,9 @@ export function initFabDrag() {
     }
 
     if (!resizeListenerBound) {
-        // 断点变化（681px 临界）→ 启停切换
+        // 断点变化（681px 临界 / 指针形态变化）→ 启停切换
         mqDesktop.addEventListener('change', onResize);
+        if (mqFine.addEventListener) mqFine.addEventListener('change', onResize);
         // 窗口尺寸变化 → clamp 越界 FAB
         window.addEventListener('resize', onResize, { passive: true });
         resizeListenerBound = true;

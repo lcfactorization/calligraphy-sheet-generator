@@ -68,7 +68,10 @@
     max-width: 1280px;
 }
 
-/* ── 工作台网格：左 320px 侧栏 + 右 A4 画布 ── */
+/* ── 工作台网格：左 320px 侧栏 + 右 A4 画布 ──
+   v3.0.8：两列都用 minmax(0,…)。fr 轨道的最小尺寸默认是 min-content，
+   而 A4 字格行是固定物理宽度（178.2mm ≈ 672px），min-content 会把轨道
+   顶到 672px 以上 → 文档横向溢出 → fixed 控件平移到屏外。 */
 .app-workbench {
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
@@ -263,8 +266,11 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* ── 右侧 A4 预览画布 ── */
+/* ── 右侧 A4 预览画布 ──
+   min-width:0 让画布列可以窄于字格行的固定宽度；字格行自身的横滚由
+   grid-svg.css 的 #grid-container 滚动容器承担。 */
 .app-canvas {
+    min-width: 0;
     min-height: 400px;
     display: flex;
     justify-content: center;
@@ -277,6 +283,7 @@
     border-radius: 4px;
     padding: 32px;
     width: 100%;
+    min-width: 0;
     max-width: 820px;
     min-height: 600px;
     transition: box-shadow .3s var(--ease-out-soft);
@@ -293,7 +300,9 @@
  * ════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
     .app-workbench {
-        grid-template-columns: 1fr;
+        /* 必须是 minmax(0,1fr)：写成 1fr 时轨道最小宽度 = min-content，
+           会被 672px 的字格行顶开，导致整页横向溢出 */
+        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
     }
     .app-sidebar {
@@ -309,6 +318,7 @@
         transition: transform .3s var(--ease-out-soft);
         z-index: 200;
         padding: 16px;
+        overscroll-behavior: contain;
     }
     .app-sidebar.open {
         transform: translateX(0);

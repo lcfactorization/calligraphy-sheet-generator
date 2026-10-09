@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.7-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.8-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 部署状态
@@ -20,8 +20,8 @@
 | **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions 自动：push 到 `main` / `retake` 后构建部署 |
 
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.7(定向重绘:切字体 / 网格颜色 / 网格式样 / 描红透明度即时生效,且**不再重算拼音·组词·笔画笔顺**;「导入文件」正名为「导入生字」并修掉一个派发时序 bug;新增人教社部编版五上 217 字 / 五下 180 字 / 六上 180 字整册生字预设)
-- **最新更新**:v3.0.7 — 定向重绘(GridEngine 字格 SVG 拆成网格层 + 内容层,新增 `applySheetFont`/`applySheetTraceOpacity`/`repaintSheetGrid` 三个 API;`main.js` 按「设置快照 diff」分流外观变更与内容变更;真浏览器取证 `npm run verify:refresh` 对**构建产物**跑 68 项断言全绿**含负控**)+「导入生字」正名与派发时序修复 + 部编版整册生字预设(五上 217/五下 180/六上 180);v3.0.6 — AI Key 体系完整移植(新增 `aiConsole`/`aiDiagView`/`aiProbeHttp` 等 7 个模块、Key 默认不落盘 + 旧明文一次性迁移、18 家引擎注册表 + 自定义引擎、AI 控制台连通性体检)+ 笔顺弹窗按**可视视口**精确居中(单窗口 0 偏差、2/3/4 窗口末行孤窗居中)+ 修复 `callDeepSeekDirect` 在只传 apiKey 时的空指针;v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
+- **最新版本**:v3.0.8(触屏 / 移动端布局修复:根因是页头把整页撑出横向溢出、`position:fixed` 的 `right/bottom` 于是按被撑大的布局视口解析 → 4 个 FAB / toast / 引导气泡全部画到屏外。现消除溢出 + 页头横排并为 FAB 让位 + FAB 拖拽限桌面 + 触摸目标 ≥44px,新增可重跑关口 `npm run verify:touch`)
+- **最新更新**:v3.0.8 — 触屏/移动端布局修复(8 设备 × 7 类几何断言关口 **FAIL=0 WARN=0 PASS=50**,运行前先跑 10 项负控夹具自证;同一关口回跑 v2.9.7 基线得 **FAIL=12 WARN=6**,证明判据能区分好坏两侧。根因数据:390px 视口下修复前 `scrollWidth=1480`、`.fab-settings` 左边缘在 1412px;修复后 `scrollWidth=390`、左边缘 322px。详见 CHANGELOG);v3.0.7 — 定向重绘(GridEngine 字格 SVG 拆成网格层 + 内容层,新增 `applySheetFont`/`applySheetTraceOpacity`/`repaintSheetGrid` 三个 API;`main.js` 按「设置快照 diff」分流外观变更与内容变更;真浏览器取证 `npm run verify:refresh` 对**构建产物**跑 68 项断言全绿**含负控**)+「导入生字」正名与派发时序修复 + 部编版整册生字预设(五上 217/五下 180/六上 180);v3.0.6 — AI Key 体系完整移植(新增 `aiConsole`/`aiDiagView`/`aiProbeHttp` 等 7 个模块、Key 默认不落盘 + 旧明文一次性迁移、18 家引擎注册表 + 自定义引擎、AI 控制台连通性体检)+ 笔顺弹窗按**可视视口**精确居中(单窗口 0 偏差、2/3/4 窗口末行孤窗居中)+ 修复 `callDeepSeekDirect` 在只传 apiKey 时的空指针;v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 - **部署链路修复**(2026-09-19,版本号不变):v3.0.4 起 CI 字体下载脚本双重失效(pip PEP 668 + TW-Kai 上游 404),导致每次部署都在 `set -e` 下中断、线上长期停在 v3.0.3。现改为字体随仓库分发 + CI 只做校验,详见 [CHANGELOG](./CHANGELOG.md#v305-2026-09-18--隐私与合规加固--双击启动修复)。
 
 ## 目录结构
@@ -30,7 +30,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v3.0.7,ES Module)
+├── package.json             ← 依赖配置(v3.0.8,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -38,7 +38,7 @@ distribution/
 ├── 字帖生成器.html          ← 双击即用的启动器(内嵌 dist/index.html;含加载中提示/失败诊断/重试按钮)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.7 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.8 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
 ├── LICENSE                  ← 项目源码许可(MIT;第三方资产不适用,见下)
 ├── THIRD_PARTY_NOTICES.md   ← 第三方数据/字体/库的许可与署名清单
@@ -56,6 +56,8 @@ distribution/
 │   ├── verify-fonts.sh      ← 校验随仓库分发的 4 个 woff2 字体(CI 与本地通用)
 │   ├── download-fonts.sh    ← 兼容垫片(仅转发到 verify-fonts.sh,供旧构建配置继续工作)
 │   ├── measure-popup-layout.cjs ← 笔顺弹窗排布取证(Puppeteer 真浏览器量测 → popup-layout-report.json)
+│   ├── verify-touch-layout.cjs ← 触屏/移动端布局关口(8 设备 × 7 类几何断言 + 10 项负控自证 → _touch_layout_report/)
+│   ├── shot-touch.cjs       ← 触屏视口快照(诊断用,非关口)
 │   └── verify-aiconsole-ui.cjs  ← AI 控制台真浏览器取证(内置 mock 引擎 → aiconsole-ui-report.json)
 ├── public/
 │   ├── icon-*.svg           ← PWA 图标(192/512/maskable)
@@ -141,7 +143,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v3.0.7 累计)
+### 核心功能(v2.0–v3.0.8 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -169,6 +171,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 22 | **定向重绘(切字体/网格颜色/网格式样不重算)** | GridEngine 把每个字格 SVG 拆成网格层 + 内容层。切字体只改 `font-family` 属性、切颜色只重画线条、切式样只重画网格;拼音/组词/笔画笔顺节点**原地保留**,不重新调用 `pinyin()`/`getZuCi()`/`loadStrokes()`。真浏览器取证(对 `dist/` 构建产物跑,不是开发态):切字体后容器内 **338 个探针全部存活**、笔画队列 `pending=0`;负控(改输入文本)探针 **0/338**、`pending=2` —— 证明判据不是恒真。68 项断言全绿,报告落盘 `scripts/incremental-refresh-report-dist.json` | v3.0.7 |
 | 23 | **导入生字后自动重排** | 「导入文件」正名为「导入生字」;修掉派发时序 bug —— 原先在写入输入框**之前**就派发重渲染事件(增强格式导入会用**旧**输入重排),纯文本导入路径则一个事件都不派发 | v3.0.7 |
 | 24 | **部编版整册生字预设** | 新增三个分组(**一个学期一个分组**):「五年级上册」217 字 /「五年级下册」180 字 /「六年级上册」180 字,数据源为人教社统编教材课后写字表,按教材原序整册收录;侧栏「预设场景」与推荐面板「按场景」均可一键填入。六年级下册待数据到位后照抄一条即可 | v3.0.7 |
+| 25 | **触屏 / 移动端布局修复 + 布局关口** | 根因:页头 `.build-info`(`white-space:nowrap`)+ inline 竖排帮助链接把整页撑出横向溢出,而 `position:fixed` 的 `right/bottom` 按**被撑大的布局视口**解析 → 4 个 FAB、toast、引导气泡整体画到屏外(390px 视口下 `scrollWidth=1480`、`.fab-settings` 左边缘 1412px)。连带修掉 `1fr` 轨道 min-content 顶宽、`settingsCenter.css` 重复 `.fab-settings` 静默覆盖、`fabDrag` 在触摸设备上把屏外坐标永久写进 localStorage、引导气泡用布局视口做边界。新增关口 `npm run verify:touch`:8 设备 × 7 类几何断言,**FAIL=0 WARN=0 PASS=50**;运行前 10 项负控夹具自证(不咬人则 `exit 3`);回跑 v2.9.7 基线得 **FAIL=12 WARN=6** → 判据能区分好坏两侧 | v3.0.8 |
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 

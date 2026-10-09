@@ -27,19 +27,55 @@ body::before{
     min-height:calc(100vh - 64px);
 }
 
-/* ── 标题区（v2.5.4：压缩高度，左对齐，h1+副标题同行） ── */
+/* ── 标题区（v2.5.4：压缩高度，左对齐，h1+副标题同行） ──
+   v3.0.8：允许换行。此前 h1 与 p 都是 white-space:nowrap、.app-header-actions 是
+   flex-shrink:0，三者互不退让 → .app 的 min-content 宽度被标题文本撑到 1480px。
+   移动端布局视口会随文档溢出一起变宽，而 position:fixed 的 right 是相对该视口解析的，
+   于是所有右锚定控件（4 个 FAB / toast / 引导气泡）整体平移到屏幕外 —— 这就是
+   "触屏版 DOM 跑偏、控件找不到"的直接机理。标题区必须永远不产生横向溢出。 */
 .app-header{
-    display:flex;align-items:center;justify-content:space-between;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+    gap:4px 12px;
     padding:4px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px;
 }
-.app-header .header-title{display:flex;align-items:baseline;gap:10px;min-width:0}
-.app-header h1{font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--title-color);margin:0;white-space:nowrap}
+.app-header .header-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;min-width:0}
+.app-header h1{font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--title-color);margin:0;min-width:0}
 .app-header h1 .accent{background:linear-gradient(120deg,#6366f1,#ec4899,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}
 .app-header h1 .version-tag{font-size:10px;font-weight:500;color:var(--desc-color);background:rgba(99,102,241,0.1);padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0}
-.app-header p{color:var(--desc-color);font-size:11px;margin:0;white-space:nowrap}
+.app-header p{color:var(--desc-color);font-size:11px;margin:0;min-width:0;overflow-wrap:anywhere}
 .app-header p .build-info{opacity:.7;margin-left:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.app-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.app-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;min-width:0}
+/* 帮助链接组。原先是 index.html 里的 inline style：竖排 + 右对齐。
+   竖排右对齐正好落在右上角 FAB 列（设置/主题）的正下方，窄屏上被 FAB 压住，
+   且把页头撑到 130px 高；inline 优先级又压过所有断点规则，移动端只能靠 !important 对抗。
+   改为横排换行：页头矮一半，且与 FAB 列不再争位置。 */
+.header-guide-links{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
 /* 笔顺演示介绍页入口链接 */
 .header-guide-link{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--seal-red);background:rgba(158,42,43,0.08);border:1px solid rgba(158,42,43,0.25);border-radius:6px;text-decoration:none;white-space:nowrap;transition:all .2s var(--ease-out-soft)}
 .header-guide-link:hover{background:rgba(158,42,43,0.15);border-color:var(--seal-red);transform:translateY(-1px);box-shadow:0 2px 8px rgba(158,42,43,0.2)}
-@media (max-width:680px){.header-guide-link{padding:5px 10px;font-size:11px}}
+
+/* ── 视口不足以把 .app 与右上角 FAB 列错开时，页头主动让出 FAB 占位 ──
+   .app.app-dual 最宽 1280px 居中，FAB 列占视口右侧 68px（right:16 + 52 宽）；
+   视口 < 1280 + 2×68 时 FAB 会压在页头按钮/文字上（实测"学习报告"被主题 FAB 盖掉 78%）。 */
+@media (max-width:1416px){
+    .app-header{padding-right:76px}
+}
+
+/* ── 窄屏（< 901px）：构建说明属发布日志，不占移动端空间 ── */
+@media (max-width:900px){
+    .app-header p .build-info{display:none}
+}
+
+/* ── 移动端（< 681px）：标题区单列堆叠，帮助链接改为可横滑的一行 ── */
+@media (max-width:680px){
+    .app{padding:16px 12px;border-radius:12px}
+    .app-header{align-items:flex-start}
+    .app-header h1{font-size:16px}
+    .app-header p{font-size:10px}
+    .app-header-actions{width:100%;justify-content:flex-start}
+    .header-guide-links{width:100%;flex-wrap:nowrap;justify-content:flex-start;
+        overflow-x:auto;-webkit-overflow-scrolling:touch;
+        scrollbar-width:none;padding-bottom:2px}
+    .header-guide-links::-webkit-scrollbar{display:none}
+    .header-guide-link{padding:5px 10px;font-size:11px;flex:0 0 auto}
+}
