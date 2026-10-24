@@ -5,6 +5,72 @@
 
 ---
 
+## v3.1.0 (2026-10-24) — 新增"生字卡表格"版式（block-table）：每字一块的生字卡
+
+> 新功能版本，零功能退化：经典版式代码路径一字未改，全部新逻辑位于独立文件，
+> 经 `settings.layoutType`（默认 `'classic'`）分发并存，切换回经典即完全恢复原有行为。
+
+### ✨ 新功能：生字卡表格版式
+
+依据用户参考样张（Qwen_html demo，issue 附图纸样式）新增第二种字帖版式，每生字一块：
+
+- **信息行**：短四线格拼音（**恰好一个格宽** 13.5mm，TeXGyreAdventor，只写首字一次）
+  + "N画"笔画数 pill（hanziDataStore 离线数据）+ 笔画笔顺拆解 SVG 逐笔横排（`loadStrokes` 异步队列）。
+- **主表格**：格 0 范字 + 格 1–3 描摹（默认 20% 透明度，`btTraceOpacity` 独立于经典描红滑块）+ 其余空白临写；
+  无"逐笔描摹"（用户明确否定的构思）。描摹格数 0–5、范字格开关、列数 8/9/10/12、行数均可配置。
+- **组词面板**：每行一词（2–4 字词，4 格/行），词源 = 手动改写 > AI multi 组词 > 经典二字词库回退；
+  三档显示透明度 `hidden(0%) / trace(20%) / full(100%)`，zhead 标题条点击循环切换，设置中心三选。
+- **AI multi 组词**（2–4 字词）：新入口 `fillMissingZuciMulti`，提示词铁律"第 1 词二字 + 第 2 词三或四字
+  （四字允许常用成语）"；缓存 `ai_zuci_cache_v2` 条目新增并列字段 `zuciMulti`（`CARRY_FIELDS` 透传保留，
+  不含该字段的经典条目序列化结果逐字节不变）。工具栏 ✨ 按钮（仅块帖版式可见）一键对全部生字补词。
+- **手动改写**：点击组词面板 → 编辑浮层（拼音 + 两词，2–4 字），优先级 手动 > AI > 默认词库；
+  点击信息行/主表格格子 → 笔顺演示弹窗（复用现有 `strokeDemoModal`，零改动）。
+- **格型与配色全复用**：主表格格子经 `createGridCellSVG({userGrid:true})` 产出，
+  田/米/九宫/回/拼音田 + 四色预设 + 换字体，全部走现有定向重绘（`repaintSheetGrid` / `applySheetFont`），
+  换色另补 `btRecolor` 刷新 bt- 元素（信息行线条/拼音/词字）。
+- **入口三处一致**：快捷工具栏切换按钮 / 侧栏"字帖版式"分节 / 设置中心"字帖版式"区（含块帖参数组），
+  同一数据源 `layoutType`；默认经典，老用户行为零变化。
+
+### 🏗 架构（版式与格型正交）
+
+- 新契约文件 `src/contracts/blockTable.js`（`LAYOUT_TYPES` / `BLOCK_TABLE_LAYOUT` / `BT_DEFAULT_SETTINGS`），
+  **`src/contracts/interfaces.js` 一行未动**。
+- 新实现文件：`src/components/BlockTableEngine.js`（渲染 + 三个定向刷新 API + btRecolor）、
+  `src/styles/block-table.css`（屏幕 + `@media print`，`bt-` 命名空间）、`src/modules/btManualEdit.js`、
+  `src/modules/aiZuci.js` 末尾追加区段（现有函数零改动，仅 `CARRY_FIELDS` +1 元素）。
+- 类名纪律：主表格格子**有意复用** `.grid-svg-cell[data-char]` 与 `.grid-svg-row-border`（笔顺演示、
+  格型/颜色/字体定向重绘零改动生效）；其余元素一律 `bt-` 前缀，绝不使用 `.grid-svg-row` /
+  `.grid-svg-aux-row`（隔离 manualEdit 与 pdfExport 的现有委托查询）。
+- `main.js` 接线最小化：版式分发 + 外观键增补 + 两个工具栏按钮处理器；块帖引擎动态 `import()`，
+  加载失败自动回退经典版式（单文件构建下内联，目的为弱耦合与失败隔离而非体积）。
+
+### 🖨 打印
+
+- 走现有 `window.print()` 轨：`@page A4 portrait; margin:10mm`，块 `break-inside:avoid` 绝不跨页断裂；
+  打印样式全部在 `block-table.css` 的 `@media print` 段，**`print.css` 一行未改**。
+- 屏幕预览 210mm 纸张容器，窄屏（<768px）`transform:scale()` 缩放且整页不横向溢出（v3.0.8 铁律延续）。
+
+### 🧪 验证
+
+- 新增验收关口 `npm run verify:blocktable`（Puppeteer 13 断言：结构/描摹档位/定向重绘探针/
+  事件隔离/缓存字节一致性/窄屏溢出/打印媒体/切换按钮）。
+- 回归关口：`verify:refresh`（经典定向重绘）、`verify:touch`（经典触屏布局）不退化；`node --check` 全绿。
+- 执行监督：GLM-5.3（非 Flash）监督员两轮独立审查（阶段 1 产出"合规"5 低危；接线审查另附），
+  其中"zhead 档位点击循环缺失"与"注释表述失实"由监督员发现并已修复。
+
+### 已知限制（M2 待办）
+
+- 行/列手动插删编辑（文档模型已按数组组织，UI 暴露留待下版）；jsPDF 矢量导出轨未适配块帖
+  （打印轨不受影响）；`puppeteer-pdf.cjs` CLI 轨未适配（页边距按经典 11 格行调优）；部首/结构词典未含。
+
+### 回退
+
+- 功能级：设置切回"经典字帖"即恢复；代码级：`git revert` 接线提交或 `git reset --hard bt-m3-verified`；
+  阶段 tag：`bt-m0-base` / `bt-m1-contract` / `bt-m1-impl` / `bt-m2-wired` / `bt-m2-fixes` / `bt-m3-verified`。
+- `zuciMulti` 为可选字段，回退旧版本后旧代码自动忽略，无 schema 迁移、无数据破坏。
+
+---
+
 ## v3.0.8 (2026-10-09) — 触屏 / 移动端布局修复：控件不再跑出屏幕
 
 > 现象（用户报告）：触屏版从某个版本起 DOM 跑偏、无法对齐、导航与控件乱七八糟，v2.9.7 看上去还可以。

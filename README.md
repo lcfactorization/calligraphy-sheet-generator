@@ -143,7 +143,7 @@ npm run preview      # 预览构建结果 http://localhost:4173
 
 ## 功能特性
 
-### 核心功能(v2.0–v3.0.8 累计)
+### 核心功能(v2.0–v3.1.0 累计)
 
 | # | 功能 | 说明 | 引入版本 |
 |:--:|:-----|:-----|:-----|
@@ -172,6 +172,18 @@ npm run preview      # 预览构建结果 http://localhost:4173
 | 23 | **导入生字后自动重排** | 「导入文件」正名为「导入生字」;修掉派发时序 bug —— 原先在写入输入框**之前**就派发重渲染事件(增强格式导入会用**旧**输入重排),纯文本导入路径则一个事件都不派发 | v3.0.7 |
 | 24 | **部编版整册生字预设** | 新增三个分组(**一个学期一个分组**):「五年级上册」217 字 /「五年级下册」180 字 /「六年级上册」180 字,数据源为人教社统编教材课后写字表,按教材原序整册收录;侧栏「预设场景」与推荐面板「按场景」均可一键填入。六年级下册待数据到位后照抄一条即可 | v3.0.7 |
 | 25 | **触屏 / 移动端布局修复 + 布局关口** | 根因:页头 `.build-info`(`white-space:nowrap`)+ inline 竖排帮助链接把整页撑出横向溢出,而 `position:fixed` 的 `right/bottom` 按**被撑大的布局视口**解析 → 4 个 FAB、toast、引导气泡整体画到屏外(390px 视口下 `scrollWidth=1480`、`.fab-settings` 左边缘 1412px)。连带修掉 `1fr` 轨道 min-content 顶宽、`settingsCenter.css` 重复 `.fab-settings` 静默覆盖、`fabDrag` 在触摸设备上把屏外坐标永久写进 localStorage、引导气泡用布局视口做边界。新增关口 `npm run verify:touch`:8 设备 × 7 类几何断言,**FAIL=0 WARN=0 PASS=50**;运行前 10 项负控夹具自证(不咬人则 `exit 3`);回跑 v2.9.7 基线得 **FAIL=12 WARN=6** → 判据能区分好坏两侧 | v3.0.8 |
+| 26 | **生字卡表格版式(block-table)** | 与经典字帖并存的第二种版式,每生字一块:信息行(一格宽短四线格拼音 + N画 + 笔顺拆解 SVG 逐笔)+ 主表格(格 0 范字 + 格 1–3 描摹 20% + 其余空白临写)+ 组词面板(每行一词,**2–4 字词**,三档透明度 隐藏 0%/描摹 20%/显示 100%,zhead 点击循环);AI multi 组词(1 个二字词 + 1 个三/四字词,允许常用成语)、组词区点击手动改写、点击主表格格子弹笔顺演示;格型/配色/字体与经典版式共用同一套设置(定向重绘);打印 A4 整块不跨页。`layoutType` 三入口切换(工具栏/侧栏/设置中心),默认经典零变化,块帖引擎动态 import 失败自动回退经典;新关口 `npm run verify:blocktable` 13 断言 | v3.1.0 |
+
+### v3.1.0 生字卡表格版式 — 版式与格型正交(block-table)
+
+- **新契约**:`src/contracts/blockTable.js`(LAYOUT_TYPES / BLOCK_TABLE_LAYOUT / BT_DEFAULT_SETTINGS),`interfaces.js` 零改动。
+- **新实现**:`BlockTableEngine.js`(渲染 + btApplyZuciLevel / btApplyTraceOpacity / btRecolor 定向刷新)、
+  `block-table.css`(屏幕 + 打印,bt- 命名空间)、`btManualEdit.js`(组词编辑浮层 + 档位循环)、
+  `aiZuci.js` 追加区段(getAiZuciMulti / updateAiZuciMulti / clearUserEditMulti / fillMissingZuciMulti;
+  缓存条目新增并列字段 `zuciMulti`,经典条目序列化逐字节不变)。
+- **复用矩阵**:格子经 `createGridCellSVG({userGrid:true})` 产出 → 格型五类 + 四色预设 + 字体切换
+  走现有 `repaintSheetGrid` / `applySheetFont`;笔顺演示弹窗零改动自动接管主表格格子点击。
+- **用户文档**:`docs/生字卡表格版式_发布说明_v3.1.0.md`(操作手册 + 常见问题)。
 
 ### v2.4.0 重构 — SVG 矢量引擎 + 双轨矢量 PDF + 接口契约层
 
