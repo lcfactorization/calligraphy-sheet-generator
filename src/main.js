@@ -197,7 +197,10 @@ async function handleGenerate() {
             // 块帖组词区手动编辑委托：只在首次进入块帖版式时初始化一次
             if (!_btManualEditInited) {
                 _btManualEditInited = true;
-                import('./modules/btManualEdit.js').then(m => m.initBtManualEdit()).catch(() => {});
+                // v3.1.0（监督员 pass2 F3）：失败必须留诊断线索，不得静默吞掉
+                import('./modules/btManualEdit.js')
+                    .then(m => m.initBtManualEdit())
+                    .catch(err => console.error('[main] 块帖手动编辑初始化失败:', err));
             }
         } catch (err) {
             console.error('[main] 生字卡引擎加载失败，回退经典版式:', err);
@@ -329,21 +332,25 @@ function showBtToast(text, sticky = false) {
     return t;
 }
 
+/** v3.1.0（监督员 pass2 F1）：工具栏版式切换钮的状态同步 —— 三入口共用，幂等廉价 */
+function syncLayoutToggleBtn() {
+    const b = document.getElementById('layout-toggle-btn');
+    if (!b) return;
+    const bt = isBlockTableLayout(getSettings());
+    b.setAttribute('aria-pressed', String(bt));
+    b.title = bt
+        ? '当前：生字卡表格（点击切换回经典字帖）'
+        : '当前：经典字帖（点击切换为生字卡表格）';
+}
+
 const layoutToggleBtn = document.getElementById('layout-toggle-btn');
 if (layoutToggleBtn) {
-    const syncLayoutBtn = () => {
-        const bt = isBlockTableLayout(getSettings());
-        layoutToggleBtn.setAttribute('aria-pressed', String(bt));
-        layoutToggleBtn.title = bt
-            ? '当前：生字卡表格（点击切换回经典字帖）'
-            : '当前：经典字帖（点击切换为生字卡表格）';
-    };
-    syncLayoutBtn();
+    syncLayoutToggleBtn();
     layoutToggleBtn.addEventListener('click', () => {
         const next = isBlockTableLayout(getSettings()) ? 'classic' : 'block-table';
         // 走 updateSetting 管线：settings-updated → layoutType 为结构键 → 全量重建
         updateSetting('layoutType', next);
-        syncLayoutBtn();
+        syncLayoutToggleBtn();
         updateBtAiButtonVisibility();
     });
 }
@@ -395,6 +402,12 @@ document.addEventListener('calligraphy:sidebar-updated', () => {
 // v2.4.7：设置中心状态变化时实时重渲染
 // v3.0.7：改为按「外观 / 内容」分流，只改网格颜色或式样时不再动生字、组词、拼音、笔画
 document.addEventListener('calligraphy:settings-updated', () => {
+    // v3.1.0（监督员 pass2 F1）：三入口状态同步 —— layoutType 可能经侧栏/设置中心变更，
+    // 工具栏切换钮的 aria-pressed/title 与 AI 组词按钮显隐必须随之更新
+    // （两函数为 function 声明，提升可用；幂等廉价 DOM 写）。
+    syncLayoutToggleBtn();
+    updateBtAiButtonVisibility();
+
     const container = getGridContainer();
     const changed = diffSettings();
     const appearanceOnly = !!changed && changed.length > 0 && changed.every(k => APPEARANCE_KEYS.has(k));

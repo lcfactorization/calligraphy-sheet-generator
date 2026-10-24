@@ -89,6 +89,25 @@ function applySettings(settings) {
     //   页眉页脚颜色与网格线条颜色保持完全同步
     root.style.setProperty('--grid-primary-color', primaryColor);
     root.style.setProperty('--grid-theme-color', primaryColor);
+
+    // v3.1.0（监督员 pass2 F1）：设置面板 DOM 持久化（createPanel 有 already-exists 守卫），
+    // layoutType / btZuciLevel 可能经侧栏、设置中心、块帖 zhead 点击等**外部路径**变更，
+    // 面板打开期间的版式按钮 active 态、参数组显隐与档位高亮必须随之同步（幂等廉价 DOM 写）。
+    const panel = document.getElementById('settingsPanel');
+    if (panel) {
+        panel.querySelectorAll('.sc-layout-btn').forEach(b => {
+            const isActive = b.dataset.layoutType === settings.layoutType;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-pressed', String(isActive));
+        });
+        const btParams = panel.querySelector('#scBtParams');
+        if (btParams) btParams.style.display = settings.layoutType === 'block-table' ? 'block' : 'none';
+        panel.querySelectorAll('.sc-bt-level').forEach(b => {
+            const isActive = b.dataset.level === settings.btZuciLevel;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-pressed', String(isActive));
+        });
+    }
 }
 
 /** 应用主题设置（与现有 settings.js 协同） */

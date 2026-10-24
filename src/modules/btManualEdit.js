@@ -6,12 +6,13 @@
 // 复用 .sc-overlay / .sc-modal / .sc-field 样式（settingsCenter.css），交互骨架参照
 // manualEdit.js；本模块只负责浮层交互，不做任何渲染（渲染是 BlockTableEngine 的职责）。
 //
-// 与笔顺演示弹窗（strokeDemoModal）的隔离依据（经监督员 pass1 更正表述）：
-//   实际隔离完全靠选择器结构——块帖组词格类名为 .bt-zcell 且不带 data-char 属性，
-//   strokeDemoModal 的 #grid-container 委托只认 .grid-svg-cell[data-char]，命中不到组词区。
-//   e.stopPropagation() 在 document 级监听器内调用，对更早收到冒泡的容器级委托无追溯力，
-//   它只阻断**其他 document 级委托**（如经典 manualEdit）再响应——功能正确，但不是
-//   对 strokeDemoModal 的第二重保险。
+// 与笔顺演示弹窗（strokeDemoModal）/ 经典 manualEdit 的隔离依据（经监督员 pass1/pass2 两轮更正表述）：
+//   实际隔离**完全靠选择器结构**——块帖组词格类名为 .bt-zcell 且不带 data-char 属性，
+//   strokeDemoModal 的 #grid-container 委托只认 .grid-svg-cell[data-char]，命中不到组词区；
+//   经典 manualEdit 只认 .grid-svg-row，块帖 DOM 不含该类名，同样命中不到。
+//   e.stopPropagation() 只阻断事件向**后续节点**传播；对**同节点**（document）上已注册的其他
+//   监听器无效（那需要 stopImmediatePropagation），而 document 已是冒泡终点——它在此
+//   并非防误触机制，仅作为未来新增委托时的廉价保险保留。
 
 import { updateAiZuciMulti, clearUserEditMulti } from './aiZuci.js';
 import { convert } from './pinyin.js';
@@ -143,7 +144,7 @@ export function initBtManualEdit() {
         if (openModal) return;
         const pinyin = block.getAttribute('data-pinyin') || '';
         const zuciMulti = (block.getAttribute('data-zuci-multi') || '').split('|').filter(Boolean);
-        // 阻断其他 document 级委托（如经典 manualEdit）再响应——见文件头隔离依据说明
+        // 保险保留：对同节点 document 级监听器无效（见文件头隔离依据）；实际隔离靠选择器结构
         e.stopPropagation();
         openEditModal(char, pinyin, zuciMulti);
     });
