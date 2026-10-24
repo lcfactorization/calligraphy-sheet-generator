@@ -271,7 +271,7 @@
     {
       "name": "12c page.pdf() 产出非空（>5KB）",
       "status": "PASS",
-      "observed": "101076 bytes",
+      "observed": "104353 bytes",
       "expected": ">5120 bytes",
       "note": ""
     },
@@ -336,6 +336,13 @@
       "status": "PASS",
       "observed": "{\"silentCut\":[],\"badgeMismatch\":[]}",
       "expected": "0 条静默裁切",
+      "note": ""
+    },
+    {
+      "name": "15e-4 多笔画填满：≥10 笔的拆解条无右侧大片留白（scrollWidth ≥ 0.9×clientWidth）",
+      "status": "PASS",
+      "observed": "{\"sparse\":[]}",
+      "expected": "全部填满",
       "note": ""
     },
     {
