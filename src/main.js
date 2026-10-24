@@ -8,7 +8,9 @@ import { exportPDF } from './utils/pdfExport.js';
 import { initSidebar, getSidebarState } from './components/Sidebar.js';
 import './modules/puppeteerClient.js'; // side-effect 导入
 import { initHistory, saveHistory } from './modules/history.js';
-import { initSettingsCenter, getSettings } from './modules/settingsCenter.js';
+import { initSettingsCenter, getSettings, updateSetting } from './modules/settingsCenter.js';
+// v3.1.0：版式判定辅助（纯常量契约，无循环依赖风险）
+import { isBlockTableLayout } from './contracts/blockTable.js';
 import { initDifficulty } from './modules/difficulty.js';
 import { registerFileImporter } from './modules/fileImporter.js';
 import { registerRecommender } from './modules/recommender.js';
@@ -129,7 +131,10 @@ function recordHistory() {
 //       - diff 为空 → 什么都不做（设置没变就没有要重绘的东西）。
 //   用快照 diff 而不是事件 detail：detail 的六个派发点载荷形状不一致，靠不住。
 const GRID_REPAINT_KEYS = ['gridColorPreset', 'gridType'];
-const APPEARANCE_KEYS = new Set([...GRID_REPAINT_KEYS, 'traceOpacity']);
+// v3.1.0：APPEARANCE_KEYS 增补块帖外观键 —— btTraceOpacity（描摹透明度）与
+// btZuciLevel（组词三档）只触发块帖定向改写；其余 bt* 键与 layoutType 属结构键，
+// 依赖下方"非外观键→全量重建"的默认分支，无需新逻辑。
+const APPEARANCE_KEYS = new Set([...GRID_REPAINT_KEYS, 'traceOpacity', 'btTraceOpacity', 'btZuciLevel']);
 
 let settingsSnapshot = null;
 
@@ -159,13 +164,52 @@ function diffSettings() {
     return changed;
 }
 
-// 生成字帖（新 SVG 引擎）—— 全量重建，含拼音/组词/笔画
-function handleGenerate() {
+// ── v3.1.0：版式分发 ─────────────────────────────────────────────
+// 生字卡表格（block-table）走懒加载引擎；经典路径保持原样。
+// 动态 import 在 vite-plugin-singlefile 单文件构建下会被内联进单 HTML —— 这里保留
+// 动态形式的目的不是体积优化，而是弱耦合与失败隔离：引擎加载失败仅影响块帖分支，
+// 可捕获并回退经典版式，生成/打印永远可用。
+let _btEnginePromise = null;
+function loadBtEngine() {
+    if (!_btEnginePromise) _btEnginePromise = import('./components/BlockTableEngine.js');
+    return _btEnginePromise;
+}
+let _btManualEditInited = false;
+
+// 生成字帖：按 layoutType 分发（新 SVG 引擎经典路径 / 块帖引擎），含拼音/组词/笔画
+async function handleGenerate() {
     const input = document.getElementById('inputText').value;
     const container = getGridContainer();
     if (!container) return;
     container.innerHTML = '';
     container.classList.add('svg-mode');
+
+    const settings = getSettings();
+    if (isBlockTableLayout(settings)) {
+        container.dataset.layout = 'block-table';
+        try {
+            const bt = await loadBtEngine();
+            const fontSelect = document.getElementById('font-select');
+            container.appendChild(bt.renderBlockSheet(input, {
+                fontFamily: fontSelect ? fontSelect.value : 'TW-Kai',
+                gridType: settings.gridType || 'mizi'
+            }));
+            // 块帖组词区手动编辑委托：只在首次进入块帖版式时初始化一次
+            if (!_btManualEditInited) {
+                _btManualEditInited = true;
+                import('./modules/btManualEdit.js').then(m => m.initBtManualEdit()).catch(() => {});
+            }
+        } catch (err) {
+            console.error('[main] 生字卡引擎加载失败，回退经典版式:', err);
+            container.dataset.layout = 'classic';
+            container.appendChild(renderSheet(input, getRenderOptions()));
+        }
+        recordHistory();
+        takeSettingsSnapshot();
+        return;
+    }
+
+    container.dataset.layout = 'classic';
     const frag = renderSheet(input, getRenderOptions());
     container.appendChild(frag);
 
@@ -263,6 +307,85 @@ if (fontSelectEl) {
     });
 }
 
+// ── v3.1.0：字帖版式切换按钮 + 生字卡 AI 组词按钮（快捷工具栏入口） ──
+// 版式共三个入口（快捷工具栏 / 侧栏"字帖版式"分节 / 设置中心），同一数据源 layoutType；
+// 侧栏与设置中心的写入走 updateSetting 管线自动重渲染，此处按钮负责工具栏态同步。
+function updateBtAiButtonVisibility() {
+    const b = document.getElementById('bt-ai-zuci-btn');
+    if (b) b.style.display = isBlockTableLayout(getSettings()) ? '' : 'none';
+}
+
+/** 轻量 toast（复用全局 .puppeteer-toast 样式）；sticky 为 true 时由调用方负责移除 */
+function showBtToast(text, sticky = false) {
+    const existing = document.querySelector('.puppeteer-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'puppeteer-toast info';
+    t.textContent = text;
+    document.body.appendChild(t);
+    if (!sticky) {
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => { if (t.parentNode) t.remove(); }, 300); }, 2600);
+    }
+    return t;
+}
+
+const layoutToggleBtn = document.getElementById('layout-toggle-btn');
+if (layoutToggleBtn) {
+    const syncLayoutBtn = () => {
+        const bt = isBlockTableLayout(getSettings());
+        layoutToggleBtn.setAttribute('aria-pressed', String(bt));
+        layoutToggleBtn.title = bt
+            ? '当前：生字卡表格（点击切换回经典字帖）'
+            : '当前：经典字帖（点击切换为生字卡表格）';
+    };
+    syncLayoutBtn();
+    layoutToggleBtn.addEventListener('click', () => {
+        const next = isBlockTableLayout(getSettings()) ? 'classic' : 'block-table';
+        // 走 updateSetting 管线：settings-updated → layoutType 为结构键 → 全量重建
+        updateSetting('layoutType', next);
+        syncLayoutBtn();
+        updateBtAiButtonVisibility();
+    });
+}
+
+// 生字卡 AI 组词（2–4 字词）：对当前输入框全部生字跑 fillMissingZuciMulti，
+// 进度用 toast 滚动更新，完成后派发 content-updated 全量重生成展示新词。
+// 与经典 AI 控制台（aiConsole）互不侵入：本入口只在块帖版式下可见。
+const btAiZuciBtn = document.getElementById('bt-ai-zuci-btn');
+if (btAiZuciBtn) {
+    btAiZuciBtn.addEventListener('click', async () => {
+        if (btAiZuciBtn.dataset.running === '1') return;
+        const inputEl = document.getElementById('inputText');
+        const chars = [...new Set((((inputEl && inputEl.value) || '').match(/[\u4e00-\u9fa5]/g) || []))];
+        if (!chars.length) { showBtToast('请先输入生字再运行 AI 组词'); return; }
+        btAiZuciBtn.dataset.running = '1';
+        const toast = showBtToast(`AI 组词（2–4 字词）处理中… 0/${chars.length}`, true);
+        try {
+            const { fillMissingZuciMulti } = await import('./modules/aiZuci.js');
+            const res = await fillMissingZuciMulti(chars, {
+                onProgress: (p) => { toast.textContent = `AI 组词（2–4 字词）… ${p.processed}/${p.total}`; }
+            });
+            if (res.timedOut) {
+                toast.textContent = `⏱ ${res.timeoutError || '处理超时，可重试'}`;
+            } else if (res.insufficientCount > 0) {
+                toast.textContent = `AI 组词完成，${res.insufficientTip || res.insufficientCount + ' 字未补齐（可重跑或点击组词区手动补充）'}`;
+            } else {
+                toast.textContent = `✓ AI 组词完成（${chars.length} 字，含 2–4 字词）`;
+            }
+            document.dispatchEvent(new CustomEvent('calligraphy:content-updated'));
+        } catch (err) {
+            toast.textContent = `✗ AI 组词失败：${err && err.message ? err.message.slice(0, 120) : '未知错误'}`;
+        } finally {
+            btAiZuciBtn.dataset.running = '';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+            }, 4500);
+        }
+    });
+}
+updateBtAiButtonVisibility();
+
 // 侧栏状态变化（预设模板）时实时重渲染
 // v3.0.7：模板改的是**输入框里的生字**，属于内容变更，必须全量重建
 document.addEventListener('calligraphy:sidebar-updated', () => {
@@ -277,14 +400,36 @@ document.addEventListener('calligraphy:settings-updated', () => {
     const appearanceOnly = !!changed && changed.length > 0 && changed.every(k => APPEARANCE_KEYS.has(k));
 
     if (appearanceOnly && hasRenderedSheet(container)) {
+        const btMode = container.dataset.layout === 'block-table';
+        const btJobs = [];
+
         if (changed.some(k => GRID_REPAINT_KEYS.includes(k))) {
-            const r = repaintSheetGrid(container);
+            // v3.1.0：块帖模式下描摹格透明度必须传独立的 btTraceOpacity
+            // （repaintSheetGrid 缺省读经典 traceOpacity，两版式该值相互独立）
+            const r = repaintSheetGrid(container, btMode ? { traceOpacity: getSettings().btTraceOpacity } : {});
             console.log(`[main] 网格颜色/式样变更 → 重画 ${r.repainted} 个网格层，` +
                 `其中 ${r.rebuiltContent} 格因式样改变而重建内容层（拼音/组词/笔画未重算）`);
+            // repaintSheetGrid 不覆盖 bt- 元素（信息行四线格/拼音/词字），块帖需另行定向刷新
+            if (btMode) btJobs.push('recolor');
         }
-        if (changed.includes('traceOpacity')) {
+        if (changed.includes('traceOpacity') && !btMode) {
+            // 经典描红透明度：仅经典版式响应（块帖的描摹透明度是独立的 btTraceOpacity）
             const r = applySheetTraceOpacity(container, getSettings().traceOpacity);
             console.log(`[main] 描红透明度变更 → 改写 ${r.texts} 个节点的 opacity 属性`);
+        }
+        // v3.1.0：块帖外观键定向改写（不重建块、不重查拼音/组词/笔画）
+        if (btMode && (changed.includes('btTraceOpacity') || changed.includes('btZuciLevel') || btJobs.length)) {
+            loadBtEngine().then(bt => {
+                if (btJobs.includes('recolor')) bt.btRecolor(container);
+                if (changed.includes('btTraceOpacity')) {
+                    const r1 = bt.btApplyTraceOpacity(container, getSettings().btTraceOpacity);
+                    console.log(`[main] 块帖描摹透明度变更 → 改写 ${r1.texts} 个节点`);
+                }
+                if (changed.includes('btZuciLevel')) {
+                    const r2 = bt.btApplyZuciLevel(container, getSettings().btZuciLevel);
+                    console.log(`[main] 组词档位变更 → 定向改写 ${r2.cells} 个组词面板`);
+                }
+            }).catch(err => console.error('[main] 块帖定向刷新失败:', err));
         }
         takeSettingsSnapshot();
         flashUpdated(container);

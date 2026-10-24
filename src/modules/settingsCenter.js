@@ -6,6 +6,10 @@ import { toggleTheme } from './settings.js';
 // v2.8.3：导入网格颜色预设，用于把页眉页脚颜色同步到 CSS 变量
 // 不从 GridEngine.js import getActiveGridColors（会造成循环依赖：GridEngine 已 import 本模块的 getSettings）
 import { GRID_COLORS, GRID_COLOR_PRESETS } from '../contracts/interfaces.js';
+// v3.1.0：生字卡表格版式（block-table）设置键与档位表（单一来源 contracts/blockTable.js，追加式合并）
+import { BT_DEFAULT_SETTINGS, BT_ZUCI_LEVELS, LAYOUT_TYPES } from '../contracts/blockTable.js';
+// v3.1.0：页头标题为用户可控文本，进 innerHTML 模板前必须转义（数据层闸门）
+import { escapeHtml } from '../utils/sanitize.js';
 
 // v3.0.0：低调暗淡的眼睛 SVG 图标（隐藏态=带斜线眼-off，显示态=眼-on）
 const EYE_OFF_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -33,7 +37,10 @@ const DEFAULT_SETTINGS = {
     // v2.5.3：网格颜色预设（'green' | 'red' | 'blue' | 'ink'），见 interfaces.js GRID_COLOR_PRESETS
     gridColorPreset: 'green',
     // v2.9.9 模块B：AI 组词补齐开关（默认关；API Key 独立存于 localStorage deepseek_api_key）
-    aiZuciEnabled: false
+    aiZuciEnabled: false,
+    // v3.1.0：块帖（生字卡表格）版式设置键 —— 字面量集中在 contracts/blockTable.js，
+    // 本文件不书写这些键的默认值（spread 合并，恢复默认按钮自动覆盖全部 bt* 键）
+    ...BT_DEFAULT_SETTINGS
 };
 
 /** 读取设置 */
@@ -274,6 +281,80 @@ function createPanel() {
                 </div>
             </div>
             <div class="sc-body">
+                <!-- v3.1.0：字帖版式（页面级组织方式，与网格类型正交）。块帖参数组仅 block-table 激活时展开 -->
+                <div class="sc-section">
+                    <div class="sc-section-title">🗂️ 字帖版式</div>
+                    <div class="sc-grid-type-group" role="group" aria-label="字帖版式切换">
+                        ${LAYOUT_TYPES.map(t => `
+                            <button type="button"
+                                class="sc-grid-type-btn sc-layout-btn ${settings.layoutType === t.id ? 'active' : ''}"
+                                data-layout-type="${t.id}"
+                                aria-pressed="${settings.layoutType === t.id}">${t.label}</button>
+                        `).join('')}
+                    </div>
+                    <div id="scBtParams" style="display:${settings.layoutType === 'block-table' ? 'block' : 'none'};margin-top:10px;">
+                        <div class="sc-field">
+                            <label>每行格数</label>
+                            <div class="sc-grid-type-group" role="group" aria-label="每行格数">
+                                ${[8, 9, 10, 12].map(n => `
+                                    <button type="button"
+                                        class="sc-grid-type-btn sc-bt-cols ${Number(settings.btCols) === n ? 'active' : ''}"
+                                        data-cols="${n}"
+                                        aria-pressed="${Number(settings.btCols) === n}">${n}</button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="sc-field" style="margin-top:10px">
+                            <label>描摹格数（范字后，0–5） <span class="sc-value" id="scBtTraceCountVal">${Number(settings.btTraceCount)}</span></label>
+                            <input type="range" id="scBtTraceCount" min="0" max="5" step="1" value="${Number(settings.btTraceCount)}">
+                        </div>
+                        <div class="sc-field" style="margin-top:10px">
+                            <label>描摹透明度 <span class="sc-value" id="scBtTraceOpacityVal">${Number(settings.btTraceOpacity).toFixed(2)}</span></label>
+                            <input type="range" id="scBtTraceOpacity" min="0.05" max="0.3" step="0.05" value="${Number(settings.btTraceOpacity)}">
+                        </div>
+                        <div class="sc-field" style="margin-top:10px">
+                            <label>组词词数（1–4） <span class="sc-value" id="scBtZuciRowsVal">${Number(settings.btZuciRows)}</span></label>
+                            <input type="range" id="scBtZuciRows" min="1" max="4" step="1" value="${Number(settings.btZuciRows)}">
+                        </div>
+                        <div class="sc-field" style="margin-top:10px">
+                            <label>组词显示档位</label>
+                            <div class="sc-grid-type-group" role="group" aria-label="组词显示档位">
+                                ${BT_ZUCI_LEVELS.map(l => `
+                                    <button type="button"
+                                        class="sc-grid-type-btn sc-bt-level ${settings.btZuciLevel === l.id ? 'active' : ''}"
+                                        data-level="${l.id}"
+                                        title="透明度 ${Math.round(l.opacity * 100)}%"
+                                        aria-pressed="${settings.btZuciLevel === l.id}">${l.label}</button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="sc-toggle-row" style="margin-top:10px">
+                            <span>组词面板</span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scBtZuciEnabled" ${settings.btZuciEnabled ? 'checked' : ''}>
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sc-toggle-row" style="margin-top:8px">
+                            <span>范字格（关闭则首格也描摹）</span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scBtReferenceCell" ${settings.btReferenceCell ? 'checked' : ''}>
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sc-toggle-row" style="margin-top:8px">
+                            <span>页头信息栏（日期/年级/姓名）</span>
+                            <label class="sc-switch">
+                                <input type="checkbox" id="scBtShowHeaderMeta" ${settings.btShowHeaderMeta ? 'checked' : ''}>
+                                <span class="sc-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sc-field" style="margin-top:10px">
+                            <label>页头标题</label>
+                            <input type="text" id="scBtTitle" value="${escapeHtml(settings.btTitle)}" maxlength="30">
+                        </div>
+                    </div>
+                </div>
                 <div class="sc-section">
                     <div class="sc-section-title">🔲 网格类型</div>
                     <div class="sc-grid-type-group" role="group" aria-label="网格类型切换">
@@ -526,7 +607,9 @@ function bindPanelEvents(overlay) {
     // v2.5.4：移除 scGridSize/scCharsPerRow/scRowsPerPage 条目，SVG引擎用静态
     //   SHEET_LAYOUT，这些控件不生效；保留 DEFAULT_SETTINGS 字段作为兼容）
     const sliders = [
-        { id: 'scTraceOpacity', valId: 'scTraceOpacityVal', key: 'traceOpacity', suffix: '', isFloat: true }
+        { id: 'scTraceOpacity', valId: 'scTraceOpacityVal', key: 'traceOpacity', suffix: '', isFloat: true },
+        // v3.1.0：块帖描摹透明度（独立于经典 traceOpacity）
+        { id: 'scBtTraceOpacity', valId: 'scBtTraceOpacityVal', key: 'btTraceOpacity', suffix: '', isFloat: true }
     ];
     sliders.forEach(s => {
         const input = overlay.querySelector('#' + s.id);
@@ -565,6 +648,77 @@ function bindPanelEvents(overlay) {
             updateSetting('gridColorPreset', presetId);
         });
     });
+
+    // ══════ v3.1.0：字帖版式 + 块帖参数绑定（追加区段，不改上方任何绑定） ══════
+    const btParamsBox = overlay.querySelector('#scBtParams');
+    // 版式二选一：切换 layoutType（非外观键 → main.js 全量重建），并联动参数组显隐
+    overlay.querySelectorAll('.sc-layout-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.layoutType;
+            overlay.querySelectorAll('.sc-layout-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            if (btParamsBox) btParamsBox.style.display = id === 'block-table' ? 'block' : 'none';
+            updateSetting('layoutType', id);
+        });
+    });
+    // 每行格数（结构键 → 全量重建）
+    overlay.querySelectorAll('.sc-bt-cols').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const n = Number(btn.dataset.cols);
+            overlay.querySelectorAll('.sc-bt-cols').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            updateSetting('btCols', n);
+        });
+    });
+    // 组词显示档位（外观键 → main.js 定向改写）
+    overlay.querySelectorAll('.sc-bt-level').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.level;
+            overlay.querySelectorAll('.sc-bt-level').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            updateSetting('btZuciLevel', id);
+        });
+    });
+    // 整数滑块（描摹格数 / 组词词数：结构键 → 全量重建）
+    [
+        { id: 'scBtTraceCount', valId: 'scBtTraceCountVal', key: 'btTraceCount' },
+        { id: 'scBtZuciRows', valId: 'scBtZuciRowsVal', key: 'btZuciRows' }
+    ].forEach(s => {
+        const input = overlay.querySelector('#' + s.id);
+        const valEl = overlay.querySelector('#' + s.valId);
+        if (!input || !valEl) return;
+        input.addEventListener('input', () => {
+            const v = Number(input.value);
+            valEl.textContent = String(v);
+            updateSetting(s.key, v);
+        });
+    });
+    // 块帖开关（结构键 → 全量重建）
+    [
+        { id: 'scBtZuciEnabled', key: 'btZuciEnabled' },
+        { id: 'scBtReferenceCell', key: 'btReferenceCell' },
+        { id: 'scBtShowHeaderMeta', key: 'btShowHeaderMeta' }
+    ].forEach(t => {
+        const el = overlay.querySelector('#' + t.id);
+        if (!el) return;
+        el.addEventListener('change', (e) => updateSetting(t.key, e.target.checked));
+    });
+    // 页头标题（结构键 → 全量重建；截断至 30 字符防溢出）
+    const btTitleInput = overlay.querySelector('#scBtTitle');
+    if (btTitleInput) {
+        btTitleInput.addEventListener('change', (e) => {
+            updateSetting('btTitle', String(e.target.value || '').trim().slice(0, 30) || '练字字帖');
+        });
+    }
 
     // Toggle 开关
     const toggles = [

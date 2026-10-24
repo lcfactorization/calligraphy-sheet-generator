@@ -24,6 +24,8 @@ import { templates } from '../data/templates.js';
 import { getSettings, updateSetting } from '../modules/settingsCenter.js';
 // v2.5.3：颜色预设（与 interfaces.js 同步）
 import { GRID_COLOR_PRESETS } from '../contracts/interfaces.js';
+// v3.1.0：字帖版式枚举（经典字帖 ↔ 生字卡表格）
+import { LAYOUT_TYPES } from '../contracts/blockTable.js';
 
 const SIDEBAR_KEY = 'calligraphy_sidebar_state';
 
@@ -127,6 +129,43 @@ function createGridTypeSection(state) {
             // 无需再手动 dispatchUpdate（避免双重渲染）
             const next = { ...getSidebarState(), gridType: type };
             saveSidebarState(next);
+        });
+    });
+    return section;
+}
+
+/**
+ * v3.1.0：创建"字帖版式"切换分节（经典字帖 ↔ 生字卡表格）。
+ * 版式决定页面级组织方式，层级高于格型，分节置于"网格类型"之上；
+ * 写设置走 settingsCenter（与 createGridTypeSection 同模式，自动派发 settings-updated）。
+ */
+function createLayoutSection() {
+    const section = document.createElement('div');
+    section.className = 'sidebar-section';
+    const active = getSettings().layoutType || 'classic';
+
+    section.innerHTML = `
+        <div class="sidebar-section-title">🗂️ 字帖版式</div>
+        <div class="grid-type-group" role="group" aria-label="字帖版式切换">
+            ${LAYOUT_TYPES.map(t => `
+                <button type="button"
+                    class="grid-type-btn layout-type-btn ${t.id === active ? 'active' : ''}"
+                    data-layout-type="${t.id}"
+                    aria-pressed="${t.id === active}">${t.label}</button>
+            `).join('')}
+        </div>
+    `;
+
+    section.querySelectorAll('.layout-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.layoutType;
+            section.querySelectorAll('.layout-type-btn').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            // layoutType 是结构键：main.js 走全量重建分支
+            updateSetting('layoutType', id);
         });
     });
     return section;
@@ -411,14 +450,17 @@ export function initSidebar() {
     if (inputContainer) {
         const generateBtn = document.getElementById('generate-btn');
         const insertBefore = generateBtn ? generateBtn.closest('.field-row') : null;
+        const layoutSection = createLayoutSection();          // v3.1.0：版式分节（置于网格类型之上）
         const gridSection = createGridTypeSection(state);
         const opacitySection = createOpacitySection(state);
         const colorSection = createColorPresetSection(state);  // v2.5.3
         if (insertBefore) {
+            inputContainer.insertBefore(layoutSection, insertBefore);
             inputContainer.insertBefore(gridSection, insertBefore);
             inputContainer.insertBefore(opacitySection, insertBefore);
             inputContainer.insertBefore(colorSection, insertBefore);
         } else {
+            inputContainer.appendChild(layoutSection);
             inputContainer.appendChild(gridSection);
             inputContainer.appendChild(opacitySection);
             inputContainer.appendChild(colorSection);
@@ -452,7 +494,16 @@ export function initSidebar() {
         // 同步网格类型按钮高亮
         if (s.gridType) {
             document.querySelectorAll('.grid-type-btn').forEach(b => {
+                if (!b.dataset.gridType) return;   // v3.1.0：跳过版式按钮（它们带 data-layout-type，不带 data-grid-type）
                 const isActive = b.dataset.gridType === s.gridType;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+        }
+        // v3.1.0：同步字帖版式按钮高亮
+        if (s.layoutType) {
+            document.querySelectorAll('.layout-type-btn').forEach(b => {
+                const isActive = b.dataset.layoutType === s.layoutType;
                 b.classList.toggle('active', isActive);
                 b.setAttribute('aria-pressed', isActive);
             });
