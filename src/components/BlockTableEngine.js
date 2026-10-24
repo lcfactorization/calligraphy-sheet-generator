@@ -394,31 +394,36 @@ function makeZuciWordText(ch, fontFamily, colors, opacity) {
 }
 
 /**
- * 组词格小 SVG：虚线十字定位线（组词面板固定样式，参照样张，不随 gridType 变化）
- * + 可选词字。类名纪律：容器是 .bt-zcell（div），**不是** .grid-svg-cell。
+ * 组词格（v3.1.1 重构，用户反馈：组词格此前固定田字格不跟随格型变化）：
+ *   - 线条改由 createGridCellSVG({ userGrid: true }) 产出 → 跟随 settings.gridType
+ *     （田/米/九宫/回/拼音田），且 repaintSheetGrid 的格型/颜色定向重绘自动覆盖本格；
+ *   - 词字为独立叠加文字层（.bt-zcell-text，绝对定位铺满格内），
+ *     保持 data-ge-font="user" + data-ge-role="bt-zuci-word" 标记不变；
+ *   - 隔离纪律不变：createGridCellSVG 无 char → 不产生 data-char（笔顺演示不触发）；
+ *     容器仍为 .bt-zcell（div），不带 .grid-svg-row 类名。
  */
-function buildZuciCellSVG(ch, fontFamily, colors, opacity) {
-    const svg = svgEl('svg', { viewBox: '0 0 100 100' });
-    svg.appendChild(svgEl('line', {
-        x1: 0, y1: 50, x2: 100, y2: 50,
-        stroke: colors.dashed, 'stroke-width': 0.5, 'stroke-dasharray': '6,4'
-    }));
-    svg.appendChild(svgEl('line', {
-        x1: 50, y1: 0, x2: 50, y2: 100,
-        stroke: colors.dashed, 'stroke-width': 0.5, 'stroke-dasharray': '6,4'
+function buildZuciCell(ch, fontFamily, colors, opacity, gridType) {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(createGridCellSVG({
+        gridType: gridType || 'tian',
+        mode: 'blank',
+        userGrid: true,
+        colors
     }));
     // hidden 档（opacity 0）词字节点不创建，词文本只留在 data-zuci-multi 属性里
     if (ch && opacity > 0) {
-        svg.appendChild(makeZuciWordText(ch, fontFamily, colors, opacity));
+        const textSvg = svgEl('svg', { viewBox: '0 0 100 100', class: 'bt-zcell-text' });
+        textSvg.appendChild(makeZuciWordText(ch, fontFamily, colors, opacity));
+        frag.appendChild(textSvg);
     }
-    return svg;
+    return frag;
 }
 
 /**
  * 组词面板（§2.4）：.bt-zhead（"组词" pill + 三档位 pill，当前档高亮）
  * + .bt-zrow × btZuciRows，每行 4 格（词字占前 N 格，N=词长 2–4，余格空白）。
  */
-function buildZuciPanel(words, bt, colors, fontFamily) {
+function buildZuciPanel(words, bt, colors, fontFamily, gridType) {
     const panel = el('div', 'bt-zuci');
     panel.setAttribute('data-bt-level', bt.zuciLevel);
 
@@ -442,7 +447,7 @@ function buildZuciPanel(words, bt, colors, fontFamily) {
         const wcs = Array.from(words[r] || '').slice(0, BLOCK_TABLE_LAYOUT.zuciCols);
         for (let c = 0; c < BLOCK_TABLE_LAYOUT.zuciCols; c++) {
             const zcell = el('div', 'bt-zcell');
-            zcell.appendChild(buildZuciCellSVG(wcs[c] || '', fontFamily, colors, opacity));
+            zcell.appendChild(buildZuciCell(wcs[c] || '', fontFamily, colors, opacity, gridType));
             zrow.appendChild(zcell);
         }
         // 行级统一边框复用 createRowBorderSVG（.grid-svg-row-border 类被
@@ -553,7 +558,7 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
 
     // ── 右列：组词面板（btZuciEnabled 开时；空块传入空词表 → 全空白格） ──
     if (bt.zuciEnabled) {
-        block.appendChild(buildZuciPanel(words, bt, colors, fontFamily));
+        block.appendChild(buildZuciPanel(words, bt, colors, fontFamily, gridType));
     }
 
     return block;
@@ -851,8 +856,13 @@ export function btApplyZuciLevel(container, level) {
                 if (lv.opacity <= 0) return;        // hidden：词字节点不创建
                 const ch = wcs[c] || '';
                 if (!ch) return;                    // 词短于 4 字 → 余格空白
-                const svg = zcell.querySelector('svg');
-                if (svg) svg.appendChild(makeZuciWordText(ch, ff, colors, lv.opacity));
+                // v3.1.1：词字进独立叠加层（基格 svg 已是 createGridCellSVG 产出，不可污染）
+                let overlay = zcell.querySelector('.bt-zcell-text');
+                if (!overlay) {
+                    overlay = svgEl('svg', { viewBox: '0 0 100 100', class: 'bt-zcell-text' });
+                    zcell.appendChild(overlay);
+                }
+                overlay.appendChild(makeZuciWordText(ch, ff, colors, lv.opacity));
             });
         });
     });

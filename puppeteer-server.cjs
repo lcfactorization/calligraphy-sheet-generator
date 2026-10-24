@@ -218,8 +218,11 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             // v3.1.1：块帖 .bt-page 冻结 277mm（@page 10mm 前提）—— 12/15.9mm 覆盖会让内容盒缩到 269mm 重现跨页裁切
             // v3.1.1：块帖与经典共用 @page 几何（页眉页脚完整），另注入 --bt-page-h:269mm
             // （297−12−16）使 .bt-page 打印页高与页眉页脚边距匹配，6 块（262mm）仍 ≤ 267mm 预算
-            puppeteerPageStyle.textContent = '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}'
-                + (isBT ? ' :root{--bt-page-h:269mm;}' : '');
+            // v3.1.1：块帖左右边距收窄 10mm（块宽 181.5mm ≤ 内容宽 190mm，修复组词面板右缘裁切）；
+            // 上下 12/16mm 保留给页眉页脚模板，--bt-page-h 同步 269mm
+            puppeteerPageStyle.textContent = isBT
+                ? '@media print{@page{size:A4 portrait;margin:12mm 10mm 16mm 10mm !important;}} :root{--bt-page-h:269mm;}'
+                : '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}';
             document.head.appendChild(puppeteerPageStyle);
             const fontSelect = document.getElementById('font-select');
             const fontDisplayName = fontSelect ? fontSelect.options[fontSelect.selectedIndex].text : '';
@@ -296,18 +299,20 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
         const fT = escapeHtml(hfInfo?.fText || '');
 
         const hColor = hfInfo?.gridColor || '#2E7D32';
+        // v3.1.1：块帖左右 10mm（与 @page 一致），经典保持 15.9mm
+        const hPad = isBT ? '10mm' : '15.9mm';
         // v2.9.3：padding-top 从 10mm 调为 3mm（与顶部边距 12mm 协同，字格上移 8mm）
         //   页眉文字 y=3mm，字格 y=12mm，间距 5.8mm 足够避免重叠
         const headerTemplateHtml = `
             <style>body{margin:0!important;padding:0!important;}</style>
-            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:3mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
+            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:3mm ${hPad} 0 ${hPad}; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
                 <span>${hL}</span>
                 <span style="flex:1;text-align:center;">${hC}</span>
                 <span>${hR}</span>
             </div>`;
         const footerTemplateHtml = `
             <style>body{margin:0!important;padding:0!important;}</style>
-            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; height:16mm; margin:0; padding:0 15.9mm 8mm 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; -webkit-print-color-adjust:exact;">
+            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; height:16mm; margin:0; padding:0 ${hPad} 8mm ${hPad}; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; -webkit-print-color-adjust:exact;">
                 <span style="flex:1;text-align:center;">${fT}</span>
                 <span>第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页</span>
             </div>`;
@@ -317,7 +322,9 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             // v2.9.3：margin.top 20mm → 12mm（与 @page margin 注入协同，字格上移 8mm）
             // v3.1.1：块帖分支 margin 10mm 全边（与 .bt-page 277mm 前提一致），
             //   页头由 .bt-sheet-head（页内内容）承担，不启用 headerTemplate（避免与 10mm 边距重叠）
-            margin: { top: '12mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
+            margin: isBT
+                ? { top: '12mm', right: '10mm', bottom: '16mm', left: '10mm' }
+                : { top: '12mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
             displayHeaderFooter: true,
             headerTemplate: headerTemplateHtml,
             footerTemplate: footerTemplateHtml,

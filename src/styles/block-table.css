@@ -287,6 +287,14 @@
     width: var(--bt-cell, 13.5mm);
     height: var(--bt-cell, 13.5mm);
 }
+/* v3.1.1：词字叠加层（基格由 createGridCellSVG 产出后，词字独立成层铺满格内） */
+.bt-zcell .bt-zcell-text {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+}
 .bt-zcell svg {
     display: block;
     width: 100%;

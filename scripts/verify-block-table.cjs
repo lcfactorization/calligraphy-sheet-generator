@@ -465,6 +465,25 @@ function snapshotBlocksInPage() {
                 check('4b .bt-zcell 无 data-char 属性（组词区点击不得触发笔顺演示委托）',
                     !!snap && snap.zcellCharTotal === 0,
                     snap && snap.zcellCharTotal, 0);
+                // v3.1.1（用户反馈：组词格不跟随格型）4c：基格由 createGridCellSVG 产出
+                const zcellGrid = await page.evaluate(() => {
+                    const cells = [...document.querySelectorAll('#grid-container .bt-zcell')];
+                    let expected = 'mizi';
+                    try { expected = JSON.parse(localStorage.getItem('calligraphy_settings')).gridType || 'mizi'; } catch (e) { /* 默认 */ }
+                    return {
+                        total: cells.length,
+                        withCell: cells.filter(c => c.querySelector(':scope > .grid-svg-cell[data-ge-usergrid]')).length,
+                        types: [...new Set(cells.map(c => {
+                            const g = c.querySelector(':scope > .grid-svg-cell');
+                            return g ? g.getAttribute('data-grid-type') : '(none)';
+                        }))],
+                        expected
+                    };
+                });
+                check('4c 组词格基格跟随格型：每格含 .grid-svg-cell[data-ge-usergrid]，data-grid-type 与全局设置一致',
+                    zcellGrid.total > 0 && zcellGrid.withCell === zcellGrid.total &&
+                    zcellGrid.types.length === 1 && zcellGrid.types[0] === zcellGrid.expected,
+                    zcellGrid, '{total, withCell=total, types=[settings.gridType]}');
 
                 // ════════════ 断言 5：组词档位切换（探针法 + 真实点击链） ════════════
                 const tagged = await page.evaluate(tagFirstBlockProbeInPage);
@@ -1158,6 +1177,18 @@ function snapshotBlocksInPage() {
                     needMM !== null && needMM <= 277 - 2 && pg.guardOk === '1',
                     { headMM: pg.headMM, blockMM: pg.blockMM, needMM, budget: 275, guardOk: pg.guardOk },
                     '{needMM<=275, guardOk:"1"}');
+
+                // v3.1.1（用户反馈：导出 PDF 组词面板右缘被裁）14f：块宽完整落页
+                const blockWidths = await page.evaluate(() => {
+                    const px = 96 / 25.4;
+                    const blocks = [...document.querySelectorAll('#grid-container .bt-block')];
+                    return blocks.map(b => Math.round(b.getBoundingClientRect().width / px * 100) / 100);
+                });
+                const wideBlocks = blockWidths.filter(w => w > 190.5);
+                check('14f 块宽完整：所有块宽 ≤ 190mm（10mm 左右页边距内完整显示，无右缘裁切）',
+                    blockWidths.length > 0 && wideBlocks.length === 0,
+                    { blocks: blockWidths.length, maxW: Math.max(...blockWidths, 0), wideBlocks: wideBlocks.slice(0, 3) },
+                    'max ≤ 190mm');
             }
         } catch (e14) {
             record('HARNESS[断言 14] 自身异常', 'FAIL',
