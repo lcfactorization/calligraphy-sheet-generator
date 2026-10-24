@@ -187,3 +187,19 @@
   行边框复用 `.grid-svg-row-border`;其余元素一律 `bt-` 前缀,绝不使用 `.grid-svg-row` /
   `.grid-svg-aux-row`(隔离 manualEdit 与 pdfExport 的现有委托查询)
 - **阶段**:P0 契约冻结 → PA∥PB 并行 → PC 接线 → PD 四关口验收(build/verify:refresh/verify:touch/verify:blocktable) → PE 文档
+
+### v3.1.1 P1（分页完整性 + 拼音比例，执行中→已完成待关口）(2026-10-24)
+
+- **规格依据**:`docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md` §12 —— 显式 `.bt-page` 分页
+  (页间 `page-break-after: always`,不依赖浏览器碎片化)、每页块数 Puppeteer 实测(首页含页头/后续页两档,
+  留 ≥2mm 安全余量)、末页空网格块补满整页、标题仅首页;拼音四线格线字分离、字符等比缩放(宽高比不失真)、
+  贴左缘且严格一格宽、格缘竖线隐藏;经典版式零影响;页头版本经 vite define 自动跟随 package.json。
+- **分工**:
+  | Agent | 职责 | 独占文件 |
+  |:------|:-----|:--------|
+  | E1 | 分页与拼音代码修复 + 验收脚本扩展 | `src/components/BlockTableEngine.js`、`src/styles/block-table.css`、`scripts/verify-block-table.cjs` |
+  | E2 | 版本号与双语文档 + 生字卡指南页 | `package.json`、`CHANGELOG.md`、`README.md`、`README_EN.md`、`docs/生字卡表格版式_发布说明_v3.1.0.md`、`public/block-table-guide.html`、本看板 |
+  | GLM-5.3(非 Flash) | 监督与验收 | — |
+- **关口**:四关口(build / verify:refresh / verify:touch / verify:blocktable)全绿;
+  verify:blocktable 新增分页断言组与拼音断言组,既有断言不减弱。
+- **实测数据(N1/N2/块高)**:关口跑完后由集成方回填。
