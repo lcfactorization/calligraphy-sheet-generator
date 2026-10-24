@@ -326,6 +326,17 @@ function createPanel() {
                                 `).join('')}
                             </div>
                         </div>
+                        <div class="sc-field">
+                            <label>每生字行数（1–3 行，默认 2；可在输入中生字后加数字/回车按字覆盖）</label>
+                            <div class="sc-grid-type-group" role="group" aria-label="每生字行数">
+                                ${[1, 2, 3].map(m => `
+                                    <button type="button"
+                                        class="sc-grid-type-btn sc-bt-rows ${Number(settings.btMainRows) === m ? 'active' : ''}"
+                                        data-rows="${m}"
+                                        aria-pressed="${Number(settings.btMainRows) === m}">${m} 行</button>
+                                `).join('')}
+                            </div>
+                        </div>
                         <div class="sc-field" style="margin-top:10px">
                             <label>描摹格数（范字后，0–5） <span class="sc-value" id="scBtTraceCountVal">${Number(settings.btTraceCount)}</span></label>
                             <input type="range" id="scBtTraceCount" min="0" max="5" step="1" value="${Number(settings.btTraceCount)}">
@@ -698,6 +709,19 @@ function bindPanelEvents(overlay) {
             updateSetting('btCols', n);
         });
     });
+    // v3.1.1：每生字行数（1-3，结构键 → 全量重建；控制符可按字覆盖，优先级更高）
+    overlay.querySelectorAll('.sc-bt-rows').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const v = Number(btn.dataset.rows);
+            overlay.querySelectorAll('.sc-bt-rows').forEach(b => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.setAttribute('aria-pressed', isActive);
+            });
+            updateSetting('btMainRows', v);
+        });
+    });
+
     // 组词显示档位（外观键 → main.js 定向改写）
     overlay.querySelectorAll('.sc-bt-level').forEach(btn => {
         btn.addEventListener('click', () => {

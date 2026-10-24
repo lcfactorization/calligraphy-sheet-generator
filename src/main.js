@@ -211,7 +211,7 @@ async function handleGenerate() {
                     .catch(err => console.error('[main] 块帖手动编辑初始化失败:', err));
             }
         } catch (err) {
-            console.error('[main] 生字卡引擎加载失败，回退经典版式:', err);
+            console.error('[main] 生字卡引擎加载失败，回退经典版式:', err && err.message ? err.message : String(err));
             container.dataset.layout = 'classic';
             container.appendChild(renderSheet(input, getRenderOptions()));
         }

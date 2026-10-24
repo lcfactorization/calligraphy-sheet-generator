@@ -49,6 +49,12 @@
     width: 210mm;
     height: 297mm;
     padding: 10mm;
+    /* v3.1.1（用户反馈）：内容垂直居中 + 水平居中 —— 页 2 起无页头不再"过于靠上"，
+       页边空间上下/左右均衡；块 181.5mm 在 190mm 内容宽中左右各 4.25mm */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
     background: var(--bt-sheet-bg, var(--paper-bg, #fff));
     box-shadow: var(--bt-a4-shadow, var(--a4-shadow, 0 4px 18px rgba(0, 0, 0, 0.12)));
@@ -240,6 +246,23 @@
 /* 笔画拆解序列：loadStrokes 异步逐笔填充小 SVG（每笔约 6mm 高）。
    loadStrokes 同时会写入一个 "N画" 计数 span（经典辅助行的复用行为），
    块帖的笔画数由 .bt-pill 承担，这里隐藏序列内计数避免重复展示 */
+/* ── v3.1.1（用户截图反馈）：档位头紧凑化 —— 4 个 pill（组词/隐藏/描摹/显示）
+      总宽必须 ≤ 组词网格宽 54mm（4×13.5mm），否则 zhead 撑宽面板、右缘越界。
+      作用域覆盖 .bt-pill 的 min-width:12mm/6mm 高/2.5mm 内边距/12px 字号默认值 */
+.bt-zhead {
+    gap: 1.5mm;
+    padding: 0 1.5mm;
+    min-width: 0;
+    overflow: hidden;
+}
+.bt-zhead .bt-pill {
+    min-width: 0;
+    flex: 0 1 auto;
+    height: 5mm;
+    padding: 0 1.5mm;
+    font-size: 11px;
+}
+
 .bt-stroke-strip {
     display: flex;
     align-items: center;
@@ -366,10 +389,14 @@
        算法；.bt-block 的 break-inside:avoid（下）保留为二级保险。
        屏幕态的 297mm 卡片高与 10mm 模拟页边距在此全部还原为打印几何。 */
     .bt-page {
-        width: auto;                   /* 内容宽交给 @page（190mm） */
+        width: 190mm;                  /* 显式内容宽（@page 左右 10mm），水平居中确定性锚点 */                   /* 内容宽交给 @page（190mm） */
         height: var(--bt-page-h, 277mm);   /* Puppeteer 导出注入 269mm（12/16mm 页眉页脚边距），window.print 用默认 277mm */
         padding: 0;
-        margin: 0;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;       /* v3.1.1：页 2 起垂直居中（用户反馈：无页头页面不再过于靠上） */
+        align-items: center;           /* 水平居中：块 181.5mm 居中，页眉页脚 14.25mm 对齐 */
         overflow: hidden;
         background: #fff;
         box-shadow: none;

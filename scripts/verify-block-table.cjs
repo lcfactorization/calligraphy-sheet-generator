@@ -66,7 +66,7 @@
 //          + data-layout=classic + 真块 .bt-block[data-char]=0 + .grid-svg-row 出现；
 //          再点回 block-table
 //
-// v3.1.1 新增断言组（§12 P1：A 显式分页（每页固定 5 块）/ B 拼音四线格）：
+// v3.1.1 新增断言组（§12 P1：A 显式分页（按每生字行数装箱，控制符可按字覆盖）/ B 拼音四线格）：
 //   14a-14e 显式分页（22 字长文 → 5 页）：每个 .bt-page 恰 5 个 .bt-block 且页头
 //          仅首页 / 每页最后一块 bottom ≤ 页内容底 − 1mm / 空块无 data-char·无
 //          拼音文字·无词字·格内无文本·pill 留空 / page.pdf 页数 = ceil(真块数/5)
@@ -93,7 +93,7 @@ const PORT = Number(process.env.BT_PORT || 5219);
 const TEXT = '排前后面';
 // 分页断言（组 14）用长文：23 字（含多笔画字"爨"，供断言 15e 取证）→ 每页固定 6 块
 // → ceil(23/6)=4 页（3 页满 6 实块 + 末页 5 实块补 1 空块），各组断言均有样本
-const PAGES_TEXT = '天地人和风云雨雪山水火木金土日月春秋冬夏晨昏';
+const PAGES_TEXT = '天地人和风云雨雪山水火木金土日月春秋冬夏晨昏爨';   // 末位爨（30 画）供 15e 取证
 // 每页块数（契约：引擎 BT_BLOCKS_PER_PAGE，此处镜像用于断言期望值）
 const BT_PER_PAGE = 6;
 // 主表格几何（契约默认值，断言 1c 用）：btCols=9 × btMainRows=2 = 18 格/块
@@ -266,6 +266,7 @@ function snapshotBlocksInPage() {
                 pinyinBoxW: pyBox ? Math.round(pyBox.getBoundingClientRect().width * 100) / 100 : null,
                 pillText: pill ? pill.textContent : null,
                 zuciLevel: zuci ? zuci.getAttribute('data-bt-level') : null,
+                rowsAttr: Number(b.getAttribute("data-bt-rows")) || 2,
                 zrowCount: zrows.length,
                 zcellCounts: zrows.map(r => r.querySelectorAll('.bt-zcell').length),
                 words: b.getAttribute('data-zuci-multi') || ''
@@ -457,9 +458,10 @@ function snapshotBlocksInPage() {
                 }
 
                 // ════════════ 断言 4：组词面板结构 ════════════
+                // v3.1.1：行数可变（控制符/设置）→ 组词行跟随生字行（data-bt-rows）
                 const zrowBad = (snap ? snap.blocks : []).filter(b =>
-                    b.zrowCount !== 2 || b.zcellCounts.some(n => n !== 4));
-                check('4a 每块 .bt-zrow 数 = btZuciRows(2) 且每行 4 个 .bt-zcell',
+                    b.zrowCount !== b.rowsAttr || b.zcellCounts.some(n => n !== 4));
+                check('4a 每块 .bt-zrow 数 = 生字行数（data-bt-rows，组词行跟随）且每行 4 个 .bt-zcell',
                     zrowBad.length === 0,
                     zrowBad.map(b => ({ char: b.char, zrowCount: b.zrowCount, zcellCounts: b.zcellCounts })), '[]');
                 check('4b .bt-zcell 无 data-char 属性（组词区点击不得触发笔顺演示委托）',
@@ -1094,7 +1096,7 @@ function snapshotBlocksInPage() {
                     });
                     return {
                         pagesAttr: sheet ? Number(sheet.getAttribute('data-bt-pages')) : null,
-                        perPageAttr: sheet ? Number(sheet.getAttribute('data-bt-per-page')) : null,
+                        maxUsedMM: sheet ? Number(sheet.getAttribute('data-bt-max-used-mm')) : null,
                         blockMM: sheet ? Number(sheet.getAttribute('data-bt-block-mm')) : null,
                         headMM: sheet ? Number(sheet.getAttribute('data-bt-head-mm')) : null,
                         guardOk: sheet ? sheet.getAttribute('data-bt-guard-ok') : null,
@@ -1102,23 +1104,22 @@ function snapshotBlocksInPage() {
                         facts
                     };
                 });
-                const expPages = Math.ceil(PAGES_TEXT.length / BT_PER_PAGE);
-
-                // 14a 每个 .bt-page 恰好 5 个直接 .bt-block（实块+空补块）；页数/每页数
-                // 元数据一致；实块分布加总 = 22；页头仅首页（§12.A.2/A.3）
+                // 14a 装箱口径（v3.1.1 行数可变）：页数 = 引擎 data-bt-pages；每页 ≥1 块；
+                // 实块分布加总 = 生字数；页头仅首页；足迹守卫（14e）另行断言
+                const expPages = pg.pagesAttr;
                 const distOk = pg.facts.map(f => f.realBlocks).reduce((a, b) => a + b, 0) === pg.realChars;
                 const lastReal = pg.facts.length ? pg.facts[pg.facts.length - 1].realBlocks : -1;
                 const heads = pg.facts.filter(f => f.hasHead);
                 const headOk = heads.length === 0 ? true : (heads.length === 1 && heads[0].i === 0);
-                const badA = pg.facts.filter(f => f.directBlocks !== BT_PER_PAGE)
+                const badA = pg.facts.filter(f => f.directBlocks < 1)
                     .map(f => ({ i: f.i, directBlocks: f.directBlocks }));
-                check(`14a 每个 .bt-page 恰 ${BT_PER_PAGE} 个直接 .bt-block（页数=${expPages}、末页实块=${lastReal} 补空到 ${BT_PER_PAGE}）`,
+                check(`14a 装箱分页：页数=${expPages}（引擎 attr 一致）、每页 ≥1 块、实块加总=${pg.realChars}、页头仅首页`,
                     pg.facts.length === expPages && pg.pagesAttr === expPages &&
-                    pg.perPageAttr === BT_PER_PAGE && badA.length === 0 && distOk && headOk,
-                    { pages: pg.facts.length, pagesAttr: pg.pagesAttr, perPageAttr: pg.perPageAttr,
+                    badA.length === 0 && distOk && headOk,
+                    { pages: pg.facts.length, pagesAttr: pg.pagesAttr,
                       facts: pg.facts.map(f => ({ i: f.i, n: f.directBlocks, real: f.realBlocks, head: f.hasHead, compact: f.compact })),
                       badA, realChars: pg.realChars },
-                    `每页 ${BT_PER_PAGE} 块、页数 ${expPages}、实块加总 ${PAGES_TEXT.length}、页头仅首页`);
+                    `装箱页数 ${expPages}、实块加总 ${PAGES_TEXT.length}、页头仅首页`);
 
                 // 14b 每页最后一块 bottom ≤ 页内容底 − 1mm
                 const badB = pg.facts.map(f => ({ i: f.i, lastGapMM: f.lastGapMM === null ? null : Math.round(f.lastGapMM * 100) / 100 }))
@@ -1165,18 +1166,16 @@ function snapshotBlocksInPage() {
                 }
                 try { if (fs.existsSync(pdfPath14)) fs.unlinkSync(pdfPath14); } catch { /* 忽略 */ }
                 await page.emulateMediaType('screen');
-                check(`14d page.pdf 页数 = ceil(真块数 ${pg.realChars} / ${BT_PER_PAGE}) = ${expPages}`,
+                check(`14d page.pdf 页数 = 引擎装箱页数（data-bt-pages） = ${expPages}`,
                     pdfPages === expPages && pdfPages > 0,
                     { pdfPages, pdfErr: pdfErr14 }, expPages);
 
-                // 14e 分页守卫复算（§12.A.2）：实测 页头footprint + 6×块footprint ≤ 277−2mm
-                // （数据源：引擎渲染时实测并留在 .bt-sheet 的 data-bt-head-mm/-block-mm）
-                const needMM = (pg.headMM !== null && pg.blockMM !== null)
-                    ? Math.round((pg.headMM + BT_PER_PAGE * pg.blockMM) * 100) / 100 : null;
-                check(`14e 实测分页守卫：页头 ${pg.headMM}mm + ${BT_PER_PAGE}×块 ${pg.blockMM}mm = ${needMM}mm ≤ 275mm`,
+                // 14e 分页守卫复算（§12.A.2 装箱口径）：引擎逐页累计最大足迹 ≤ 277−2mm
+                const needMM = pg.maxUsedMM;
+                check(`14e 实测分页守卫：装箱最大页足迹 ${needMM}mm ≤ 275mm（页头 ${pg.headMM}mm）`,
                     needMM !== null && needMM <= 277 - 2 && pg.guardOk === '1',
-                    { headMM: pg.headMM, blockMM: pg.blockMM, needMM, budget: 275, guardOk: pg.guardOk },
-                    '{needMM<=275, guardOk:"1"}');
+                    { maxUsedMM: pg.maxUsedMM, headMM: pg.headMM, budget: 275, guardOk: pg.guardOk },
+                    '{maxUsedMM<=275, guardOk:"1"}');
 
                 // v3.1.1（用户反馈：导出 PDF 组词面板右缘被裁）14f：块宽完整落页
                 const blockWidths = await page.evaluate(() => {
@@ -1195,6 +1194,41 @@ function snapshotBlocksInPage() {
                 (e14 && e14.stack ? e14.stack.split('\n').slice(0, 4).join(' | ') : String(e14)), 'no throw');
         }
 
+        // ════════════ 断言 14g：行数控制符（v3.1.1，最高优先级） ════════════
+        // 输入"排3前\n面"：排 → 3 行（数字控制符）；前 → 2 行（回车控制符）；面 → 2 行（默认）
+        try {
+            await page.evaluate(() => {
+                const ta = document.getElementById('inputText');
+                ta.value = '排3前\n面學9';
+                ta.dispatchEvent(new Event('input'));
+                document.getElementById('generate-btn').click();
+            });
+            await page.waitForFunction(() =>
+                document.querySelectorAll('#grid-container .bt-block[data-bt-rows]').length >= 5,
+                { timeout: 15000 }).catch(() => {});
+            const rowsSnap = await page.evaluate(() => {
+                const blocks = [...document.querySelectorAll('#grid-container .bt-block[data-char]')];
+                return blocks.map(b => ({
+                    ch: b.getAttribute('data-char'),
+                    rows: Number(b.getAttribute('data-bt-rows')),
+                    gridRows: b.querySelectorAll('.bt-main .bt-row').length,
+                    zrows: b.querySelectorAll('.bt-zuci .bt-zrow').length
+                }));
+            });
+            const by = {};
+            rowsSnap.forEach(x => { by[x.ch] = x; });
+            const okAll = rowsSnap.length === 4 &&
+                by['排'] && by['排'].rows === 3 && by['排'].gridRows === 3 && by['排'].zrows === 3 &&
+                by['前'] && by['前'].rows === 2 && by['前'].gridRows === 2 && by['前'].zrows === 2 &&
+                by['面'] && by['面'].rows === 2 && by['面'].gridRows === 2 && by['面'].zrows === 2 &&
+                by['學'] && by['學'].rows === 5 && by['學'].gridRows === 5 && by['學'].zrows === 5;   // 控制符 9 → 上限 5
+            check('14g 行数控制符：排3→3行(组词3)、前+回车→2行(组词2)、面→默认2行、學9→上限5行——组词行跟随、AI 固定 2 词',
+                okAll, rowsSnap, '{排:3, 前:2(回车), 面:2(默认)}');
+        } catch (e14g) {
+            record('HARNESS[断言 14g] 自身异常', 'FAIL',
+                (e14g && e14g.stack ? e14g.stack.split('\n').slice(0, 4).join(' | ') : String(e14g)), 'no throw');
+        }
+
         // ════════════ 断言 15e：多笔画拆解条不裁切（v3.1.1，块帖态取证） ════════════
         // PAGES_TEXT 含"爨"（30 画级）。loadStrokes 为异步队列：先等拆解条出现 svg
         //（8s 超时——离线数据缺失时条留空，按 WARN 语义处理，不硬 FAIL 结构断言）。
@@ -1209,38 +1243,49 @@ function snapshotBlocksInPage() {
                     const svgs = [...s.querySelectorAll('svg')];
                     const hidden = svgs.filter(v => getComputedStyle(v).display === 'none').length;
                     const badge = s.querySelector('.bt-strip-more');
+                    // 监督 F2：scrollWidth 在 overflow:hidden 下恒等于 clientWidth（恒真）——
+                    // 改测**内容右缘**：最后一个可见元素（svg/徽标）的右边界 vs 条带宽
+                    const vis = svgs.filter(v => getComputedStyle(v).display !== 'none');
+                    const lastVis = vis.length ? vis[vis.length - 1] : null;
+                    const contentRight = Math.max(
+                        lastVis ? lastVis.getBoundingClientRect().right - s.getBoundingClientRect().left : 0,
+                        badge ? badge.getBoundingClientRect().right - s.getBoundingClientRect().left : 0
+                    );
+                    const visSize = vis.length ? parseFloat(getComputedStyle(vis[0]).width) : 0;
                     return {
                         ch: s.getAttribute('data-bt-strip') || '',
                         svgCount: svgs.length,
-                        sw: s.scrollWidth, cw: s.clientWidth,
+                        cw: s.clientWidth,
+                        contentRightPx: Math.round(contentRight * 10) / 10,
+                        visSizePx: Math.round(visSize * 10) / 10,
                         hidden, hasBadge: !!badge,
                         badgeText: badge ? badge.textContent : '',
                         title: s.getAttribute('title') || ''
                     };
                 });
             });
-            const overflow15e = stripSnap.filter(x => x.svgCount > 0 && x.sw > x.cw + 1);
-            // 静默裁切零容忍：被 display:none 截断的条必须带 "+N" 徽标且数字一致
+            // 监督 F2：按分支设阈值 —— 均分（可见尺寸 < 5.5mm）与截断分支内容右缘 ≥ 0.95×条带宽；
+            // 封顶分支（可见尺寸 ≥ 5.5mm，少笔画）稀疏属设计，豁免
+            const underfill = stripSnap.filter(x => x.svgCount >= 1 && x.visSizePx > 0 &&
+                x.visSizePx < 5.5 * 96 / 25.4 && x.contentRightPx < x.cw * 0.95);
             const silentCut = stripSnap.filter(x => x.hidden > 0 && !x.hasBadge);
             const badgeMismatch = stripSnap.filter(x => x.hidden > 0 && x.hasBadge &&
                 x.badgeText !== '+' + x.hidden);
             const chuan = stripSnap.find(x => x.ch === '爨');
-            const chuanOk = !chuan || chuan.svgCount === 0 ||
-                (chuan.hidden === 0 || chuan.hasBadge);
-            check('15e-1 拆解条零溢出：所有 .bt-stroke-strip scrollWidth ≤ clientWidth+1',
-                overflow15e.length === 0,
-                { overflow: overflow15e.slice(0, 3), strips: stripSnap.length }, '0 条溢出');
+            const chuanOk = !!(chuan && chuan.svgCount > 0) &&
+                (chuan.hidden === 0 || chuan.hasBadge) &&
+                chuan.contentRightPx >= chuan.cw * 0.95;
+            check('15e-1 均分/截断分支填满：≥14 笔的拆解条内容右缘 ≥ 0.95×条带宽（无右侧留白）',
+                underfill.length === 0,
+                { underfill: underfill.slice(0, 3).map(x => ({ ch: x.ch, n: x.svgCount, right: x.contentRightPx, cw: x.cw })), strips: stripSnap.length },
+                '全部 ≥0.95');
             check('15e-2 截断必有徽标：被截断的拆解条必须带 "+N" 徽标且数字一致',
                 silentCut.length === 0 && badgeMismatch.length === 0,
                 { silentCut: silentCut.slice(0, 3), badgeMismatch: badgeMismatch.slice(0, 3) }, '0 条静默裁切');
-            const sparseFill = stripSnap.filter(x => x.svgCount >= 10 && x.sw < x.cw * 0.9);
-            check('15e-4 多笔画填满：≥10 笔的拆解条无右侧大片留白（scrollWidth ≥ 0.9×clientWidth）',
-                sparseFill.length === 0,
-                { sparse: sparseFill.slice(0, 3).map(x => ({ ch: x.ch, sw: x.sw, cw: x.cw })) }, '全部填满');
-            check('15e-3 多笔画样本（爨）：拆解条自适应缩小或 "+N" 徽标（离线数据缺失记 WARN 不 FAIL）',
+            check('15e-3 多笔画样本（爨 30 画，离线已收录）：拆解条自适应缩小填满或 "+N" 徽标',
                 chuanOk,
-                { chuan: chuan || '(离线数据未收录，条留空)', hintTitle: stripSnap[0] ? stripSnap[0].title : '' },
-                '自适应缩小或 +N 徽标');
+                { chuan: chuan || '(未找到爨块)', detail: chuan ? { n: chuan.svgCount, hidden: chuan.hidden, badge: chuan.badgeText, right: chuan.contentRightPx, cw: chuan.cw } : null },
+                '缩小填满或 +N 徽标');
         } catch (e15e) {
             record('HARNESS[断言 15e] 自身异常', 'FAIL',
                 (e15e && e15e.stack ? e15e.stack.split('\n').slice(0, 4).join(' | ') : String(e15e)), 'no throw');

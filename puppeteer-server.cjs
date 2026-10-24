@@ -121,6 +121,12 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                         cur[k] = v;
                     }
                     localStorage.setItem(KEY, JSON.stringify(cur));
+                    // v3.1.1：块帖打印页高直写内联变量（269mm = 297 − 12 − 16 页眉页脚边距）
+                    if (cur.layoutType === 'block-table') {
+                        document.documentElement.style.setProperty('--bt-page-h', '269mm');
+                    } else {
+                        document.documentElement.style.removeProperty('--bt-page-h');
+                    }
                     console.log('[Puppeteer] 已注入全量设置: layoutType=' + (cur.layoutType || 'classic') + ', 键数=' + Object.keys(cur).length);
                 } catch (e) {
                     console.warn('[Puppeteer] 全量设置注入失败: ' + e.message);
@@ -300,7 +306,9 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
 
         const hColor = hfInfo?.gridColor || '#2E7D32';
         // v3.1.1：块帖左右 10mm（与 @page 一致），经典保持 15.9mm
-        const hPad = isBT ? '10mm' : '15.9mm';
+        // v3.1.1：块帖 14.25mm = 10mm 页边距 + 4.25mm（块 181.5mm 在 190mm 内容宽中水平居中的偏移），
+        // 页眉页脚文字左右边缘与表格左右边缘精确对齐（用户反馈：页码过于靠右）
+        const hPad = isBT ? '14.25mm' : '15.9mm';
         // v2.9.3：padding-top 从 10mm 调为 3mm（与顶部边距 12mm 协同，字格上移 8mm）
         //   页眉文字 y=3mm，字格 y=12mm，间距 5.8mm 足够避免重叠
         const headerTemplateHtml = `
@@ -317,7 +325,7 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                 <span>第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页</span>
             </div>`;
 
-        const pdfBuffer = await page.pdf(Object.assign({
+        const pdfBuffer = await page.pdf({
             format: 'a4', printBackground: true,
             // v2.9.3：margin.top 20mm → 12mm（与 @page margin 注入协同，字格上移 8mm）
             // v3.1.1：块帖分支 margin 10mm 全边（与 .bt-page 277mm 前提一致），
@@ -329,7 +337,7 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             headerTemplate: headerTemplateHtml,
             footerTemplate: footerTemplateHtml,
             preferCSSPageSize: true
-        }, isBT ? {} : {}));
+        });
         return pdfBuffer;
     } finally {
         await page.close();
@@ -470,7 +478,9 @@ const server = http.createServer(async (req, res) => {
         let urlPath = req.url === '/' ? '/index.html' : req.url;
         urlPath = decodeURIComponent(urlPath.split('?')[0]);
         const filePath = path.join(DIST_DIR, urlPath);
-        if (filePath.startsWith(DIST_DIR) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        // v3.1.1（监督 F3）：路径边界用分隔符判定——startsWith(DIST_DIR) 可被 dist 前缀兄弟路径（如 ../distribution.zip）绕过
+        const withinDist = filePath === DIST_DIR || filePath.startsWith(DIST_DIR + path.sep);
+        if (withinDist && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
             const ext = path.extname(filePath);
             res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
             fs.createReadStream(filePath).pipe(res);
@@ -500,7 +510,7 @@ server.on('error', (err) => {
     process.exit(1);
 });
 
-server.listen(PORT, async () => {
+server.listen(PORT, '127.0.0.1', async () => {
     console.log('═══════════════════════════════════════════════════');
     console.log('  字帖生成器 Puppeteer 服务已启动');
     console.log(`  地址: http://localhost:${PORT}`);

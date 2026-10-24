@@ -341,15 +341,16 @@ async function generatePDF() {
                     const raw = localStorage.getItem(KEY);
                     if (raw) settings = JSON.parse(raw);
                     if (gt) settings.gridType = gt;
-                    // v3.1.1：版式注入（--layout block-table）
-                    if (options.layoutType) settings.layoutType = options.layoutType;
+                    // v3.1.1：版式注入（--layout block-table，经 evaluate 入参传入——监督 F1：
+                    //   此前在页面上下文引用 Node 侧 options 抛 ReferenceError，连带三参数注入整体失败）
+                    if (lt) settings.layoutType = lt;
                     if (gcp) settings.gridColorPreset = gcp;
                     if (to != null) settings.traceOpacity = to;
                     localStorage.setItem(KEY, JSON.stringify(settings));
                 } catch(e) {
                     console.warn('设置localStorage失败: ' + e.message);
                 }
-            }, options.gridType || null, options.gridColorPreset || null, options.traceOpacity != null ? options.traceOpacity : null);
+            }, options.gridType || null, options.gridColorPreset || null, options.traceOpacity != null ? options.traceOpacity : null, options.layoutType || null);
         }
 
         // v2.5.2：加载自定义字体文件（如果指定了 --font-file）

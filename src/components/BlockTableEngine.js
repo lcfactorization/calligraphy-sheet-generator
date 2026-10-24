@@ -158,7 +158,8 @@ function readBtSettings() {
         // 行数固定 2（v3.1.1 监督员 F2 加固）：每页 5 块的分页预算以 2 行主表为前提，
         // 手改 localStorage 传入的其他值不生效（否则 overflow:hidden 会裁切末块，
         // 重现 §12.A 要修复的缺陷类别）；行数配置留待后续版本与分页预算联动开放
-        rows: clampInt(s.btMainRows, 2, 2, 2),
+        // v3.1.1：行数 1-3（用户指令），动态装箱分页使任意组合均不越页
+        rows: clampInt(s.btMainRows, BLOCK_TABLE_LAYOUT.mainRowsDefault, 1, 3),
         // 描摹格数契约范围 0–5；组词行数契约范围 1–4
         traceCount: clampInt(s.btTraceCount, BLOCK_TABLE_LAYOUT.traceCountDefault, 0, 5),
         traceOpacity: clampNum(s.btTraceOpacity, BLOCK_TABLE_LAYOUT.traceOpacityDefault, 0, 1),
@@ -423,7 +424,7 @@ function buildZuciCell(ch, fontFamily, colors, opacity, gridType) {
  * 组词面板（§2.4）：.bt-zhead（"组词" pill + 三档位 pill，当前档高亮）
  * + .bt-zrow × btZuciRows，每行 4 格（词字占前 N 格，N=词长 2–4，余格空白）。
  */
-function buildZuciPanel(words, bt, colors, fontFamily, gridType) {
+function buildZuciPanel(words, bt, colors, fontFamily, gridType, zrows) {
     const panel = el('div', 'bt-zuci');
     panel.setAttribute('data-bt-level', bt.zuciLevel);
 
@@ -442,7 +443,10 @@ function buildZuciPanel(words, bt, colors, fontFamily, gridType) {
     panel.appendChild(zhead);
 
     const opacity = levelOpacity(bt.zuciLevel);
-    for (let r = 0; r < bt.zuciRows; r++) {
+    // v3.1.1（用户指令）：面板行数跟随生字行数（控制符覆盖时），否则用设置 btZuciRows；
+    // AI 固定 2 词 → 前 2 行填词，更多行为空白临写格
+    const panelRows = Math.max(1, zrows || bt.zuciRows);
+    for (let r = 0; r < panelRows; r++) {
         const zrow = el('div', 'bt-zrow');
         const wcs = Array.from(words[r] || '').slice(0, BLOCK_TABLE_LAYOUT.zuciCols);
         for (let c = 0; c < BLOCK_TABLE_LAYOUT.zuciCols; c++) {
@@ -478,12 +482,14 @@ function buildZuciPanel(words, bt, colors, fontFamily, gridType) {
 function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
     const asyncFills = opts.asyncFills !== false;
     const empty = opts.empty === true;
+    // v3.1.1：每生字行数 —— 控制符（字后数字/回车）最高优先级，其次设置 btMainRows
+    const rows = Math.max(1, opts.rowsOverride || bt.rows);
     const block = el('div', 'bt-block');
 
     // ── 拼音与组词派生数据留在块属性上（定向改写读回，不重查词库）──
     // 空块一律不写属性、不留内容（§12.A.4）
     const py = empty ? '' : resolvePinyin(char);
-    const words = empty ? [] : resolveZuciWords(char).slice(0, bt.zuciRows);
+    const words = empty ? [] : resolveZuciWords(char).slice(0, 2);   // 组词最多 2 个（跟随行数显示，空行补齐）
     if (!empty) {
         block.setAttribute('data-char', char);
         block.setAttribute('data-pinyin', py);
@@ -521,13 +527,14 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
             mo.observe(strip, { childList: true });
         }
     }
+    block.setAttribute('data-bt-rows', String(rows));
     main.appendChild(info);
 
     // 主表格（§2.3）：行数 = max(btMainRows, 2)，列数 = btCols，固定 cols×rows 格。
     // 格 0 = 范字（btReferenceCell=false 时改描摹）；格 1..btTraceCount = 描摹；
     // 其余 = blank 临写。全部走 createGridCellSVG（userGrid:true）。
     // 空块：全部格子 blank（无范字/描摹字形，仅网格）。
-    for (let r = 0; r < bt.rows; r++) {
+    for (let r = 0; r < rows; r++) {
         const row = el('div', 'bt-row');
         for (let c = 0; c < bt.cols; c++) {
             const gi = r * bt.cols + c;
@@ -558,7 +565,7 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
 
     // ── 右列：组词面板（btZuciEnabled 开时；空块传入空词表 → 全空白格） ──
     if (bt.zuciEnabled) {
-        block.appendChild(buildZuciPanel(words, bt, colors, fontFamily, gridType));
+        block.appendChild(buildZuciPanel(words, bt, colors, fontFamily, gridType, rows));
     }
 
     return block;
@@ -709,58 +716,141 @@ export function renderBlockSheet(input = '', options = {}) {
     const bt = readBtSettings();
     const colors = getActiveGridColors();
 
-    // 输入过滤与 renderSheet 同规则：仅保留汉字，过滤标点/字母/数字/空白
-    const chars = String(input).match(/[\u4e00-\u9fa5]/g) || [];
-    if (chars.length === 0) return fragment;
+    // ── v3.1.1 输入解析（含控制符，§12.A.2 三次调整）：──
+    //   生字后跟数字（1-9）→ 该字按数字行（至少 1 行）【最高优先级】；
+    //   生字后跟回车（CR/LF）→ 该字固定 2 行；
+    //   其余生字 → bt.rows（设置"每生字行数"，默认 2）。
+    //   数字/回车为块帖专用控制符；经典表格的 CJK 过滤天然忽略它们。
+    const entries = parseCharEntries(input);
+    if (entries.length === 0) return fragment;
 
     // ── 纸张容器：契约尺寸以 CSS 变量注入，block-table.css 只消费变量 ──
     const sheet = el('div', 'bt-sheet');
     injectSheetVars(sheet, bt);
 
-    // ── 显式分页（§12.A）：每页固定 6 块 + 末页空块补满 + 实测守卫 ──
-    const cap = measurePageCapacity(bt, colors, fontFamily, gridType, chars[0]);
-    const perPage = BT_BLOCKS_PER_PAGE;
-    const pageCount = Math.ceil(chars.length / perPage);
-    console.log('[bt] 分页参数: chars=', chars.length, 'perPage=', perPage, 'pages=', pageCount, 'inputLen=', (input || '').length);
+    // ── 显式分页（§12.A，v3.1.1 三次调整：按实测块足迹装箱，行数可变）──
+    const cap = measurePageCapacity(bt, colors, fontFamily, gridType, entries[0].char);
+    const budget = BT_PAGE_CONTENT_MM - BT_PAGE_RESERVE_MM;   // 275mm
+    const footOf = (rows, zrows) => blockFootMM(rows, zrows);  // 主表/组词行数独立取大（公式确定性）
 
-    // 分页元数据（验收断言组 14 的判定依据，字符串直读无需全局钩子）
+    // 贪心装箱：页 1 扣除页头足迹；单块超预算（极端控制符）时独立成页并告警
+    const packed = [];
+    let cur = [];
+    let used = bt.showHeaderMeta ? cap.headFootMM : 0;
+    for (const e of entries) {
+        const rows = e.rows || bt.rows;
+        const zrows = e.rows != null ? rows : bt.zuciRows;   // 控制符覆盖 → 组词行跟随；否则设置值
+        const foot = footOf(rows, zrows);
+        if (foot > budget - (cur.length === 0 && used > 0 ? used : 0) && cur.length === 0) {
+            console.warn('[bt] 单块足迹超页预算：rows=' + rows + ' foot=' + foot.toFixed(1) + 'mm ≥ ' + budget + 'mm');
+        }
+        if (used + foot > budget && cur.length > 0) {
+            packed.push(cur);
+            cur = [];
+            used = 0;
+        }
+        cur.push({ char: e.char, rows, zrows, blank: false });
+        used += foot;
+    }
+    if (cur.length > 0) packed.push(cur);
+
+    // 末页空块补满（§12.A.4：默认行数空块，网格满页、内容留空），直到不再容纳
+    const last = packed[packed.length - 1];
+    let lastUsed = last.reduce((a, e) => a + footOf(e.rows, e.zrows), packed.length === 1 && bt.showHeaderMeta ? cap.headFootMM : 0);
+    while (lastUsed + footOf(bt.rows, bt.zuciRows) <= budget) {
+        last.push({ char: '', rows: bt.rows, zrows: bt.zuciRows, blank: true });
+        lastUsed += footOf(bt.rows, bt.zuciRows);
+    }
+
+    const pageCount = packed.length;
+    const maxUsed = packed.reduce((mx, pg, i) => {
+        const u = pg.reduce((a, e) => a + footOf(e.rows, e.zrows), i === 0 && bt.showHeaderMeta ? cap.headFootMM : 0);
+        return Math.max(mx, u);
+    }, 0);
+    console.log('[bt] 分页参数: chars=', entries.length, 'rows默认=', bt.rows, 'pages=', pageCount, 'maxUsed=', maxUsed.toFixed(1) + 'mm');
+
+    // 分页元数据（验收断言组 14 的判定依据）
     sheet.setAttribute('data-bt-pages', String(pageCount));
-    sheet.setAttribute('data-bt-per-page', String(perPage));
-    sheet.setAttribute('data-bt-block-mm', cap.blockFootMM.toFixed(2));
+    sheet.setAttribute('data-bt-max-used-mm', maxUsed.toFixed(2));
+    sheet.setAttribute('data-bt-block-mm', footOf(bt.rows).toFixed(2));
     sheet.setAttribute('data-bt-head-mm', cap.headFootMM.toFixed(2));
-    sheet.setAttribute('data-bt-guard-ok', cap.guardOk ? '1' : '0');
+    sheet.setAttribute('data-bt-guard-ok', maxUsed <= budget ? '1' : '0');
 
-    let cursor = 0;
-    for (let pi = 0; pi < pageCount; pi++) {
+    packed.forEach((pageBlocks, pi) => {
         const page = el('div', 'bt-page');
+        page.setAttribute('data-bt-blocks', String(pageBlocks.length));
         // 页头（标题/日期/年级/姓名栏）仅出现在第 1 页（§12.A.3）；
         // 守卫不成立时首页追加压缩类（CSS 侧进一步收紧页头间距）
         if (pi === 0 && bt.showHeaderMeta) {
             page.appendChild(buildSheetHead(bt, colors));
             if (cap.compactNeeded) page.classList.add('bt-head-compact');
         }
-        const real = Math.min(perPage, chars.length - cursor);
-        for (let i = 0; i < real; i++) {
-            page.appendChild(buildBlock(chars[cursor++], bt, colors, fontFamily, gridType));
-        }
-        // 页末空块补满到 6（§12.A.4；非末页恒为满 6 实块，只有末页可能补空块）。
-        // 空块保留完整骨架但不写 data-char 等内容属性（见 buildBlock opts.empty）。
-        for (let f = real; f < perPage; f++) {
-            page.appendChild(buildBlock('', bt, colors, fontFamily, gridType, { empty: true }));
+        for (const e of pageBlocks) {
+            page.appendChild(buildBlock(e.char, bt, colors, fontFamily, gridType, {
+                empty: e.blank,
+                rowsOverride: e.rows
+            }));
         }
         sheet.appendChild(page);
-    }
+    });
 
     fragment.appendChild(sheet);
 
     // ── v3.1.1 笔画自愈补种（用户反馈：预设切换后偶发无笔画笔顺信息）──
-    // 拆解条/N画 走串行异步队列（clearStrokeQueue + requestIdleCallback），极端时序下
-    // （快速连点预设、队列被后续渲染清空、rIC 饥饿）个别条可能永远不被填充。
-    // 挂载后 3.5s / 7s 两次幂等补种：只补"完全为空"的条与 pill（已有内容的一律不动），
-    // 因此正常路径零副作用；未挂载（预览尚未 append）则短暂等待后重试，有界 40 次。
+    // 挂载后 3.5s / 7s 两次幂等补种：只补"完全为空"的条与 pill（已有内容的一律不动）。
     scheduleStrokeHeal(sheet);
 
     return fragment;
+}
+
+/**
+ * parseCharEntries —— 输入解析为 {char, rows} 序列（v3.1.1 控制符，§12.A.2）。
+ *   - 生字后跟数字（1-9）→ rows = 数字（至少 1）【最高优先级】；
+ *   - 生字后跟回车（
+ 或 
+）→ rows = 2；
+ *   - 其余 → rows = null（渲染时取 bt.rows 设置值）。
+ * 数字/回车控制符只作用于块帖；经典表格的 CJK 过滤天然忽略。
+ * @param {string} input
+ * @returns {{char: string, rows: number|null}[]}
+ */
+function parseCharEntries(input) {
+    const seq = [...String(input || '')];
+    const entries = [];
+    for (let i = 0; i < seq.length; i++) {
+        const ch = seq[i];
+        if (!/[一-龥]/.test(ch)) continue;
+        let rows = null;
+        let j = i + 1;
+        if (j < seq.length && /[1-9]/.test(seq[j])) {
+            rows = Math.min(5, Math.max(1, parseInt(seq[j], 10)));   // 上限 5 行（用户指令）
+            j++;
+        }
+        if (rows === null && j < seq.length) {
+            const nc = seq[j].charCodeAt(0);
+            if (nc === 10 || nc === 13) {           // 回车（LF/CR）控制符 → 2 行
+                rows = 2;
+                j++;
+                if (j < seq.length && seq[j].charCodeAt(0) === 10) j++; // CRLF 连写（无尾随文字，避免历史断行）
+            }
+        }
+        entries.push({ char: ch, rows });
+        i = j - 1;
+    }
+    return entries;
+}
+
+/**
+ * blockFootMM —— 块足迹公式（v3.1.1 行数可变）：信息行 8mm + rows×格 13.5mm + 块距 5mm。
+ * 确定性公式替代逐样本实测（信息行/格距均为契约定值，不随字体度量漂移）。
+ * @param {number} rows
+ */
+function blockFootMM(rows, zrows) {
+    const r = Math.max(1, rows || 1);
+    const z = Math.max(1, zrows || r);
+    const mainH = BLOCK_TABLE_LAYOUT.infoRowMM + r * BLOCK_TABLE_LAYOUT.cellSizeMM;
+    const zuciH = BLOCK_TABLE_LAYOUT.infoRowMM + z * BLOCK_TABLE_LAYOUT.cellSizeMM;
+    return Math.max(mainH, zuciH) + BLOCK_TABLE_LAYOUT.blockGapMM;
 }
 
 /**

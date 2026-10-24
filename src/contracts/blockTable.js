@@ -37,7 +37,7 @@ export const BLOCK_TABLE_LAYOUT = {
     cellSizeMM: 13.5,           // 单格边长
     colsOptions: [8, 9, 10, 12],
     colsDefault: 9,             // 主表每行格数
-    mainRowsDefault: 2,         // 主表行数（至少 2，与参考样张一致）
+    mainRowsDefault: 2,         // 主表行数（1-3 可选，默认 2；控制符"字后数字/字后回车"最高优先级覆盖）
     // 每页块数（v3.1.1 用户指令：每页 6 个生字，首页含压缩页头亦 6；页末空网格补满到 6）。
     // 分页预算实测：页头 21.98mm + 6×40.0mm = 261.98mm ≤ 275mm（277 − 2mm 余量）✓
     blocksPerPage: 6,

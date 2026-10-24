@@ -94,7 +94,7 @@
       "note": ""
     },
     {
-      "name": "4a 每块 .bt-zrow 数 = btZuciRows(2) 且每行 4 个 .bt-zcell",
+      "name": "4a 每块 .bt-zrow 数 = 生字行数（data-bt-rows，组词行跟随）且每行 4 个 .bt-zcell",
       "status": "PASS",
       "observed": "[]",
       "expected": "[]",
@@ -105,6 +105,13 @@
       "status": "PASS",
       "observed": "0",
       "expected": "0",
+      "note": ""
+    },
+    {
+      "name": "4c 组词格基格跟随格型：每格含 .grid-svg-cell[data-ge-usergrid]，data-grid-type 与全局设置一致",
+      "status": "PASS",
+      "observed": "{\"total\":48,\"withCell\":48,\"types\":[\"mizi\"],\"expected\":\"mizi\"}",
+      "expected": "{total, withCell=total, types=[settings.gridType]}",
       "note": ""
     },
     {
@@ -271,7 +278,7 @@
     {
       "name": "12c page.pdf() 产出非空（>5KB）",
       "status": "PASS",
-      "observed": "104353 bytes",
+      "observed": "100375 bytes",
       "expected": ">5120 bytes",
       "note": ""
     },
@@ -290,10 +297,10 @@
       "note": ""
     },
     {
-      "name": "14a 每个 .bt-page 恰 6 个直接 .bt-block（页数=4、末页实块=4 补空到 6）",
+      "name": "14a 装箱分页：页数=4（引擎 attr 一致）、每页 ≥1 块、实块加总=23、页头仅首页",
       "status": "PASS",
-      "observed": "{\"pages\":4,\"pagesAttr\":4,\"perPageAttr\":6,\"facts\":[{\"i\":0,\"n\":6,\"real\":6,\"head\":true,\"compact\":false},{\"i\":1,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":2,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":3,\"n\":6,\"real\":4,\"head\":false,\"compact\":false}],\"badA\":[],\"realChars\":22}",
-      "expected": "每页 6 块、页数 4、实块加总 22、页头仅首页",
+      "observed": "{\"pages\":4,\"pagesAttr\":4,\"facts\":[{\"i\":0,\"n\":6,\"real\":6,\"head\":true,\"compact\":false},{\"i\":1,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":2,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":3,\"n\":6,\"real\":5,\"head\":false,\"compact\":false}],\"badA\":[],\"realChars\":23}",
+      "expected": "装箱页数 4、实块加总 23、页头仅首页",
       "note": ""
     },
     {
@@ -304,31 +311,45 @@
       "note": ""
     },
     {
-      "name": "14c 空块（2 个）无 data-char/data-pinyin/data-zuci-multi、无拼音/词字/格内文本、pill 留空",
+      "name": "14c 空块（1 个）无 data-char/data-pinyin/data-zuci-multi、无拼音/词字/格内文本、pill 留空",
       "status": "PASS",
-      "observed": "{\"emptyCount\":2,\"bad\":[]}",
+      "observed": "{\"emptyCount\":1,\"bad\":[]}",
       "expected": "{emptyCount>0, bad:[]}",
       "note": ""
     },
     {
-      "name": "14d page.pdf 页数 = ceil(真块数 22 / 6) = 4",
+      "name": "14d page.pdf 页数 = 引擎装箱页数（data-bt-pages） = 4",
       "status": "PASS",
       "observed": "{\"pdfPages\":4,\"pdfErr\":null}",
       "expected": "4",
       "note": ""
     },
     {
-      "name": "14e 实测分页守卫：页头 21.98mm + 6×块 40mm = 261.98mm ≤ 275mm",
+      "name": "14e 实测分页守卫：装箱最大页足迹 261.98mm ≤ 275mm（页头 21.98mm）",
       "status": "PASS",
-      "observed": "{\"headMM\":21.98,\"blockMM\":40,\"needMM\":261.98,\"budget\":275,\"guardOk\":\"1\"}",
-      "expected": "{needMM<=275, guardOk:\"1\"}",
+      "observed": "{\"maxUsedMM\":261.98,\"headMM\":21.98,\"budget\":275,\"guardOk\":\"1\"}",
+      "expected": "{maxUsedMM<=275, guardOk:\"1\"}",
       "note": ""
     },
     {
-      "name": "15e-1 拆解条零溢出：所有 .bt-stroke-strip scrollWidth ≤ clientWidth+1",
+      "name": "14f 块宽完整：所有块宽 ≤ 190mm（10mm 左右页边距内完整显示，无右缘裁切）",
       "status": "PASS",
-      "observed": "{\"overflow\":[],\"strips\":24}",
-      "expected": "0 条溢出",
+      "observed": "{\"blocks\":24,\"maxW\":181.5,\"wideBlocks\":[]}",
+      "expected": "max ≤ 190mm",
+      "note": ""
+    },
+    {
+      "name": "14g 行数控制符：排3→3行(组词3)、前+回车→2行(组词2)、面→默认2行、學9→上限5行——组词行跟随、AI 固定 2 词",
+      "status": "FAIL",
+      "observed": "[{\"ch\":\"排\",\"rows\":3,\"gridRows\":3,\"zrows\":3},{\"ch\":\"前\",\"rows\":2,\"gridRows\":2,\"zrows\":2},{\"ch\":\"面\",\"rows\":2,\"gridRows\":2,\"zrows\":2}]",
+      "expected": "{排:3, 前:2(回车), 面:2(默认)}",
+      "note": ""
+    },
+    {
+      "name": "15e-1 均分/截断分支填满：≥14 笔的拆解条内容右缘 ≥ 0.95×条带宽（无右侧留白）",
+      "status": "PASS",
+      "observed": "{\"underfill\":[],\"strips\":5}",
+      "expected": "全部 ≥0.95",
       "note": ""
     },
     {
@@ -339,17 +360,10 @@
       "note": ""
     },
     {
-      "name": "15e-4 多笔画填满：≥10 笔的拆解条无右侧大片留白（scrollWidth ≥ 0.9×clientWidth）",
-      "status": "PASS",
-      "observed": "{\"sparse\":[]}",
-      "expected": "全部填满",
-      "note": ""
-    },
-    {
-      "name": "15e-3 多笔画样本（爨）：拆解条自适应缩小或 \"+N\" 徽标（离线数据缺失记 WARN 不 FAIL）",
-      "status": "PASS",
-      "observed": "{\"chuan\":\"(离线数据未收录，条留空)\",\"hintTitle\":\"笔画笔顺拆解 · 点击观看动态演示\"}",
-      "expected": "自适应缩小或 +N 徽标",
+      "name": "15e-3 多笔画样本（爨 30 画，离线已收录）：拆解条自适应缩小填满或 \"+N\" 徽标",
+      "status": "FAIL",
+      "observed": "{\"chuan\":\"(未找到爨块)\",\"detail\":null}",
+      "expected": "缩小填满或 +N 徽标",
       "note": ""
     },
     {
@@ -369,7 +383,7 @@
     {
       "name": "15c 全部拼音盒无竖线 line 元素（四线格只保留横线，右缘不画竖线）",
       "status": "PASS",
-      "observed": "{\"boxCount\":24,\"vertLines\":0}",
+      "observed": "{\"boxCount\":5,\"vertLines\":0}",
       "expected": "{vertLines:0}",
       "note": ""
     },
