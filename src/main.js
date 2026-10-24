@@ -177,7 +177,11 @@ function loadBtEngine() {
 let _btManualEditInited = false;
 
 // 生成字帖：按 layoutType 分发（新 SVG 引擎经典路径 / 块帖引擎），含拼音/组词/笔画
+// v3.1.1：重入保护 —— 预设/输入快速连续触发生成时，块帖分支的 await 会让两次渲染交错
+// （双 sheet 叠加、队列互相清空）。序号过期即静默放弃，只有最后一次生成会落 DOM。
+let _generateSeq = 0;
 async function handleGenerate() {
+    const genSeq = ++_generateSeq;
     const input = document.getElementById('inputText').value;
     const container = getGridContainer();
     if (!container) return;
@@ -188,13 +192,17 @@ async function handleGenerate() {
     if (isBlockTableLayout(settings)) {
         container.dataset.layout = 'block-table';
         try {
+            console.log('[main] 块帖分支进入，开始加载引擎…');
             const bt = await loadBtEngine();
+            console.log('[main] 块帖引擎已加载，渲染中…');
+            if (genSeq !== _generateSeq) return; // 已有更新的生成接管，丢弃本次
             const fontSelect = document.getElementById('font-select');
             container.appendChild(bt.renderBlockSheet(input, {
                 fontFamily: fontSelect ? fontSelect.value : 'TW-Kai',
                 gridType: settings.gridType || 'mizi'
             }));
             // 块帖组词区手动编辑委托：只在首次进入块帖版式时初始化一次
+            console.log('[main] 块帖渲染完成，块数=', container.querySelectorAll('.bt-block').length);
             if (!_btManualEditInited) {
                 _btManualEditInited = true;
                 // v3.1.0（监督员 pass2 F3）：失败必须留诊断线索，不得静默吞掉

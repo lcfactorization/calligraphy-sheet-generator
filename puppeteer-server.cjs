@@ -67,15 +67,21 @@ async function getBrowser() {
     return browserInstance;
 }
 
-async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridType, gridColorPreset, traceOpacity) {
+async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridType, gridColorPreset, traceOpacity, settings) {
     const browser = await getBrowser();
     const page = await browser.newPage();
+    // v3.1.1：生字卡表格版式（block-table）导出分支 —— 几何与页眉页脚策略按版式切换
+    const isBT = !!(settings && settings.layoutType === 'block-table');
     try {
-        const distHtml = path.join(DIST_DIR, 'index.html');
-        const fileUrl = 'file:///' + distHtml.replace(/\\/g, '/');
         // v2.4.19：networkidle2 + 减少固定等待
         // v2.5.1：进一步减少固定等待（networkidle2 已确保网络空闲）
-        await page.goto(fileUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        // v3.1.1：改用自身 HTTP 加载 dist（本服务已静态服务 dist/）—— file:// 下 Puppeteer 渲染不稳定
+        const pageUrl = 'http://localhost:' + PORT + '/';
+        // v3.1.1：页面控制台捕获（导出失败时日志直达服务端，定位动态 import/渲染异常）
+        const pageConsole = [];
+        page.on('console', (msg) => pageConsole.push('[' + msg.type() + '] ' + msg.text().slice(0, 180)));
+        page.on('pageerror', (err) => pageConsole.push('[PAGEERROR] ' + String(err && err.message).slice(0, 300)));
+        await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
         await new Promise(r => setTimeout(r, 500));
 
         // v2.6.0：在页面加载后、点击生成按钮前，设置 localStorage 中的网格设置
@@ -97,6 +103,29 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                     console.warn('[Puppeteer] 设置localStorage失败: ' + e.message);
                 }
             }, gridType || null, gridColorPreset || null, traceOpacity != null ? traceOpacity : null);
+        }
+
+        // v3.1.1：全量设置注入（layoutType + 全部 bt* 键）—— 块帖版式导出的前提。
+        // 客户端把当前 calligraphy_settings 整体传上来；这里合并进全新页面的 localStorage，
+        // 使 handleGenerate 在服务器页面上也走 block-table 分支。
+        if (settings && typeof settings === 'object') {
+            await page.evaluate((s) => {
+                try {
+                    const KEY = 'calligraphy_settings';
+                    let cur = {};
+                    const raw = localStorage.getItem(KEY);
+                    if (raw) cur = JSON.parse(raw);
+                    for (const k of Object.keys(s)) {
+                        const v = s[k];
+                        if (v === null || typeof v === 'object') continue; // 只收原始值
+                        cur[k] = v;
+                    }
+                    localStorage.setItem(KEY, JSON.stringify(cur));
+                    console.log('[Puppeteer] 已注入全量设置: layoutType=' + (cur.layoutType || 'classic') + ', 键数=' + Object.keys(cur).length);
+                } catch (e) {
+                    console.warn('[Puppeteer] 全量设置注入失败: ' + e.message);
+                }
+            }, settings);
         }
 
         // v2.5.2：注册自定义字体（如果有）
@@ -138,7 +167,9 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             const btn = document.getElementById('generate-btn');
             if (btn) btn.click();
         }, text, fontDisplayName);
-        await page.waitForSelector('#grid-container .grid-svg-cell', { timeout: 15000 }).catch(() => {});
+        // v3.1.1：块帖等待 .bt-block（动态 import 渲染稍慢，额外沉降 800ms）
+        await page.waitForSelector(isBT ? '#grid-container .bt-block' : '#grid-container .grid-svg-cell', { timeout: 20000 }).catch(() => {});
+        if (isBT) await new Promise(r => setTimeout(r, 800));
 
         // v2.5.0：等待字体加载完成（与 puppeteer-pdf.cjs 同步）
         // v2.5.1：减少固定等待时间（800ms → 400ms）
@@ -155,7 +186,7 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
         });
 
         // v2.4.10：创建 .a4-page 包装器 + 读取页眉页脚文本（与 puppeteer-pdf.cjs 同步）
-        const hfInfo = await page.evaluate(() => {
+        const hfInfo = await page.evaluate((isBT) => {
             const grid = document.getElementById('grid-container');
             if (!grid) return null;
             if (!grid.parentNode.classList.contains('a4-page')) {
@@ -184,7 +215,11 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             //   此 <style> 只存在于 Puppeteer 加载的页面，window.print() 路径不经过 puppeteer-server.cjs，零影响。
             const puppeteerPageStyle = document.createElement('style');
             puppeteerPageStyle.id = 'puppeteer-page-margin-override';
-            puppeteerPageStyle.textContent = '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}';
+            // v3.1.1：块帖 .bt-page 冻结 277mm（@page 10mm 前提）—— 12/15.9mm 覆盖会让内容盒缩到 269mm 重现跨页裁切
+            // v3.1.1：块帖与经典共用 @page 几何（页眉页脚完整），另注入 --bt-page-h:269mm
+            // （297−12−16）使 .bt-page 打印页高与页眉页脚边距匹配，6 块（262mm）仍 ≤ 267mm 预算
+            puppeteerPageStyle.textContent = '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}'
+                + (isBT ? ' :root{--bt-page-h:269mm;}' : '');
             document.head.appendChild(puppeteerPageStyle);
             const fontSelect = document.getElementById('font-select');
             const fontDisplayName = fontSelect ? fontSelect.options[fontSelect.selectedIndex].text : '';
@@ -233,10 +268,21 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                 hRight: truncate(hRight, 22),
                 fText: truncate(document.getElementById('footerText')?.value || '评分：☆☆☆☆☆　______年___月___日', 32)
             };
-        });
+        }, isBT);
 
         // v2.5.1：移除重复的字体/笔画等待（已在第 87-98 行等待过，此处不再重复）
         // 原 v2.4.19 在此处重复等待 fonts.ready + 800ms + strokes，浪费 ~2-3 秒
+
+        // v3.1.1：导出前诊断日志（定位版式/块数异常）
+        const diag = await page.evaluate(() => ({
+            layout: (document.getElementById('grid-container') || {}).getAttribute ? document.getElementById('grid-container').getAttribute('data-layout') : '(none)',
+            btBlocks: document.querySelectorAll('.bt-block').length,
+            classicRows: document.querySelectorAll('.grid-svg-row').length,
+            bodyH: document.body ? document.body.scrollHeight : -1,
+            url: location.href.slice(0, 60)
+        }));
+        console.log('[Server] 导出前诊断: ' + JSON.stringify(diag));
+        console.log('[Server] 页面控制台(尾10): ' + JSON.stringify(pageConsole.slice(-10), null, 0));
 
         await page.emulateMediaType('print');
         // v2.5.1：减少等待（500ms → 200ms）
@@ -266,15 +312,17 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                 <span>第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页</span>
             </div>`;
 
-        const pdfBuffer = await page.pdf({
+        const pdfBuffer = await page.pdf(Object.assign({
             format: 'a4', printBackground: true,
             // v2.9.3：margin.top 20mm → 12mm（与 @page margin 注入协同，字格上移 8mm）
+            // v3.1.1：块帖分支 margin 10mm 全边（与 .bt-page 277mm 前提一致），
+            //   页头由 .bt-sheet-head（页内内容）承担，不启用 headerTemplate（避免与 10mm 边距重叠）
             margin: { top: '12mm', right: '15.9mm', bottom: '16mm', left: '15.9mm' },
             displayHeaderFooter: true,
             headerTemplate: headerTemplateHtml,
             footerTemplate: footerTemplateHtml,
             preferCSSPageSize: true
-        });
+        }, isBT ? {} : {}));
         return pdfBuffer;
     } finally {
         await page.close();
@@ -345,13 +393,13 @@ const server = http.createServer(async (req, res) => {
                 } else {
                     throw new Error('请求体中未找到有效 JSON');
                 }
-                const { text, font, fontValue, fontDataUrl, gridType, gridColorPreset, traceOpacity } = parsed;
+                const { text, font, fontValue, fontDataUrl, gridType, gridColorPreset, traceOpacity, settings } = parsed;
                 if (!text || !text.trim()) {
                     res.writeHead(400, { 'Content-Type': 'application/json', 'Connection': 'close' });
                     res.end(JSON.stringify({ error: '文本不能为空' }));
                     return;
                 }
-                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}, 网格=${gridType || '默认'}, 颜色=${gridColorPreset || '默认'}, 自定义字体=${fontDataUrl ? '是' : '否'}`);
+                console.log(`[Server] 生成PDF: ${text.length}字, 字体=${font}, 网格=${gridType || '默认'}, 颜色=${gridColorPreset || '默认'}, 版式=${(settings && settings.layoutType) || 'classic'}, 自定义字体=${fontDataUrl ? '是' : '否'}`);
 
                 // v2.5.2：如果有自定义字体数据，保存到临时文件供页面加载
                 let tempFontPath = null;
@@ -369,7 +417,7 @@ const server = http.createServer(async (req, res) => {
                     }
                 }
 
-                const pdfBuffer = await generatePDF(text, font || '文鼎楷体', fontValue || '', tempFontPath, gridType, gridColorPreset, traceOpacity);
+                const pdfBuffer = await generatePDF(text, font || '文鼎楷体', fontValue || '', tempFontPath, gridType, gridColorPreset, traceOpacity, settings || null);
 
                 // 清理临时字体文件
                 if (tempFontPath) {

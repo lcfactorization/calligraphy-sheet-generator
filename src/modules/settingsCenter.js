@@ -311,6 +311,9 @@ function createPanel() {
                                 aria-pressed="${settings.layoutType === t.id}">${t.label}</button>
                         `).join('')}
                     </div>
+                    <a href="./block-table-guide.html" target="_blank" rel="noopener"
+                       style="display:inline-block;margin-top:6px;font-size:11px;color:#6b7280;text-decoration:underline;"
+                       title="🆕 New Feature (v3.1.0/v3.1.1)：生字卡表格版式介绍">📖 生字卡表格指南（New Feature）</a>
                     <div id="scBtParams" style="display:${settings.layoutType === 'block-table' ? 'block' : 'none'};margin-top:10px;">
                         <div class="sc-field">
                             <label>每行格数</label>

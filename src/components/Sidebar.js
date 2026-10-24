@@ -154,6 +154,9 @@ function createLayoutSection() {
                     aria-pressed="${t.id === active}">${t.label}</button>
             `).join('')}
         </div>
+        <a href="./block-table-guide.html" target="_blank" rel="noopener"
+           style="display:inline-block;margin-top:6px;font-size:12px;color:inherit;opacity:.75;"
+           title="🆕 New Feature (v3.1.0/v3.1.1)：生字卡表格版式介绍（每字一块、组词三档、AI 2–4 字组词、分页完整性、多笔画拆解）">📖 生字卡表格指南 <span style="color:#2E7D32;">New Feature</span></a>
     `;
 
     section.querySelectorAll('.layout-type-btn').forEach(btn => {

@@ -20,6 +20,25 @@ if (btn) {
         setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, dur);
     }
 
+
+    // v3.1.1：服务可用性状态灯 —— 绿=已启动（点击导出矢量 PDF）/ 灰=未启动（悬停给启动指引）
+    function updateServerLamp(healthy) {
+        btn.style.filter = healthy ? 'none' : 'grayscale(1)';
+        btn.style.opacity = healthy ? '1' : '0.45';
+        btn.style.boxShadow = healthy ? '0 0 0 2px #22c55e' : 'none';
+        btn.title = healthy
+            ? '✅ 本地 Puppeteer 服务已启动 · 点击导出矢量 PDF（支持经典/生字卡表格版式，v3.1.1+）'
+            : '⚪ 本地 Puppeteer 服务器未启动，不可用。请双击仓库根目录的「启动Puppeteer.bat」（Windows）/「启动Puppeteer.command」（macOS）/「启动Puppeteer.sh」（Linux），或执行 node puppeteer-server.cjs；详见使用手册（v3.1.1+ 支持生字卡表格版式导出）。';
+    }
+    function probeServer() {
+        fetch(SERVER_URL + '/health', { method: 'GET' })
+            .then(r => updateServerLamp(r.ok))
+            .catch(() => updateServerLamp(false));
+    }
+    probeServer();
+    setInterval(probeServer, 30000);
+    btn.addEventListener('mouseenter', probeServer);
+
     btn.addEventListener('click', async function() {
         // 双重防抖：布尔变量 + disabled属性
         if (requestInProgress) {
@@ -63,10 +82,13 @@ if (btn) {
         let gridType = 'mizi';
         let gridColorPreset = 'green';
         let traceOpacity = 0.1;
+        // v3.1.1：保留全量设置（layoutType + bt* 键随请求上行，块帖版式导出的前提）
+        let btSettings = null;
         try {
             const rawSettings = localStorage.getItem('calligraphy_settings');
             if (rawSettings) {
                 const s = JSON.parse(rawSettings);
+                btSettings = s;
                 gridType = s.gridType || gridType;
                 gridColorPreset = s.gridColorPreset || gridColorPreset;
                 traceOpacity = s.traceOpacity != null ? s.traceOpacity : traceOpacity;
@@ -83,7 +105,9 @@ if (btn) {
 
         // v2.9.8：优先尝试在线矢量 PDF API（Cloudflare Pages Function 代理 Vercel）
         // 同域名调用无跨域问题；仅当在线 API 不可用（404/500/网络错误）时回退到本地 Puppeteer 服务
-        try {
+        // v3.1.1：在线 API 渲染器不识别生字卡表格版式 —— 块帖直接走本地 Puppeteer 服务
+        const isBtLayout = !!(btSettings && btSettings.layoutType === 'block-table');
+        if (!isBtLayout) try {
             showToast('\u6b63\u5728\u751f\u6210\u77e2\u91cfPDF\uff08\u5728\u7ebfAPI\uff09\uff0c\u8bf7\u7a0d\u5019...', 'info', 120000);
             const onlineResp = await fetch(ONLINE_API_URL, {
                 method: 'POST',
@@ -137,6 +161,8 @@ if (btn) {
                 gridType: gridType,
                 gridColorPreset: gridColorPreset,
                 traceOpacity: traceOpacity,
+                // v3.1.1：全量设置上行（layoutType + bt* 键）—— 块帖版式导出的前提
+                settings: btSettings || {},
                 format: 'a4',
                 header: '',
                 footer: '\u7b2c {page} \u9875 / \u5171 {total} \u9875'

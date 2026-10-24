@@ -165,6 +165,7 @@ function parseArgs() {
       --url <URL>         直接指定页面 URL（如 http://localhost:3000），优先于 dist/index.html
   --grid-type <类型>      网格类型: tian(田字格) mizi(米字格) jiugong(九宫格) hui(回字格) pinyin-tian(拼音田)
   --grid-color <预设>     线框颜色: green(传统绿) red(朱砂红) blue(靛青蓝) ink(墨黑)
+  --layout <版式>        字帖版式 classic|block-table (默认: classic)
   --trace-opacity <值>    描红透明度 0.05-0.3 (默认: 0.1)
   -h, --help              显示此帮助信息
 
@@ -340,6 +341,8 @@ async function generatePDF() {
                     const raw = localStorage.getItem(KEY);
                     if (raw) settings = JSON.parse(raw);
                     if (gt) settings.gridType = gt;
+                    // v3.1.1：版式注入（--layout block-table）
+                    if (options.layoutType) settings.layoutType = options.layoutType;
                     if (gcp) settings.gridColorPreset = gcp;
                     if (to != null) settings.traceOpacity = to;
                     localStorage.setItem(KEY, JSON.stringify(settings));

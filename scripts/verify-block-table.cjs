@@ -1202,6 +1202,10 @@ function snapshotBlocksInPage() {
             check('15e-2 截断必有徽标：被截断的拆解条必须带 "+N" 徽标且数字一致',
                 silentCut.length === 0 && badgeMismatch.length === 0,
                 { silentCut: silentCut.slice(0, 3), badgeMismatch: badgeMismatch.slice(0, 3) }, '0 条静默裁切');
+            const sparseFill = stripSnap.filter(x => x.svgCount >= 10 && x.sw < x.cw * 0.9);
+            check('15e-4 多笔画填满：≥10 笔的拆解条无右侧大片留白（scrollWidth ≥ 0.9×clientWidth）',
+                sparseFill.length === 0,
+                { sparse: sparseFill.slice(0, 3).map(x => ({ ch: x.ch, sw: x.sw, cw: x.cw })) }, '全部填满');
             check('15e-3 多笔画样本（爨）：拆解条自适应缩小或 "+N" 徽标（离线数据缺失记 WARN 不 FAIL）',
                 chuanOk,
                 { chuan: chuan || '(离线数据未收录，条留空)', hintTitle: stripSnap[0] ? stripSnap[0].title : '' },

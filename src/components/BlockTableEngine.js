@@ -712,10 +712,11 @@ export function renderBlockSheet(input = '', options = {}) {
     const sheet = el('div', 'bt-sheet');
     injectSheetVars(sheet, bt);
 
-    // ── 显式分页（§12.A）：每页固定 5 块 + 末页空块补满 + 实测守卫 ──
+    // ── 显式分页（§12.A）：每页固定 6 块 + 末页空块补满 + 实测守卫 ──
     const cap = measurePageCapacity(bt, colors, fontFamily, gridType, chars[0]);
     const perPage = BT_BLOCKS_PER_PAGE;
     const pageCount = Math.ceil(chars.length / perPage);
+    console.log('[bt] 分页参数: chars=', chars.length, 'perPage=', perPage, 'pages=', pageCount, 'inputLen=', (input || '').length);
 
     // 分页元数据（验收断言组 14 的判定依据，字符串直读无需全局钩子）
     sheet.setAttribute('data-bt-pages', String(pageCount));
@@ -737,7 +738,7 @@ export function renderBlockSheet(input = '', options = {}) {
         for (let i = 0; i < real; i++) {
             page.appendChild(buildBlock(chars[cursor++], bt, colors, fontFamily, gridType));
         }
-        // 页末空块补满到 5（§12.A.4；非末页恒为满 5 实块，只有末页可能补空块）。
+        // 页末空块补满到 6（§12.A.4；非末页恒为满 6 实块，只有末页可能补空块）。
         // 空块保留完整骨架但不写 data-char 等内容属性（见 buildBlock opts.empty）。
         for (let f = real; f < perPage; f++) {
             page.appendChild(buildBlock('', bt, colors, fontFamily, gridType, { empty: true }));
@@ -746,7 +747,51 @@ export function renderBlockSheet(input = '', options = {}) {
     }
 
     fragment.appendChild(sheet);
+
+    // ── v3.1.1 笔画自愈补种（用户反馈：预设切换后偶发无笔画笔顺信息）──
+    // 拆解条/N画 走串行异步队列（clearStrokeQueue + requestIdleCallback），极端时序下
+    // （快速连点预设、队列被后续渲染清空、rIC 饥饿）个别条可能永远不被填充。
+    // 挂载后 3.5s / 7s 两次幂等补种：只补"完全为空"的条与 pill（已有内容的一律不动），
+    // 因此正常路径零副作用；未挂载（预览尚未 append）则短暂等待后重试，有界 40 次。
+    scheduleStrokeHeal(sheet);
+
     return fragment;
+}
+
+/**
+ * scheduleStrokeHeal —— 块帖笔画信息自愈补种（v3.1.1）。
+ * 两轮（+3.5s / +7s）：空拆解条重新入队 loadStrokes、空 pill 重新 fillStrokeCountPill；
+ * 幂等（有内容即跳过），不影响正常渲染与分页预算。
+ * @param {HTMLElement} sheet - .bt-sheet（挂载后生效）
+ */
+function scheduleStrokeHeal(sheet) {
+    if (typeof setTimeout !== 'function') return;
+    const healPass = () => {
+        if (!sheet.isConnected) return;
+        // 1) 空拆解条补种（仅真块：data-bt-strip 已写、且没有任何子节点）
+        sheet.querySelectorAll('.bt-stroke-strip[data-bt-strip]').forEach(strip => {
+            if (strip.children.length === 0) {
+                loadStrokes(strip.getAttribute('data-bt-strip'), strip);
+            }
+        });
+        // 2) 空 pill 补种（仅真块且 pill 仍无"画"字）
+        sheet.querySelectorAll('.bt-block[data-char] .bt-info .bt-pill').forEach(pill => {
+            if (!/画$/.test(pill.textContent || '')) {
+                fillStrokeCountPill(pill.closest('.bt-block').getAttribute('data-char'), pill);
+            }
+        });
+    };
+    let tries = 0;
+    const whenMounted = () => {
+        tries++;
+        if (!sheet.isConnected) {
+            if (tries < 40) setTimeout(whenMounted, 250);
+            return;
+        }
+        setTimeout(healPass, 3500);
+        setTimeout(healPass, 7000);
+    };
+    whenMounted();
 }
 
 /**
@@ -859,12 +904,23 @@ function btNormalizeStrokeStrip(strip) {
     const gap = 0.5 * BT_MM_TO_PX;
     const minPx = 2.5 * BT_MM_TO_PX;
     const maxPx = 6 * BT_MM_TO_PX;
-    let size = Math.min(maxPx, Math.max(minPx, (w - n * gap) / n));
+    // v3.1.1（用户反馈：17 画"臂"右侧 ~1/3 空白）—— 精确均分填满算法：
+    //   size = w/n − gap（每笔右缘带 0.5mm 间距，含末笔），条带被**恰好填满**，
+    //   不再有"临界浮点误入截断分支 → 统一压到下限 → 右侧大片留白"的缺陷。
+    //   仅当均分后 size < 2.5mm 下限（笔画极多）才截断：以下限展示前 visible 笔
+    //   并预留 "+N" 徽标宽度；少于下限需求的笔画数（≤~13 笔）保持 6mm 上限原尺寸。
     let visible = n;
-    const moreBadge = 9 * BT_MM_TO_PX; // "+N" 徽标预留宽
-    if (n * (size + gap) > w) {
+    let size = w / n - gap;
+    if (size >= maxPx) {
+        size = maxPx;                       // 少笔画：上限封顶（与经典拆解条观感一致）
+    } else if (size >= minPx) {
+        // 中等笔画：精确均分填满（不再额外比较，直接取均分值，消除临界误差）
+        size = Math.floor(size * 100) / 100; // 0.01px 精度向下取整，保证 n×(size+gap) ≤ w
+    } else {
+        // 极多笔画：下限展示 + "+N" 徽标（徽标宽度预留后重算可见数）
         size = minPx;
-        visible = Math.max(1, Math.floor((w - moreBadge) / (size + gap)));
+        const moreBadge = 9 * BT_MM_TO_PX;
+        visible = Math.max(1, Math.floor((w - moreBadge + gap) / (size + gap)));
     }
     svgs.forEach((svg, i) => {
         svg.style.width = size.toFixed(2) + 'px';
