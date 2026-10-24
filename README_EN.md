@@ -8,6 +8,12 @@
 
 ---
 
+## 🙏 AI Collaboration Acknowledgement (v3.1.1)
+
+This release was driven by **500M tokens gifted by ZCode on Programmer's Day 2026-10-24**: **GLM-5.3** (supervision & acceptance) + **GLM-5.3-Flash** (parallel multi-agent execution); **Qwen3.8Max (web)** reviewed the implementation plan with a demo; earlier iterations used **Workbuddy**. Thanks to ZCode, Zhipu and Workbuddy.
+
+Inspiration: the block-table layout follows the classic composition of common hard-pen calligraphy workbooks (info row / stroke progression / word panel) and [Issue #1](https://github.com/lcfactorization/calligraphy-sheet-generator/issues/1) by @icksky.
+
 ## Overview
 
 **Calligraphy Sheet Generator** is a Vite-engineered PWA single-page application. Enter Chinese characters and automatically generate traceable practice sheets with Pinyin annotations, word associations, and stroke decomposition. Supports vector PDF export via three tracks: browser native print, jsPDF/svg2pdf, and Puppeteer.
