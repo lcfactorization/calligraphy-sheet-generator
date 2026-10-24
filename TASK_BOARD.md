@@ -167,3 +167,23 @@
 - **多引擎 AI 自动优选**:新增 `src/modules/aiProviders.js` 引擎注册表(16 家:DeepSeek/火山引擎豆包/智谱 GLM/Kimi/硅基流动/阿里百炼/OpenRouter/MiniMax/阶跃星辰/千帆 v2/混元 + Agnes AI/ModelScope 魔搭 实测可用 + APINEX 实测 `cors:'failed'` + Gemini/Groq 标记 `cors:'unverified'`;不收录讯飞星火)+ `src/modules/aiKeyHealth.js` 两阶段探测(零 token `/models` 鉴权 + 3 token chat 能力);`sk-` 歧义 Key 逐个探测自动消歧并回写 `providerId`;设置中心默认「自动选择(推荐)」,新增「🔍 检测全部 Key 可用性」;添加/导入 Key 后自动探测;`ai_model_override` 改为按引擎作用域
 - **触屏/平板笔顺弹窗自适应**:`.sd-overlay` 由 flex 改为 CSS Grid + `solveLayout()` 纯函数求解器(冻结 340×440 布局盒 + `transform: scale(--sd-s)`);桌面 `sMax=1.0` 逐像素零退化,触摸/平板 `sMax=1.6`;手机视口不足时自动收最旧窗口为最小化药丸(LRU 恢复);触摸目标放大(按钮 26→34px、播放 36→44px、滑块拇指 14→22px);拖拽视口边界约束 + 双击标题栏复位 + 补齐 `.sd-flash` 聚焦反馈;新增 769–1280px 平板断点
 - **不包含**:在线 PDF API/商业字体(均为个人版专属功能)
+
+### v3.1.0 — 生字卡表格版式（block-table）· 执行中(2026-10-24)
+
+- **方案唯一依据**:`docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md`(含 §0 执行偏差记录,
+  与正文冲突时以 §0 为准:契约独立成 `src/contracts/blockTable.js`、interfaces.js 零改动、
+  aiZuci.js 仅 CARRY_FIELDS+1 与末尾追加区段、AI multi 入口走快捷工具栏不改 aiConsole)
+- **回退 tag**:`bt-m0-base`(HEAD f1f5092);阶段 tag:`bt-m1-render` / `bt-m1-data` / `bt-m2-wired` / `bt-m3-verified`
+- **文件隔离矩阵**(零冲突并行,独占可写):
+  | Agent | 模块 | 独占文件 |
+  |:------|:-----|:--------|
+  | 0 Master | 契约与调度 | `src/contracts/blockTable.js`(新建)、本看板、方案文档 |
+  | A 块帖渲染引擎 | DOM/SVG | `src/components/BlockTableEngine.js`(新建)、`src/styles/block-table.css`(新建) |
+  | B 数据与AI | 词库扩展+编辑浮层 | `src/modules/aiZuci.js`(**仅追加**)、`src/modules/btManualEdit.js`(新建) |
+  | C UI与调度 | 接线 | `src/main.js`、`src/modules/settingsCenter.js`、`src/components/Sidebar.js`、`index.html` |
+  | D 打印验收 | 关口 | `scripts/verify-block-table.cjs`(新建)、`package.json` |
+  | E 文档发布 | 文档 | `CHANGELOG.md`、`README.md`、`README_EN.md`、`docs/*` |
+- **类名纪律**:主表格格子复用 `.grid-svg-cell[data-char]`(笔顺演示/定向重绘/字体切换零改动生效),
+  行边框复用 `.grid-svg-row-border`;其余元素一律 `bt-` 前缀,绝不使用 `.grid-svg-row` /
+  `.grid-svg-aux-row`(隔离 manualEdit 与 pdfExport 的现有委托查询)
+- **阶段**:P0 契约冻结 → PA∥PB 并行 → PC 接线 → PD 四关口验收(build/verify:refresh/verify:touch/verify:blocktable) → PE 文档
