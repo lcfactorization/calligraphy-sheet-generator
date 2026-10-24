@@ -7,8 +7,18 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.0.8-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.1.1-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+## 🆕 v3.1.1 新功能：生字卡表格版式（block-table）
+
+> **🆕 New Feature (v3.1.0 / v3.1.1)** —— 与经典字帖并存的第二种版式，每生字一块：信息行（一格宽等比拼音四线格 + 笔画数 + 笔顺拆解 SVG，点击可看动态演示）+ 主表格（范字 + 描摹×3 + 空白临写）+ 组词面板（2–4 字词，三档透明度，点击可手动改写）。**每生字行数 1/2/3 可选**，控制符最高优先级（生字后加数字/回车按字覆盖，上限 5 行）；显式分页每页 6 字、末页空网格补满、A4 不跨页断格；多笔画字（爨/麤级）拆解条自适应 + "+N" 徽标。详见 [生字卡表格指南](./public/block-table-guide.html)。
+
+## 🙏 AI 协作致谢（v3.1.1）
+
+本版本由 **ZCode 于 2026-10-24 程序员节赠送的 5 亿 token** 驱动完成：**GLM-5.3**（方案监督与验收）+ **GLM-5.3-Flash**（多智能体并行执行）协作交付；工作规划阶段 **Qwen3.8Max（web 版）** 完成了实施方案的初步评估与演示样例；此前多个版本的迭代中亦使用了 **Workbuddy** 辅助开发。感谢 ZCode、智谱与 Workbuddy 提供的工具与算力支持 —— 开源社区 + 多模型 AI 协作的一次实践。
+
+灵感来源：『生字卡表格版式』参考市面常见硬笔书法练习册及主流字帖工具的经典排版（信息行/笔顺递进/组词区），并结合 [Issue #1](https://github.com/lcfactorization/calligraphy-sheet-generator/issues/1) 中 @icksky 的附图样式落地。
 
 ## 部署状态
 
@@ -20,7 +30,7 @@
 | **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions 自动：push 到 `main` / `retake` 后构建部署 |
 
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.0.8(触屏 / 移动端布局修复:根因是页头把整页撑出横向溢出、`position:fixed` 的 `right/bottom` 于是按被撑大的布局视口解析 → 4 个 FAB / toast / 引导气泡全部画到屏外。现消除溢出 + 页头横排并为 FAB 让位 + FAB 拖拽限桌面 + 触摸目标 ≥44px,新增可重跑关口 `npm run verify:touch`)
+- **最新版本**:v3.1.1(🆕 生字卡表格版式 + 每生字行数可变(1/2/3,控制符上限 5 行) + 显式分页完整 + 拼音等比四线格 + 多笔画拆解条自适应 + Puppeteer 导出适配,新增关口 `npm run verify:blocktable` 56 项全绿;详见 [CHANGELOG](./CHANGELOG.md) 与 [生字卡指南](./public/block-table-guide.html));v3.0.8(触屏 / 移动端布局修复:根因是页头把整页撑出横向溢出、`position:fixed` 的 `right/bottom` 于是按被撑大的布局视口解析 → 4 个 FAB / toast / 引导气泡全部画到屏外。现消除溢出 + 页头横排并为 FAB 让位 + FAB 拖拽限桌面 + 触摸目标 ≥44px,新增可重跑关口 `npm run verify:touch`)
 - **最新更新**:v3.0.8 — 触屏/移动端布局修复(8 设备 × 7 类几何断言关口 **FAIL=0 WARN=0 PASS=50**,运行前先跑 10 项负控夹具自证;同一关口回跑 v2.9.7 基线得 **FAIL=12 WARN=6**,证明判据能区分好坏两侧。根因数据:390px 视口下修复前 `scrollWidth=1480`、`.fab-settings` 左边缘在 1412px;修复后 `scrollWidth=390`、左边缘 322px。详见 CHANGELOG);v3.0.7 — 定向重绘(GridEngine 字格 SVG 拆成网格层 + 内容层,新增 `applySheetFont`/`applySheetTraceOpacity`/`repaintSheetGrid` 三个 API;`main.js` 按「设置快照 diff」分流外观变更与内容变更;真浏览器取证 `npm run verify:refresh` 对**构建产物**跑 68 项断言全绿**含负控**)+「导入生字」正名与派发时序修复 + 部编版整册生字预设(五上 217/五下 180/六上 180);v3.0.6 — AI Key 体系完整移植(新增 `aiConsole`/`aiDiagView`/`aiProbeHttp` 等 7 个模块、Key 默认不落盘 + 旧明文一次性迁移、18 家引擎注册表 + 自定义引擎、AI 控制台连通性体检)+ 笔顺弹窗按**可视视口**精确居中(单窗口 0 偏差、2/3/4 窗口末行孤窗居中)+ 修复 `callDeepSeekDirect` 在只传 apiKey 时的空指针;v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 - **部署链路修复**(2026-09-19,版本号不变):v3.0.4 起 CI 字体下载脚本双重失效(pip PEP 668 + TW-Kai 上游 404),导致每次部署都在 `set -e` 下中断、线上长期停在 v3.0.3。现改为字体随仓库分发 + CI 只做校验,详见 [CHANGELOG](./CHANGELOG.md#v305-2026-09-18--隐私与合规加固--双击启动修复)。
 
@@ -30,7 +40,7 @@
 distribution/
 ├── index.html               ← Vite 入口 HTML(双栏布局 + 浮动按钮 + 输入面板)
 ├── vite.config.js           ← Vite 配置(PWA + SingleFile + Tailwind,cssMinify:false)
-├── package.json             ← 依赖配置(v3.0.8,ES Module)
+├── package.json             ← 依赖配置(v3.1.1,ES Module)
 ├── puppeteer-pdf.cjs        ← Puppeteer PDF 矢量生成脚本(CommonJS,命令行批量)
 ├── puppeteer-server.cjs     ← Puppeteer HTTP 服务(/health + /api/generate-pdf + 静态 dist 托管)
 ├── matepad-simulate.cjs     ← MatePad 模拟测试脚本(本地模拟华为 MatePad 打印 PDF)
@@ -38,13 +48,15 @@ distribution/
 ├── 字帖生成器.html          ← 双击即用的启动器(内嵌 dist/index.html;含加载中提示/失败诊断/重试按钮)
 ├── README.md / README_EN.md ← 中英文主文档
 ├── README_contest.md        ← 参赛最初文档 + 迭代演进附录
-├── CHANGELOG.md             ← 更新日志(v1.0 → v3.0.8 全记录)
+├── CHANGELOG.md             ← 更新日志(v1.0 → v3.1.1 全记录)
 ├── TASK_BOARD.md            ← v2.4.0 重构任务看板 + 后续演进
 ├── LICENSE                  ← 项目源码许可(MIT;第三方资产不适用,见下)
 ├── THIRD_PARTY_NOTICES.md   ← 第三方数据/字体/库的许可与署名清单
 ├── ARPHICPL.TXT             ← Arphic 公共许可证全文(笔画数据与文鼎楷体的强制保留文件,勿删)
 ├── PRIVACY.md               ← 隐私说明(本地零上报 / 在线版收集范围与退出方式)
 ├── .github/workflows/       ← GitHub Actions 自动部署到 GitHub Pages(触发分支:main / retake)
+├── .env.cloudflare          ← Cloudflare 部署凭据(本地专用,gitignored;token 有效期 1 年)
+├── scripts/deploy-cf.cjs    ← Cloudflare Pages 一键部署(npm run deploy:cf,读取 .env.cloudflare)
 ├── functions/
 │   └── _middleware.js       ← Cloudflare Pages 访问统计中间件(设备/浏览器/国家统计 + /api/report /api/stats /api/health)
 │                              v3.0.5 起:访客标识为带密钥哈希,不再存储原始 IP / 完整 UA / 城市
@@ -58,7 +70,9 @@ distribution/
 │   ├── measure-popup-layout.cjs ← 笔顺弹窗排布取证(Puppeteer 真浏览器量测 → popup-layout-report.json)
 │   ├── verify-touch-layout.cjs ← 触屏/移动端布局关口(8 设备 × 7 类几何断言 + 10 项负控自证 → _touch_layout_report/)
 │   ├── shot-touch.cjs       ← 触屏视口快照(诊断用,非关口)
-│   └── verify-aiconsole-ui.cjs  ← AI 控制台真浏览器取证(内置 mock 引擎 → aiconsole-ui-report.json)
+│   ├── verify-aiconsole-ui.cjs  ← AI 控制台真浏览器取证(内置 mock 引擎 → aiconsole-ui-report.json)
+│   ├── verify-block-table.cjs   ← 🆕 v3.1.1 生字卡表格版式关口(分页装箱/控制符/拼音四线格/拆解条 → block-table-report.json)
+│   └── deploy-cf.cjs            ← 🆕 v3.1.1 Cloudflare Pages 一键部署(读取 .env.cloudflare)
 ├── public/
 │   ├── icon-*.svg           ← PWA 图标(192/512/maskable)
 │   └── fonts/               ← 字体目录(4 个 woff2 随仓库分发,共约 48 MB)
@@ -67,7 +81,8 @@ distribution/
 └── src/
     ├── main.js              ← 入口:CSS 导入 + 模块导入 + 事件绑定 + PWA 更新提示
     ├── contracts/
-    │   └── interfaces.js    ← 接口契约层(GridCellProps/GridType/RenderMode/PdfExportOptions)
+    │   ├── interfaces.js    ← 接口契约层(GridCellProps/GridType/RenderMode/PdfExportOptions)
+│   └── blockTable.js    ← 🆕 v3.1.1 生字卡表格版式契约(LAYOUT_TYPES/BLOCK_TABLE_LAYOUT/BT_DEFAULT_SETTINGS)
     ├── components/
     │   ├── GridEngine.js    ← SVG 字格引擎(createGridCellSVG + renderSheet,5 类型 × 3 模式)
     │   └── Sidebar.js       ← 320px 双栏侧栏(网格类型/透明度/预设场景)
