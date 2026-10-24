@@ -1,18 +1,23 @@
-// v3.1.0 生字卡表格版式（block-table）：组词面板手动编辑浮层
-// 点击 .bt-zuci 区域（.bt-zhead 上的档位 pill 除外，档位切换由设置侧逻辑接管）
-// → 弹出编辑浮层（拼音 + 组词 1/2，各 2–4 字）→ updateAiZuciMulti 写缓存
-// → dispatch calligraphy:content-updated 全量重生成（与经典 manualEdit 同模式）。
+// v3.1.0 生字卡表格版式（block-table）：组词面板手动编辑浮层 + 档位 pill 点击循环
+// 点击 .bt-zuci 区域 → 弹出编辑浮层（拼音 + 组词 1/2，各 2–4 字）→ updateAiZuciMulti
+// 写缓存 → dispatch calligraphy:content-updated 全量重生成（与经典 manualEdit 同模式）。
+// 点击 .bt-zhead（档位 pill 所在的标题条）→ 循环切换组词档位（隐藏→描摹→显示），
+// 走 updateSetting 管线（外观键）由 main.js 定向调 btApplyZuciLevel。
 // 复用 .sc-overlay / .sc-modal / .sc-field 样式（settingsCenter.css），交互骨架参照
 // manualEdit.js；本模块只负责浮层交互，不做任何渲染（渲染是 BlockTableEngine 的职责）。
 //
-// 与笔顺演示弹窗（strokeDemoModal）的隔离是双保险：
-//   ① 块帖组词格类名为 .bt-zcell、且不带 data-char 属性（渲染契约），strokeDemoModal 的
-//      #grid-container 委托只认 .grid-svg-cell[data-char]，命中不到组词区；
-//   ② 本模块接管点击后调用 e.stopPropagation()，阻断其他 document 级委托再响应。
+// 与笔顺演示弹窗（strokeDemoModal）的隔离依据（经监督员 pass1 更正表述）：
+//   实际隔离完全靠选择器结构——块帖组词格类名为 .bt-zcell 且不带 data-char 属性，
+//   strokeDemoModal 的 #grid-container 委托只认 .grid-svg-cell[data-char]，命中不到组词区。
+//   e.stopPropagation() 在 document 级监听器内调用，对更早收到冒泡的容器级委托无追溯力，
+//   它只阻断**其他 document 级委托**（如经典 manualEdit）再响应——功能正确，但不是
+//   对 strokeDemoModal 的第二重保险。
 
 import { updateAiZuciMulti, clearUserEditMulti } from './aiZuci.js';
 import { convert } from './pinyin.js';
 import { sanitizeChar } from '../utils/sanitize.js';
+import { BT_ZUCI_LEVELS } from '../contracts/blockTable.js';
+import { getSettings, updateSetting } from './settingsCenter.js';
 
 let currentEditChar = null;
 
@@ -114,9 +119,19 @@ function closeEditModal() {
 /** 初始化：document 级事件委托，点击块帖组词面板 → 弹出编辑浮层 */
 export function initBtManualEdit() {
     document.addEventListener('click', (e) => {
-        // 只接管组词面板；.bt-zhead 上的档位 pill 点击留给档位切换逻辑
+        // 只接管组词面板
         if (!e.target.closest?.('.bt-zuci')) return;
-        if (e.target.closest?.('.bt-zhead')) return;
+        // v3.1.0（监督员 pass1 发现的功能缺口）：点击 .bt-zhead（"组词"标题 + 档位 pill
+        // 所在的标题条）→ 循环切换档位：隐藏→描摹→显示→隐藏。写设置走 updateSetting，
+        // btZuciLevel 是外观键 → main.js 定向调 btApplyZuciLevel（不重建块、不重查词库）。
+        if (e.target.closest?.('.bt-zhead')) {
+            const levels = BT_ZUCI_LEVELS;
+            const cur = getSettings().btZuciLevel || 'trace';
+            const idx = levels.findIndex(l => l.id === cur);
+            const next = levels[((idx + 1) % levels.length + levels.length) % levels.length];
+            updateSetting('btZuciLevel', next.id);
+            return;
+        }
         // 词源数据在块根节点：data-char / data-pinyin / data-zuci-multi（'|' 分隔）
         const block = e.target.closest?.('.bt-block');
         const char = sanitizeChar(block?.getAttribute('data-char'));
@@ -128,7 +143,7 @@ export function initBtManualEdit() {
         if (openModal) return;
         const pinyin = block.getAttribute('data-pinyin') || '';
         const zuciMulti = (block.getAttribute('data-zuci-multi') || '').split('|').filter(Boolean);
-        // 阻断其他委托再响应（笔顺演示隔离的第二重保险，见文件头注释）
+        // 阻断其他 document 级委托（如经典 manualEdit）再响应——见文件头隔离依据说明
         e.stopPropagation();
         openEditModal(char, pinyin, zuciMulti);
     });

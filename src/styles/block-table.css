@@ -133,10 +133,12 @@
     border-bottom: none;
 }
 
-/* 短四线格拼音盒：填满信息行高度，上下边由行边框提供（四线格第 1/4 条线） */
+/* 短四线格拼音盒：填满信息行高度，上下边由行边框提供（四线格第 1/4 条线）。
+   宽度恰好一个格宽（--bt-cell，2026-10-24 用户反馈：原 20mm 近两格宽，
+   挤压笔画拆解条，笔画多的字排不下逐笔 SVG） */
 .bt-pinyin-box {
-    flex: 0 0 20mm;
-    width: 20mm;
+    flex: 0 0 var(--bt-cell, 13.5mm);
+    width: var(--bt-cell, 13.5mm);
     height: 100%;
     overflow: hidden;
 }
