@@ -340,15 +340,15 @@
     },
     {
       "name": "14g 行数控制符：排3→3行(组词3)、前+回车→2行(组词2)、面→默认2行、學9→上限5行——组词行跟随、AI 固定 2 词",
-      "status": "FAIL",
-      "observed": "[{\"ch\":\"排\",\"rows\":3,\"gridRows\":3,\"zrows\":3},{\"ch\":\"前\",\"rows\":2,\"gridRows\":2,\"zrows\":2},{\"ch\":\"面\",\"rows\":2,\"gridRows\":2,\"zrows\":2}]",
+      "status": "PASS",
+      "observed": "[{\"ch\":\"排\",\"rows\":3,\"gridRows\":3,\"zrows\":3},{\"ch\":\"前\",\"rows\":2,\"gridRows\":2,\"zrows\":2},{\"ch\":\"面\",\"rows\":2,\"gridRows\":2,\"zrows\":2},{\"ch\":\"學\",\"rows\":5,\"gridRows\":5,\"zrows\":5}]",
       "expected": "{排:3, 前:2(回车), 面:2(默认)}",
       "note": ""
     },
     {
       "name": "15e-1 均分/截断分支填满：≥14 笔的拆解条内容右缘 ≥ 0.95×条带宽（无右侧留白）",
       "status": "PASS",
-      "observed": "{\"underfill\":[],\"strips\":5}",
+      "observed": "{\"underfill\":[],\"strips\":24}",
       "expected": "全部 ≥0.95",
       "note": ""
     },
@@ -361,8 +361,8 @@
     },
     {
       "name": "15e-3 多笔画样本（爨 30 画，离线已收录）：拆解条自适应缩小填满或 \"+N\" 徽标",
-      "status": "FAIL",
-      "observed": "{\"chuan\":\"(未找到爨块)\",\"detail\":null}",
+      "status": "PASS",
+      "observed": "{\"chuan\":{\"ch\":\"爨\",\"svgCount\":30,\"cw\":327,\"contentRightPx\":324.8,\"visSizePx\":9.4,\"hidden\":4,\"hasBadge\":true,\"badgeText\":\"+4\",\"title\":\"笔画笔顺拆解 · 点击观看动态演示\"},\"detail\":{\"n\":30,\"hidden\":4,\"badge\":\"+4\",\"right\":324.8,\"cw\":327}}",
       "expected": "缩小填满或 +N 徽标",
       "note": ""
     },
@@ -383,7 +383,7 @@
     {
       "name": "15c 全部拼音盒无竖线 line 元素（四线格只保留横线，右缘不画竖线）",
       "status": "PASS",
-      "observed": "{\"boxCount\":5,\"vertLines\":0}",
+      "observed": "{\"boxCount\":24,\"vertLines\":0}",
       "expected": "{vertLines:0}",
       "note": ""
     },

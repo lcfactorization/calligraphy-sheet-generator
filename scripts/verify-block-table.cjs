@@ -1230,13 +1230,22 @@ function snapshotBlocksInPage() {
         }
 
         // ════════════ 断言 15e：多笔画拆解条不裁切（v3.1.1，块帖态取证） ════════════
+        // 15e 自备含爨文本（14g 的行数控制符文本不含爨；爨 30 画触发均分/截断分支）
+        await page.evaluate((t) => {
+            const ta = document.getElementById('inputText');
+            ta.value = t;
+            ta.dispatchEvent(new Event('input'));
+            document.getElementById('generate-btn').click();
+        }, PAGES_TEXT + '爨');
+        await page.waitForSelector('.bt-block[data-char="爨"]', { timeout: 15000 }).catch(() => {});
         // PAGES_TEXT 含"爨"（30 画级）。loadStrokes 为异步队列：先等拆解条出现 svg
         //（8s 超时——离线数据缺失时条留空，按 WARN 语义处理，不硬 FAIL 结构断言）。
         try {
             await page.waitForFunction(() => {
-                const strips = document.querySelectorAll('#grid-container .bt-stroke-strip');
-                return strips.length > 0 && [...strips].some(s => s.querySelector('svg'));
-            }, { timeout: 8000 }).catch(() => {});
+                // 定向等待最后一位的爨（串行队列队尾，30s 足够 24 字逐笔加载）
+                const t = document.querySelector('#grid-container .bt-stroke-strip[data-bt-strip="爨"]');
+                return !!t && !!t.querySelector('svg');
+            }, { timeout: 30000 }).catch(() => {});
             const stripSnap = await page.evaluate(() => {
                 const strips = [...document.querySelectorAll('#grid-container .bt-stroke-strip')];
                 return strips.map(s => {

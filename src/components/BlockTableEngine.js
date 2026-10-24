@@ -509,6 +509,8 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
     info.appendChild(strip);
     // 复用 loadStrokes 异步队列（离线数据，失败静默留空，不阻塞渲染）
     if (asyncFills && !empty) {
+        // v3.1.1：data-bt-strip 标记（并行改写期间丢失，补回）——笔画自愈补种与验收 15e-3 依赖
+        strip.setAttribute('data-bt-strip', char);
         // v3.1.1（用户反馈：爨/麤等多笔画字拆解条被静默裁切）：
         //   ① 悬停提示 + 指针手型（点击观看动态笔顺演示，转发逻辑在 main.js 委托）；
         //   ② loadStrokes 异步填充完成后做一次自适应归一化（btNormalizeStrokeStrip）：
