@@ -1,6 +1,6 @@
 {
   "name": "calligraphy-sheet-generator",
-  "version": "3.0.8",
+  "version": "3.1.0",
   "type": "module",
   "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.8 触屏/移动端布局修复（消除整页横向溢出这条主因，fixed 控件不再跑出屏幕）+ 页头横排 + FAB 拖拽限桌面 + 触摸目标 ≥44px + 可重跑布局关口 verify:touch",
   "scripts": {
@@ -9,6 +9,11 @@
     "preview": "vite preview",
     "verify:refresh": "node scripts/verify-incremental-refresh.cjs",
     "verify:touch": "node scripts/verify-touch-layout.cjs",
+    "verify:blocktable": "node scripts/verify-block-table.cjs",
+    "probe:direct": "node scripts/probe-provider-direct.cjs",
+    "probe:quota-docs": "node scripts/probe-free-quota-docs.cjs",
+    "gen:catalog": "node scripts/generate-provider-catalog.mjs",
+    "verify:catalog": "node scripts/verify-catalog-gate.cjs",
     "pdf": "node puppeteer-pdf.cjs",
     "pdf:help": "node puppeteer-pdf.cjs --help",
     "pdf:test": "node puppeteer-pdf.cjs --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"

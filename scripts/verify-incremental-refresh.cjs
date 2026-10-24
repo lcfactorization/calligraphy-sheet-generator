@@ -266,7 +266,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
         // ══════════════ G 组：只切网格式样 ══════════════
         const types = await page.evaluate(() =>
-            Array.from(document.querySelectorAll('.grid-type-btn')).map(b => b.getAttribute('data-grid-type')));
+            Array.from(document.querySelectorAll('.grid-type-btn[data-grid-type]')).map(b => b.getAttribute('data-grid-type')));
         gt('G0a 网格类型按钮存在', types.length);
         const curType = afterC.userGridTypes[0];
         const nextType = types.find(t => t !== curType);
