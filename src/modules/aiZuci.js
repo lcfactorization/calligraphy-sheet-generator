@@ -101,7 +101,7 @@ export const AI_ENTRY_TTL_MS = 90 * 24 * 60 * 60 * 1000;       // AI 条目 90 �
 const DEFAULT_ENTRY_TTL_MS = 180 * 24 * 60 * 60 * 1000;        // default / import 条目 180 天
 export const MAX_CACHE_ENTRIES = 3000;
 // v1 迁移时保留的兼容字段（仍被 srcTier / 导入流程读取）
-const CARRY_FIELDS = ['wordsDetail', 'pinyinVariants', 'userSpecified'];
+const CARRY_FIELDS = ['wordsDetail', 'pinyinVariants', 'userSpecified', 'zuciMulti']; // v3.1.0：块帖 2–4 字组词并列字段（undefined 不拷贝，经典条目字节不变，见文末区段说明）
 
 // ========== 工具函数：引擎与模型解析（注册表驱动） ==========
 
@@ -1377,4 +1377,538 @@ function getErrorSuggestion(error, providerInfo) {
         return '请求超时，可能是网络延迟或模型负载高，建议减少单次处理字数或稍后重试';
     }
     return `错误详情：${msg.slice(0, 100)}。建议检查 API Key、网络连接后重试`;
+}
+
+// ══════ v3.1.0 生字卡表格版式（block-table）扩展：2–4 字词组词（只新增导出，不改上方任何函数） ══════
+//
+// 本区段只新增导出，不改上方任何函数。zuciMulti 是与经典 zuci 并列的缓存字段
+// （string[]，2–4 字词、最多 2 词），两条读写路径互不干扰：
+//   · 经典路径（getAiZuci / updateAiZuciCache / fillMissingZuci）只读写 zuci；
+//   · 块帖路径（getAiZuciMulti / updateAiZuciMulti / fillMissingZuciMulti）只读写 zuciMulti，
+//     updateAiZuciMulti 永不触碰 zuci 字段。
+// 字段透传依赖顶部 CARRY_FIELDS 追加的 'zuciMulti'：_buildEntry 只在 patch[f] !== undefined
+// 时才拷贝该字段，因此不含 zuciMulti 的 patch（经典写入 / v1 迁移 / 导入预填充）经
+// _buildEntry 后 JSON.stringify 与改动前逐字节一致；而经典手动写入路径
+// _buildEntry({ ...prev, ... }) 会把已有 zuciMulti 原样透传保留（字节一致性的推理依据）。
+// 已知边界（按规格冻结范围接受）：fillMissingZuci 的 AI 写入 patch 不展开 prev，
+// 同一字先跑 multi 再被经典 AI 补齐覆盖时 zuciMulti 会丢失——渲染层词源按
+// 「zuciMulti → 经典 zuci」回退，属可接受降级，不在本区段修补（改它会动现有函数）。
+
+/**
+ * 读块帖 multi 组词（渲染层词源第一优先级；为空时渲染层自行回退经典 getAiZuci / getZuCi）。
+ * userEdited 三分支语义：
+ *   ① zuciMulti 非空 → 返回（手动词最高优先）；
+ *   ② 否则经典 zuci 非空 → 返回 zuci（用户只改拼音时保留原有词）；
+ *   ③ 两者皆空 → null（手动清空 → 不回落 AI/默认，与 getAiZuci 同语义）。
+ * 非 userEdited：zuciMulti 非空返回，否则 null。
+ * 返回前经 sanitizeZuci 清洗并截取前 2 词。
+ * @param {string} char
+ * @returns {string[]|null}
+ */
+export function getAiZuciMulti(char) {
+    const cache = loadCache();
+    const entry = cache[char];
+    if (!entry || typeof entry !== 'object') return null;
+    const take = (v) => {
+        const list = sanitizeZuci(v);
+        return list.length > 0 ? list.slice(0, 2) : null;
+    };
+    if (entry.userEdited === true) {
+        return take(entry.zuciMulti) || take(entry.zuci);
+    }
+    return take(entry.zuciMulti);
+}
+
+/**
+ * 手动改写块帖 multi 组词 + 拼音（块帖编辑浮层保存入口）。
+ * 与 updateAiZuciCache 同构：强制 pinyinFixed / pinyinChecked / userEdited / source:'user'，
+ * provider/model 清空（内容已由用户改写，不再声称 AI 产出），拼音留空保留旧值。
+ * 差异点：**不触碰经典 zuci 字段**（经 ...prev 透传保留旧值）。
+ * zuciMulti 经 sanitizeZuci 清洗、最多 2 词（允许空数组——读侧 getAiZuciMulti 再回退 zuci）。
+ * 实现说明：_buildEntry 不认识 zuciMulti，构造后显式赋值；CARRY_FIELDS 的透传改动
+ * 保证该条目后续经经典写入路径时 zuciMulti 不丢。
+ * @param {string} char
+ * @param {{pinyin?:string, zuciMulti?:string[]}} data
+ */
+export function updateAiZuciMulti(char, { pinyin = '', zuciMulti = [] } = {}) {
+    const c = sanitizeChar(char);
+    if (!c) return;
+    const cache = loadCache();
+    const prev = cache[c] || {};
+    const rawPinyin = (typeof pinyin === 'string' && pinyin.trim())
+        ? pinyin : (prev.pinyin || '');
+    const entry = _buildEntry({
+        ...prev,
+        pinyin: rawPinyin,
+        pinyinFixed: true,
+        pinyinChecked: true,
+        userEdited: true,
+        source: 'user',
+        provider: null,
+        model: null,
+        updatedAt: Date.now()
+    });
+    entry.zuciMulti = sanitizeZuci(zuciMulti).slice(0, 2);
+    cache[c] = entry;
+    saveCache(cache);
+}
+
+/**
+ * 清除块帖 multi 手动标记（浮层"清除手动修改"按钮用）。语义与 clearUserEdit 完全一致：
+ * userEdited 删除、来源回退（原本有 AI 出处回 'ai' 并从 src 还原 provider/model，否则 'default'）；
+ * zuciMulti 置空数组（回退 AI/默认词源）。清除后若该字已无任何数据与出处则整体删除条目。
+ * @param {string} char
+ */
+export function clearUserEditMulti(char) {
+    const c = sanitizeChar(char);
+    if (!c) return;
+    const cache = loadCache();
+    const entry = cache[c];
+    if (!entry || entry.userEdited !== true) return;
+
+    entry.zuciMulti = [];
+    delete entry.userEdited;
+    // 来源回退：原本有 AI 出处则回到 'ai'（并从 src 还原引擎/模型），否则回到 'default'
+    if (entry.source === 'user') {
+        const hasAi = !!(entry.src || entry.provider);
+        entry.source = hasAi ? 'ai' : 'default';
+        if (hasAi && entry.src && entry.src.indexOf(':') > 0) {
+            entry.provider = entry.src.slice(0, entry.src.indexOf(':'));
+            entry.model = entry.model || entry.src.slice(entry.src.indexOf(':') + 1);
+        }
+    }
+    // 清除后若该字已无任何数据与出处，整体删除条目
+    const hasMulti = Array.isArray(entry.zuciMulti) && entry.zuciMulti.length > 0;
+    const hasZuci = Array.isArray(entry.zuci) && entry.zuci.length > 0;
+    const hasPinyin = !!entry.pinyin;
+    const hasAi = entry.source === 'ai' || !!entry.src;
+    if (!hasMulti && !hasZuci && !hasPinyin && !hasAi) delete cache[c];
+    saveCache(cache);
+}
+
+/**
+ * multi 模式 system prompt：文案按规格 v3.1.0 §3.4 逐字冻结（含空行位置），不得改动。
+ * 铁律结构与 few-shot 正例对齐 PROMPT_COMMON_RULES / buildSystemPrompt 的既有模式。
+ */
+function buildMultiSystemPrompt() {
+    return `你是小学语文组词专家。你的唯一任务：给每个汉字组 2 个词——第 1 个是二字常用词，第 2 个是三字或四字词。
+
+【铁律，必须全部遵守】
+1. 只输出一个 JSON 对象，不要输出任何解释、前后缀、markdown 代码块（不要 \`\`\`json）。
+2. 只处理用户列出的汉字，每个字恰好给出 2 个词，一个不多一个不少。
+3. 第 1 个词必须是【二字】常用词；第 2 个词必须是【三字或四字】词（四字词允许常用成语，如"排山倒海"；三字词如"图书馆"）。两个词都必须包含该字本身。
+4. 禁止杜撰词、生造词、网络流行语、人名地名国名机构名商标名、生僻专业术语。
+5. pos 字段从这些值里选：名词、动词、形容词、副词、量词、数词、代词、成语。
+6. p 与 pinyin 字段必须带声调符号（如 pái shān dǎo hǎi），不得用数字声调（pai2 shan1）。
+7. 拼音必须与该词在词典中的实际读音一致；多音字以词语中的读音为准。
+8. JSON 内不得出现未转义的换行符或双引号。
+
+【正例】
+输入：1. 排（pái）
+输出：{"chars":[{"char":"排","pinyin":"pái","words":[{"w":"排队","p":"pái duì","pos":"动词","note":""},{"w":"排山倒海","p":"pái shān dǎo hǎi","pos":"成语","note":""}]}]}
+
+输出格式（不得增删字段）：
+{"chars":[{"char":"排","pinyin":"pái","words":[{"w":"二字词","p":"…","pos":"…","note":""},{"w":"三或四字词","p":"…","pos":"…","note":""}]}]}`;
+}
+
+/**
+ * multi 模式词校验：词长 2–4（Array.from 按码点计）+ 必须包含本字 + 纯汉字
+ * （借 sanitizeZuci 单词校验实现，与落盘清洗同口径）+ 拼音非空；每字最多取前 2 词，
+ * 不合格词直接丢弃（由调用方计入 insufficient，沿用 v1.5.4「不静默算成功」语义）。
+ * @param {string} char 本字
+ * @param {*} words AI 返回的 words 数组（{w,p,pos,note}）
+ * @returns {{w:string,p:string,pos:string,note:string}[]}
+ */
+function validateWordsMulti(char, words) {
+    if (!Array.isArray(words)) return [];
+    const out = [];
+    for (const w of words) {
+        if (!w || typeof w.w !== 'string' || !w.p) continue;
+        const word = w.w.trim();
+        const len = Array.from(word).length;
+        if (len < 2 || len > 4) continue;              // 词长 2–4
+        if (!word.includes(char)) continue;            // 必须包含本字
+        if (sanitizeZuci(word)[0] !== word) continue;  // 纯汉字且无分隔符/空白
+        out.push({ w: word, p: w.p, pos: w.pos || '', note: w.note || '' });
+        if (out.length >= 2) break;
+    }
+    return out;
+}
+
+/**
+ * multi 模式 API 直连：callDeepSeekDirect 的协议克隆（OpenAI 兼容 + Anthropic 双路径、
+ * json_object 400/422 降级重试、错误文案复用 buildApiErrMsg），仅把 system prompt 换成
+ * buildMultiSystemPrompt()。之所以克隆而不直接调用 callDeepSeekDirect：后者的 system
+ * prompt 由 buildSystemPrompt(mode) 内部决定、没有注入点，而本任务冻结约束为
+ * 「现有函数一行不改」。
+ */
+async function callMultiDirect(charPinyinPairs, {
+    apiKey, signal, model: customModel, supportJsonMode = true,
+    providerInfo = null, authStyle = ''
+} = {}) {
+    const provider = providerInfo || getAiProvider(apiKey);
+    if (provider.type === 'unknown') {
+        throw new Error('无法识别 API Key 类型：请在设置中使用受支持的引擎（如 sk- 开头的 DeepSeek、ark- 开头的火山引擎），或先运行“检测全部 Key 可用性”');
+    }
+    const anthropic = isAnthropicProtocol(provider);
+    const auth = anthropic ? 'x-api-key' : (authStyle || provider.authStyle || 'bearer');
+    const key = String(apiKey || '').trim();
+    let endpoint = provider.endpoint;
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth === 'query-key') {
+        endpoint += (endpoint.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key);
+    } else if (auth === 'x-api-key') {
+        headers['x-api-key'] = key;
+        headers['anthropic-version'] = ANTHROPIC_VERSION;
+    } else {
+        headers['Authorization'] = `Bearer ${key}`;
+    }
+    const model = customModel || provider.model;
+    const systemPrompt = buildMultiSystemPrompt();
+    const lines = charPinyinPairs.map((p, i) => `${i + 1}. ${p.char}（${p.pinyin || '无'}）`);
+    const userPrompt = `请处理以下生字：\n${lines.join('\n')}`;
+    // 与 callDeepSeekDirect 相同：协议判定与参数装配必须基于注册表条目重算
+    const providerRef = getProvider(provider.providerId) || null;
+    const isAnth = isAnthropicProtocol(providerRef) || isAnthropicProtocol(provider);
+
+    const doFetch = (withJson) => {
+        let body;
+        if (isAnth) {
+            // Anthropic：system 独立顶层字段，不接受 response_format
+            body = buildRequestBody(providerRef, {
+                model,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }],
+                max_tokens: providerRef && providerRef.maxTokens !== undefined
+                    ? providerRef.maxTokens
+                    : ANTHROPIC_DEFAULT_MAX_TOKENS
+            });
+        } else {
+            body = buildRequestBody(providerRef, {
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                max_tokens: 2048,
+                temperature: 0.1
+            });
+            if (withJson) body.response_format = { type: 'json_object' };
+        }
+        return fetch(endpoint, { method: 'POST', headers, signal, body: JSON.stringify(body) });
+    };
+
+    let resp = await doFetch(!isAnth && !!supportJsonMode);
+    // 400/422 且提示 response_format 不支持 → 去掉该字段重试一次
+    if (!resp.ok && !isAnth && supportJsonMode && (resp.status === 400 || resp.status === 422)) {
+        const firstText = await resp.text().catch(() => '');
+        if (/response_format|json_object|json mode/i.test(firstText)) {
+            resp = await doFetch(false);
+        } else {
+            throw new Error(buildApiErrMsg(resp.status, provider.label, firstText));
+        }
+    }
+    if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(buildApiErrMsg(resp.status, provider.label, errText));
+    }
+    const data = await resp.json();
+    const content = isAnth
+        ? extractAnthropicText(data)
+        : (data?.choices?.[0]?.message?.content || '');
+    const parsed = extractJsonRobust(content);
+    if (!parsed) {
+        throw new Error(`AI 返回内容无法解析为 JSON（前200字：${content.slice(0, 200)}）`);
+    }
+    return { data: parsed, model, provider: provider.type, providerLabel: provider.label };
+}
+
+/**
+ * multi 模式 AI 组词补齐（块帖 2–4 字词：每字 1 个二字词 + 1 个三/四字词）。
+ * fillMissingZuci 的精简克隆：复用其 apiKey 兜底 / provider 解析 / 去重过滤 /
+ * 超时额度 / 批次重试 / insufficient 名单语义，但不改原函数。
+ * 与主流程的差异：
+ *   · 无三模式分流（multi 只有 fast 等价路径，批次 10，统一默认模型）；
+ *   · 无默认词库直通（2–4 字词必须走 AI；词源回退由渲染层读经典 zuci 完成）；
+ *   · 跳过门 = userEdited 或 zuciMulti 非空（规格 v3.1.0 冻结：计入已处理，不送 AI）；
+ *     仅补到 1 个词的条目仍落盘并如实计入 insufficient（v1.5.4「不静默算成功」），
+ *     下次运行不再送 AI，由用户在组词区点击手动补充；
+ *   · 写缓存不触碰经典 zuci 字段（zuci 保留旧值），zuciMulti 在 _buildEntry 构造后显式赋值。
+ * @param {string[]} chars 生字列表
+ * @param {{apiKey?:string, providerId?:string|null, modelId?:string|null, signal?:AbortSignal, onProgress?:Function}} opts
+ * @returns {Promise<object>} 形状对齐 fillMissingZuci：{ total, ai, skipped, missing, elapsed,
+ *   fetchedCount, insufficient, insufficientCount, insufficientTip, timedOut, timeoutMs,
+ *   timeoutText, model, provider, providerLabel, noWorkNeeded }
+ */
+export async function fillMissingZuciMulti(chars, {
+    apiKey, providerId = null, modelId = null, signal, onProgress
+} = {}) {
+    const start = Date.now();
+    // apiKey 兜底：与 fillMissingZuci 相同——动态 import 避免循环依赖，并同时解析 providerId/modelId
+    let resolvedApiKey = apiKey;
+    let resolvedProviderId = providerId;
+    let resolvedModelId = modelId;
+    if (!resolvedApiKey || typeof resolvedApiKey !== 'string' || !resolvedApiKey.trim()) {
+        try {
+            const { getEffectiveKeyEntry } = await import('./aiKeyStore.js');
+            const entry = getEffectiveKeyEntry();
+            if (entry && typeof entry.key === 'string' && entry.key.trim()) {
+                resolvedApiKey = entry.key;
+                if (!resolvedProviderId && entry.providerId) resolvedProviderId = entry.providerId;
+                if (!resolvedModelId && entry.modelId) resolvedModelId = entry.modelId;
+            }
+        } catch { /* 无可用 Key 时保持 undefined，走原有错误提示 */ }
+    }
+    // 显式 providerId / modelId 以 entry 形态传入，使 getAiProvider 跳过形状推断（multi 不用强模型）
+    const providerInfo = getAiProvider(
+        (resolvedProviderId || resolvedModelId)
+            ? { key: resolvedApiKey, providerId: resolvedProviderId, modelId: resolvedModelId }
+            : resolvedApiKey,
+        false
+    );
+
+    // 超时：额度按真实生字数 + fillMissing 任务类型计算（先建 controller 占位，去重后再启动计时）
+    const timeoutCtrl = new AbortController();
+    let timeoutId = null;
+    const combinedSignal = combineSignals(signal, timeoutCtrl.signal);
+    let timedOut = false;
+    let timeoutReason = '';   // 'timeout' | 'external'
+    let timeoutMs = TIMEOUT_BASE_MS.zuci;
+
+    // 去重 + 仅保留汉字（与主流程同口径）
+    const seen = new Set();
+    const uniqueChars = [];
+    for (const c of (chars || [])) {
+        if (c && typeof c === 'string' && /[\u4e00-\u9fa5]/.test(c) && !seen.has(c)) {
+            seen.add(c);
+            uniqueChars.push(c);
+        }
+    }
+
+    const cache = loadCache();
+    const skippedChars = [];
+    const toFetch = [];
+
+    timeoutMs = computeTimeoutMs(uniqueChars.length, { fillMissing: true });
+    timeoutId = setTimeout(() => {
+        timeoutReason = 'timeout';
+        timeoutCtrl.abort();
+    }, timeoutMs);
+
+    // 筛选待处理字（跳过门按规格 v3.1.0 冻结：已有非空 zuciMulti 或 userEdited=true →
+    // 跳过，计入已处理、不送 AI）
+    for (const c of uniqueChars) {
+        const ent = cache[c];
+        const hasMulti = !!(ent && Array.isArray(ent.zuciMulti) && ent.zuciMulti.length > 0);
+        if (ent && (ent.userEdited === true || hasMulti)) {
+            skippedChars.push(c);
+            continue;
+        }
+        toFetch.push(c);
+    }
+
+    let fetchedCount = 0;
+    let processedCount = 0;
+    let lastError = null;
+    const insufficientChars = [];
+    const total = toFetch.length;
+
+    // 模型选择与主流程一致（readModelOverride 逃生门优先级最高）：
+    //   1. ai_model_override_<providerId>（localStorage 逃生门）
+    //   2. 显式 modelId（用户在设置面板选定的模型，属用户意图）
+    //   3. 注册表默认模型（providerInfo.model）
+    const overrideModel = readModelOverride(providerInfo.providerId);
+    const explicitModel = overrideModel || (resolvedModelId || '');
+    const useModel = explicitModel || providerInfo.model;
+
+    if (total > 0) {
+        const batchSize = 10;
+        const srcTag = `${providerInfo.type}:${useModel || ''}`;
+        for (let i = 0; i < toFetch.length; i += batchSize) {
+            if (combinedSignal?.aborted) {
+                timedOut = true;
+                timeoutReason = timeoutReason || 'external';
+                break;
+            }
+            const batch = toFetch.slice(i, i + batchSize);
+            const pairs = batch.map(c => {
+                let py = '';
+                try {
+                    py = pinyin(c, { toneType: 'symbol', segment: true, nonZh: 'consecutive' }) || '';
+                } catch { py = ''; }
+                return { char: c, pinyin: py };
+            });
+
+            let result = null;
+            for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
+                if (combinedSignal?.aborted) { timedOut = true; timeoutReason = timeoutReason || 'external'; break; }
+                try {
+                    const apiResult = await callMultiDirect(pairs, {
+                        apiKey: resolvedApiKey, signal: combinedSignal, model: useModel,
+                        supportJsonMode: providerInfo.supportJsonMode, providerInfo
+                    });
+                    result = apiResult.data;
+                    break;
+                } catch (err) {
+                    if (err.name === 'AbortError') { timedOut = true; timeoutReason = timeoutReason || 'external'; break; }
+                    lastError = err;
+                    if (attempt < MAX_RETRY) {
+                        // 指数退避后重试（与主流程同参数）
+                        await new Promise(r => setTimeout(r, 500 * attempt));
+                    }
+                }
+            }
+            if (combinedSignal?.aborted) { timedOut = true; timeoutReason = timeoutReason || 'external'; break; }
+            if (!result) {
+                // 该批次重试全失败：跳过但继续下一批，记 insufficient（failed:true），不写缓存
+                for (const c of batch) {
+                    if (cache[c] && cache[c].userEdited === true) continue;
+                    insufficientChars.push({ char: c, got: 0, words: [], failed: true });
+                }
+                processedCount += batch.length;
+                if (typeof onProgress === 'function') {
+                    onProgress({
+                        processed: processedCount, total, mode: 'multi', error: 'batch_failed',
+                        elapsed: Date.now() - start, timeoutMs,
+                        batchIndex: Math.floor(i / batchSize) + 1,
+                        totalBatches: Math.ceil(toFetch.length / batchSize)
+                    });
+                }
+                continue;
+            }
+
+            // 解析结果写入缓存
+            const charsArr = Array.isArray(result.chars) ? result.chars : [];
+            for (const item of charsArr) {
+                const c = (item && typeof item.char === 'string') ? item.char : '';
+                if (!c) continue;
+                // 手动修改过的字，AI 结果不覆盖（手动 > AI）
+                if (cache[c] && cache[c].userEdited === true) continue;
+
+                const validMulti = validateWordsMulti(c, item.words);
+                // 拼音取值链与主流程一致：pinyin_corrected || pinyin || 旧值兜底
+                const correctedPy = (typeof item.pinyin_corrected === 'string' && item.pinyin_corrected.trim())
+                    ? item.pinyin_corrected
+                    : ((typeof item.pinyin === 'string' && item.pinyin.trim()) ? item.pinyin : '');
+                if (validMulti.length > 0) {
+                    // 保留旧条目的经典 zuci 与拼音纠正记录；zuciMulti 构造后显式赋值
+                    const prev = cache[c] || {};
+                    const entry = _buildEntry({
+                        ...prev,
+                        zuci: Array.isArray(prev.zuci) ? prev.zuci : [],
+                        pinyin: correctedPy || prev.pinyin || '',
+                        pinyinFixed: prev.pinyinFixed === true,
+                        pinyinChecked: prev.pinyinChecked === true,
+                        wordsDetail: validMulti,   // 多词明细复用经典兼容字段（{w,p,pos,note}）
+                        src: srcTag,
+                        source: 'ai',
+                        provider: providerInfo.type,
+                        model: useModel,
+                        updatedAt: Date.now()
+                    });
+                    entry.zuciMulti = validMulti.map(w => w.w);
+                    cache[c] = entry;
+                    // 凑满 2 词才算补齐成功；仅 1 词仍落盘但如实记入未达标名单
+                    if (validMulti.length >= TARGET_ZUCI_COUNT) {
+                        fetchedCount++;
+                    } else {
+                        insufficientChars.push({
+                            char: c, got: validMulti.length, words: validMulti.map(w => w.w)
+                        });
+                    }
+                } else {
+                    // 一个有效词都没有：不写缓存（写空会把该字永久钉成「已完成」），如实记入未达标
+                    insufficientChars.push({ char: c, got: 0, words: [] });
+                }
+            }
+
+            saveCache(cache);
+            processedCount += batch.length;
+            if (typeof onProgress === 'function') {
+                onProgress({
+                    processed: processedCount, total, mode: 'multi',
+                    elapsed: Date.now() - start, timeoutMs,
+                    batchIndex: Math.floor(i / batchSize) + 1,
+                    totalBatches: Math.ceil(toFetch.length / batchSize)
+                });
+            }
+        }
+    }
+
+    clearTimeout(timeoutId);
+
+    const ai = fetchedCount + skippedChars.length;
+    const elapsed = Date.now() - start;
+    const noWorkNeeded = uniqueChars.length > 0 && toFetch.length === 0;
+
+    const result = {
+        total: uniqueChars.length,
+        ai,
+        skipped: skippedChars.length,
+        missing: Math.max(0, uniqueChars.length - ai),
+        elapsed,
+        fetchedCount,
+        insufficient: insufficientChars.slice(),
+        insufficientCount: insufficientChars.length,
+        insufficientTip: '',
+        timedOut,
+        partialSuccess: timedOut && fetchedCount > 0,
+        timeoutReason,
+        timeoutMs,
+        timeoutText: describeTimeout(timeoutMs, uniqueChars.length),
+        model: useModel || providerInfo.model,
+        provider: providerInfo.type,
+        providerLabel: providerInfo.label,
+        noWorkNeeded
+    };
+
+    // 超时 / 全败时附加诊断信息（文案走现有 getErrorSuggestion，风格与主流程一致）
+    if (timedOut) {
+        if (timeoutReason === 'timeout') {
+            result.timeoutError = `处理时间超过 ${describeTimeout(timeoutMs, uniqueChars.length)}，已自动中断`;
+        } else if (lastError) {
+            result.timeoutError = lastError.message;
+        } else {
+            result.timeoutError = '任务已被取消';
+        }
+        result.suggestion = getErrorSuggestion(lastError, providerInfo);
+    } else if (fetchedCount === 0 && total > 0 && lastError) {
+        result.suggestion = getErrorSuggestion(lastError, providerInfo);
+    }
+
+    // 组词未达标的字如实汇报（不静默算成功）；按字去重，失败标记优先
+    if (insufficientChars.length > 0) {
+        const byChar = new Map();
+        for (const x of insufficientChars) {
+            const prev = byChar.get(x.char);
+            if (!prev) { byChar.set(x.char, x); continue; }
+            if (x.failed && !prev.failed) byChar.set(x.char, { ...prev, failed: true });
+            else if (x.got > prev.got) byChar.set(x.char, { ...x, failed: prev.failed || x.failed });
+        }
+        const list = [...byChar.values()];
+        const oneWord = list.filter(x => x.got === 1);
+        const zeroWord = list.filter(x => x.got === 0);
+        const failedOnly = zeroWord.filter(x => x.failed);
+        const parts = [];
+        if (oneWord.length > 0) {
+            const preview = oneWord.slice(0, 8).map(x => `${x.char}（仅「${x.words[0]}」）`).join('、');
+            parts.push(`${oneWord.length} 字仅补到 1 个词：${preview}${oneWord.length > 8 ? ' 等' : ''}`);
+        }
+        if (zeroWord.length > 0) {
+            parts.push(`${zeroWord.length} 字未补到任何词：${zeroWord.slice(0, 8).map(x => x.char).join('、')}${zeroWord.length > 8 ? ' 等' : ''}`);
+        }
+        let tip = parts.join('；');
+        if (failedOnly.length > 0 && failedOnly.length === zeroWord.length) {
+            tip += `（本批请求全部失败，可能是网络或额度问题）`;
+        }
+        // 尾注须与跳过门一致：有词条目下次运行会被跳过，补词路径是手动编辑；
+        // 0 词条目（含失败批次）未落盘，再跑一次仍会重试。
+        const full = `${tip}。失败批次可再跑一次重试；仅补到 1 个词的字可点击组词区手动补充`;
+        result.insufficient = list;
+        result.insufficientCount = list.length;
+        result.insufficientTip = full;
+        result.suggestion = result.suggestion ? `${result.suggestion}；${full}` : full;
+    }
+
+    return result;
 }

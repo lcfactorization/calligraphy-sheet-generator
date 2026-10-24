@@ -1,0 +1,301 @@
+/* ════════════════════════════════════════════════════════════════
+ * 生字卡表格版式（block-table）样式表 v3.1.0
+ * ════════════════════════════════════════════════════════════════
+ *
+ * 依据：docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md §2.1/§2.2/§2.5/§2.6
+ *
+ * 命名空间纪律：
+ *   - 本文件只写 bt- 前缀选择器。唯一例外是两处 **.bt-sheet 作用域内**的
+ *     .grid-svg-cell / .grid-svg-row-border 尺寸覆写：块帖格边长 13.5mm 必须
+ *     覆盖 grid-svg.css 的经典 16.2mm；作用域限定 .bt-sheet 内，对经典版式
+ *     零影响（打印段同理，用双类选择器压过 grid-svg.css 的 !important 覆写）。
+ *   - 绝不出现 .grid-svg-row / .grid-svg-aux-row 类名（隔离经典 manualEdit
+ *     委托与 pdfExport 查询，见方案 §2.1 类名纪律）。
+ *
+ * 尺寸来源：src/contracts/blockTable.js 的 BLOCK_TABLE_LAYOUT 冻结值，
+ * 由 BlockTableEngine.renderBlockSheet 以 --bt-* 变量注入 .bt-sheet，
+ * 本文件只给 fallback 默认值，不书写第二份几何数值。
+ *
+ * 主题兼容：bt 文字一律 currentColor / 主题变量（--text-color / --paper-bg /
+ * --a4-shadow 随 [data-theme='dark'] 自动翻转）；面板底色用带 fallback 的
+ * --bt-* 变量，供后续主题深度适配时覆盖。
+ */
+
+/* ── 1. 纸张容器（屏幕预览；打印规则见文件末尾 @media print） ── */
+.bt-sheet {
+    box-sizing: border-box;
+    width: 210mm;
+    margin: 0 auto;
+    padding: var(--bt-pad, 12mm);
+    background: var(--bt-sheet-bg, var(--paper-bg, #fff));
+    color: var(--text-color, #1e293b);
+    box-shadow: var(--bt-a4-shadow, var(--a4-shadow, 0 4px 18px rgba(0, 0, 0, 0.12)));
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* ── 2. 页头（btShowHeaderMeta 开时渲染） ── */
+.bt-sheet-head {
+    margin-bottom: 6mm;
+}
+.bt-title {
+    margin: 0 0 5mm;
+    text-align: center;
+    font-size: 30px;
+    letter-spacing: 6px;
+    font-weight: 700;
+    color: var(--title-color, currentColor);
+}
+.bt-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5mm;
+    font-size: 14px;
+}
+.bt-meta-item {
+    display: inline-flex;
+    align-items: center;
+}
+/* 填写空位下划线：currentColor 跟随主题（dark 自动反色，打印强制黑） */
+.bt-meta-blank {
+    display: inline-block;
+    width: 12mm;
+    height: 1em;
+    margin: 0 1mm;
+    border-bottom: 1px solid currentColor;
+}
+.bt-name-boxes {
+    display: inline-flex;
+    gap: 1mm;
+    margin-left: 1mm;
+}
+.bt-name-box {
+    display: block;
+    width: var(--bt-name-cell, 9mm);
+    height: var(--bt-name-cell, 9mm);
+}
+
+/* ── 3. 块结构：左列（信息行+主表格） 与 右列（组词面板） ──
+   块宽预算（§2.5）：主表 9×13.5(121.5) + gap 6 + 组词 4×13.5(54) = 181.5mm */
+.bt-block {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--bt-main-zuci-gap, 6mm);
+    margin-bottom: var(--bt-block-gap, 5mm);
+    /* 绝不跨页断块（"绝不跨页断格"铁律，§2.5） */
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+.bt-main,
+.bt-zuci {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+}
+.bt-main {
+    width: calc(var(--bt-cell, 13.5mm) * var(--bt-cols, 9));
+}
+.bt-zuci {
+    width: calc(var(--bt-cell, 13.5mm) * var(--bt-zcols, 4));
+}
+
+/* 行容器：格子横排；行级统一边框 SVG 绝对定位铺满整行
+   （复用 grid-svg.css 的 .grid-svg-row-border 定位/层级规则，这里只提供基准） */
+.bt-row,
+.bt-zrow {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: var(--bt-cell, 13.5mm);
+}
+
+/* v3.1.0 块帖格边长 13.5mm：覆写 grid-svg.css 经典版的 16.2mm。
+   作用域限定 .bt-sheet 内（本文件仅有的两处非纯 bt- 选择器之一） */
+.bt-sheet .grid-svg-cell {
+    width: var(--bt-cell, 13.5mm);
+    height: var(--bt-cell, 13.5mm);
+    flex: 0 0 var(--bt-cell, 13.5mm);
+}
+
+/* ── 4. 信息行 / 档位头（高 8mm，边框主色，border-bottom:none ——
+      下边由主表格/组词首行外框补齐，§2.2） ── */
+.bt-info,
+.bt-zhead {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    width: 100%;
+    height: var(--bt-info-h, 8mm);
+    padding: 0 3mm;
+    border: 1px solid var(--grid-primary-color, #2E7D32);
+    border-bottom: none;
+}
+
+/* 短四线格拼音盒：填满信息行高度，上下边由行边框提供（四线格第 1/4 条线） */
+.bt-pinyin-box {
+    flex: 0 0 20mm;
+    width: 20mm;
+    height: 100%;
+    overflow: hidden;
+}
+.bt-pinyin-box svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* 药丸（参照样张）：笔画数 "N画" 文本由 hanziDataStore 异步填充，
+   无数据留空（保留灰底占位，避免填充时跳动） */
+.bt-pill {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-width: 12mm;
+    height: 6mm;
+    padding: 0 2.5mm;
+    border-radius: 3px;
+    background: var(--bt-pill-bg, #edf0f2);
+    color: var(--bt-pill-fg, #6b7680);
+    font-size: 12px;
+    white-space: nowrap;
+}
+/* 档位 pill（隐藏/描摹/显示）：点击循环由接线层负责，这里只给指针样式与高亮 */
+.bt-pill-level {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.bt-pill-level.bt-active {
+    background: var(--grid-primary-color, #2E7D32);
+    color: #fff;
+}
+
+/* 笔画拆解序列：loadStrokes 异步逐笔填充小 SVG（每笔约 6mm 高）。
+   loadStrokes 同时会写入一个 "N画" 计数 span（经典辅助行的复用行为），
+   块帖的笔画数由 .bt-pill 承担，这里隐藏序列内计数避免重复展示 */
+.bt-stroke-strip {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    height: 100%;
+    overflow: hidden;
+}
+.bt-stroke-strip > span {
+    display: none;
+}
+.bt-stroke-strip svg {
+    display: block;
+    flex: 0 0 auto;
+    width: 6mm;
+    height: 6mm;
+    margin-right: 0.5mm;
+}
+
+/* ── 5. 组词格：词字/虚线画在格内小 SVG 中（类名非 .grid-svg-cell，
+      不带 data-char —— 组词区点击归 btManualEdit，绝不触发笔顺演示） ── */
+.bt-zcell {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 var(--bt-cell, 13.5mm);
+    width: var(--bt-cell, 13.5mm);
+    height: var(--bt-cell, 13.5mm);
+}
+.bt-zcell svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── 6. 窄屏预览缩放（v3.0.8 铁律：整页不许横向溢出，§2.5） ──
+   方案：width 210mm 保留 + transform:scale 缩放。
+   居中用 margin-left:50% + translateX(-50%)（百分比位移基于元素自身宽 794px），
+   使缩放围绕视口中线进行 —— 若用常规 margin:auto + origin top center，
+   布局盒左对齐时缩放中心偏右，会把视觉盒推出视口右侧（scrollWidth 反而增大）。
+   组合变换 translateX(-50%) scale(s)（scale 先作用、位移后作用）的视觉盒：
+   [容器中点 - 397s, 容器中点 + 397s]，恒在视口内且居中。
+   --bt-preview-scale 由接线层按视口实时注入（可选增强）；未注入时使用下列
+   分档 fallback，每档 794×s 均小于该档视口宽上界，保证无横向溢出。
+   高度塌陷补偿：缩放不改变布局盒高度，底部留白用 --bt-scale-comp 负外边距
+   （默认 0，只留白不重叠 —— 溢出是硬伤、留白仅是观感，宁可保守）。 */
+@media (max-width: 768px) {
+    .bt-sheet {
+        margin-left: 50%;
+        margin-bottom: var(--bt-scale-comp, 0mm);
+        transform: translateX(-50%) scale(var(--bt-preview-scale, 0.95));
+        transform-origin: top center;
+    }
+}
+@media (max-width: 640px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.78)); }
+}
+@media (max-width: 540px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.66)); }
+}
+@media (max-width: 480px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.58)); }
+}
+@media (max-width: 430px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.52)); }
+}
+@media (max-width: 400px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.48)); }
+}
+@media (max-width: 375px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.45)); }
+}
+@media (max-width: 320px) {
+    .bt-sheet { transform: translateX(-50%) scale(var(--bt-preview-scale, 0.39)); }
+}
+
+/* ── 7. 打印（§2.6：打印样式全部收在本文件，print.css 一行不改） ── */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+
+    .bt-sheet {
+        width: auto;
+        margin: 0 !important;          /* 抵消窄屏 margin-left:50%（双保险） */
+        padding: 0;                    /* 页边距交给 @page，去屏幕纸张内边距 */
+        background: #fff;
+        color: #000;
+        box-shadow: none;
+        transform: none !important;    /* 抵消窄屏缩放，还原 1:1 物理尺寸 */
+    }
+
+    /* 块帖格边长打印保持 13.5mm（双类选择器压过 grid-svg.css 的
+       var(--gs-cell-mm) !important 覆写，恢复物理尺寸） */
+    .bt-sheet .grid-svg-cell {
+        width: var(--bt-cell, 13.5mm) !important;
+        height: var(--bt-cell, 13.5mm) !important;
+        flex: 0 0 var(--bt-cell, 13.5mm) !important;
+    }
+
+    /* 绝不跨页断块/断行 */
+    .bt-block,
+    .bt-row,
+    .bt-zrow {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* 隐藏一切屏幕交互控件：档位 pill 不进打印层
+      （验收断言 12：打印 PDF 文本不含"描摹/显示"档位字样） */
+    .bt-zhead .bt-pill-level {
+        display: none !important;
+    }
+    .bt-pill-level {
+        cursor: auto;
+    }
+
+    /* 打印强制黑字白纸（bt 文字走 currentColor，这里收口为黑） */
+    .bt-title {
+        color: #000;
+    }
+    .bt-meta-blank {
+        border-bottom-color: #000;
+    }
+}
