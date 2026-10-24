@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // ============================================================================
-// verify-block-table.cjs — v3.1.0「生字卡表格版式（block-table）」真浏览器验收关口
+// verify-block-table.cjs — v3.1.1「生字卡表格版式（block-table）」真浏览器验收关口
 //
-// 要证明的事（任务书 13 组断言，对应方案 §7.1 断言 1–12 + 接线新增的切换按钮）：
+// 要证明的事（15 组断言 = 任务书 13 组 + v3.1.1 §12 新增 14/15 组）：
 //   块帖版式（每字一块：信息行 + 主表格 + 组词面板）13 组断言全部成立，且
 //   经典版式（每字一行 11 格）行为零回归。
 //
@@ -39,7 +39,8 @@
 //      SVG 节点必须 dispatchEvent(new MouseEvent('click', {bubbles:true}))。
 //
 // 13 组断言索引（本文件内标签）：
-//   1a-1c  结构：data-layout / .bt-block=4 / .bt-info=1、主表格 9×2=18 格、行边框
+//   1a-1c  结构：data-layout / .bt-block[data-char]=4 / .bt-info=1、主表格 9×2=18 格、行边框
+//          （v3.1.1 分页补空块后，内容断言一律以 [data-char] 真块为样本，语义不变）
 //   2a-2c  内容模式：格0 范字 opacity=1 / 格1-3 描摹≈0.2 / 其余格内容层为空
 //   3a-3d  信息行：拼音字体 TeXGyreAdventor / .bt-pinyin-box 宽≈var(--bt-cell)
 //          （13.5mm ±0.5mm，2026-10-24 用户反馈修复项）/ pill /^\d+画$/（空记 WARN）
@@ -62,7 +63,19 @@
 //          .bt-block break-inside=avoid、page.pdf() >5KB（存 scripts/_bt_verify_test.pdf，
 //          验完删除）
 //   13a-13b 切换按钮：#layout-toggle-btn 点击（block-table 态）→ aria-pressed=false
-//          + data-layout=classic + .bt-block=0 + .grid-svg-row 出现；再点回 block-table
+//          + data-layout=classic + 真块 .bt-block[data-char]=0 + .grid-svg-row 出现；
+//          再点回 block-table
+//
+// v3.1.1 新增断言组（§12 P1：A 显式分页（每页固定 5 块）/ B 拼音四线格）：
+//   14a-14e 显式分页（22 字长文 → 5 页）：每个 .bt-page 恰 5 个 .bt-block 且页头
+//          仅首页 / 每页最后一块 bottom ≤ 页内容底 − 1mm / 空块无 data-char·无
+//          拼音文字·无词字·格内无文本·pill 留空 / page.pdf 页数 = ceil(真块数/5)
+//          （正则数 /Type /Page，验完删除）/ 实测 页头footprint + 5×块footprint
+//          ≤ 275mm（引擎守卫判据复算）
+//   15a-15d 拼音四线格 v3.1.1：文字层 SVG preserveAspectRatio 含 meet（线条层
+//          仍 none，线字分离）/ 盒贴块左缘 ≤0.5mm 且宽 13.5mm ±0.5mm / 全部
+//          拼音盒无竖线 line（四线格只留横线）/ 经典辅助行 createAuxRow 零影响
+//          （在断言 9 经典态取证）
 //
 // 运行：npm run verify:blocktable （即 node scripts/verify-block-table.cjs）
 // 退出码：任一 FAIL → 1；全部 PASS（含 WARN）→ 0
@@ -76,6 +89,11 @@ const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.BT_PORT || 5219);
 // 生字与参考样张同款（demo 四字），离线笔画数据 / cnchar 词库均可用
 const TEXT = '排前后面';
+// 分页断言（组 14）用长文：22 字 → 每页固定 5 块（§12.A.2，2026-10-24 用户指令）
+// → ceil(22/5)=5 页（4 页满 5 实块 + 末页 2 实块补 3 空块），各组断言均有样本
+const PAGES_TEXT = '天地人和风云雨雪山水火木金土日月春秋冬夏晨昏';
+// 每页块数（契约：引擎 BT_BLOCKS_PER_PAGE，此处镜像用于断言期望值）
+const BT_PER_PAGE = 5;
 // 主表格几何（契约默认值，断言 1c 用）：btCols=9 × btMainRows=2 = 18 格/块
 const EXP_CELLS = 18;
 // 描摹透明度（契约默认 0.2，容差 0.02）
@@ -210,10 +228,15 @@ function snapshotBlocksInPage() {
         const m = raw.match(/([\d.]+)\s*mm/);
         if (m) btCellMM = parseFloat(m[1]);
     }
-    const blocks = Array.from(c.querySelectorAll('.bt-block'));
+    // v3.1.1 显式分页：.bt-block 含页末补齐的空块（无 data-char，骨架同构）。
+    // 内容断言（2/3/4/5b 组）的语义对象始终是"生字块"，一律以 [data-char] 真块
+    // 为样本 —— 空块的骨架断言归组 14（14c）专管，此处不混入。
+    const blocks = Array.from(c.querySelectorAll('.bt-block[data-char]'));
     return {
         layoutAttr: c.getAttribute('data-layout'),
         blockCount: blocks.length,
+        blockCountAll: c.querySelectorAll('.bt-block').length,
+        pageCount: sheet ? sheet.querySelectorAll(':scope > .bt-page').length : 0,
         zcellCharTotal: c.querySelectorAll('.bt-zcell[data-char]').length,
         btCellMM,
         blocks: blocks.map(b => {
@@ -286,10 +309,12 @@ function snapshotBlocksInPage() {
             else req.continue().catch(() => {});
         });
 
-        /** 带超时的页面谓词等待；返回是否成功（超时不抛出，由调用方判 FAIL） */
-        const waitPageOn = (p, fn, timeout) =>
-            p.waitForFunction(fn, { timeout, polling: 400 }).then(() => true).catch(() => false);
-        const waitPage = (fn, timeout) => waitPageOn(page, fn, timeout);
+        /** 带超时的页面谓词等待；返回是否成功（超时不抛出，由调用方判 FAIL）。
+         *  arg 可选：waitForFunction 的入参通道 —— 页面函数必须自包含（文件头坑 1），
+         *  Node 侧常量（如期望块数）只能经参数传入，绝不能闭包捕获。 */
+        const waitPageOn = (p, fn, timeout, arg) =>
+            p.waitForFunction(fn, { timeout, polling: 400 }, arg).then(() => true).catch(() => false);
+        const waitPage = (fn, timeout, arg) => waitPageOn(page, fn, timeout, arg);
 
         /**
          * 刷新后的确定性准备 + 生成（见文件头「并发渲染窗口的规避」）：
@@ -366,9 +391,11 @@ function snapshotBlocksInPage() {
                 check('1a #grid-container[data-layout="block-table"] 存在',
                     !!snap && snap.layoutAttr === 'block-table',
                     snap && snap.layoutAttr, '"block-table"');
-                check('1b .bt-block 数 = 4（排/前/后/面）',
+                // v3.1.1 分页语义：blockCount 只数 [data-char] 真块（排/前/后/面）；
+                // 页末补齐的空块（无 data-char）由断言组 14 专管，不计入本断言
+                check('1b 真块 .bt-block[data-char] 数 = 4（排/前/后/面；空补块不计）',
                     !!snap && snap.blockCount === 4,
-                    snap && snap.blockCount, 4);
+                    snap && { real: snap.blockCount, all: snap.blockCountAll }, 4);
                 const structBad = (snap ? snap.blocks : []).map(b => ({
                     char: b.char, info: b.infoCount, cells: b.cellCount, border: b.rowBorderCount
                 })).filter(x => x.info !== 1 || x.cells !== EXP_CELLS || x.border < 1);
@@ -671,6 +698,26 @@ function snapshotBlocksInPage() {
                 classicSnap.rows === 4 && classicSnap.btAny === 0 && classicSnap.btBlocks === 0,
                 classicSnap, '{layout:"classic", rows:4, btAny:0, btBlocks:0}');
 
+            // 15d 经典拼音辅助行零影响（§12.B.9；classic 态在此取证，标签归组 15）：
+            // createAuxRow 的四线格保持冻结设计 —— preserveAspectRatio="none" +
+            // 内嵌文字（与块帖 v3.1.1 的"线字分离"是两套独立实现，经典侧一个不动）
+            const classicAux15d = await page.evaluate(() => {
+                const aux = document.querySelector('#grid-container .grid-svg-aux-row');
+                const t = aux ? aux.querySelector('[data-ge-role="pinyin"]') : null;
+                const svg = t ? t.closest('svg') : null;
+                return {
+                    auxFound: !!aux,
+                    lineCount: aux ? aux.querySelectorAll('line').length : 0,
+                    pyFont: t ? t.getAttribute('font-family') : null,
+                    par: svg ? svg.getAttribute('preserveAspectRatio') : null
+                };
+            });
+            check('15d 经典辅助行（createAuxRow）零影响：四线格 line 存在、拼音 TeXGyreAdventor、preserveAspectRatio 保持 classic 冻结设计（none）',
+                classicAux15d.auxFound && classicAux15d.lineCount >= 2 &&
+                classicAux15d.pyFont && classicAux15d.pyFont.indexOf('TeXGyreAdventor') >= 0 &&
+                classicAux15d.par === 'none',
+                classicAux15d, '{auxFound:true, lineCount>=2, pyFont含TeXGyreAdventor, par:"none"}');
+
             // 9b 点击经典行右侧 pinyin-zuci 格（SVG 节点 → MouseEvent）→ 经典 manualEdit 浮层
             const pzClicked = await page.evaluate(() => {
                 const c = document.querySelector('#grid-container .grid-svg-cell[data-grid-type="pinyin-zuci"]');
@@ -927,7 +974,8 @@ function snapshotBlocksInPage() {
                     btnFound: !!btn,
                     pressed: btn ? btn.getAttribute('aria-pressed') : null,
                     layout: c ? c.getAttribute('data-layout') : null,
-                    blocks: document.querySelectorAll('#grid-container .bt-block').length
+                    // v3.1.1 口径：真块（[data-char]）数；空补块不计
+                    blocks: document.querySelectorAll('#grid-container .bt-block[data-char]').length
                 };
             });
             const toggleClick1 = await page.evaluate(() => {
@@ -936,22 +984,23 @@ function snapshotBlocksInPage() {
                 btn.click();
                 return true;
             });
-            // 结构键变更 → 全量重建：等 classic 四要素齐（按钮态 + 容器 + 块清零 + 经典行出现）
+            // 结构键变更 → 全量重建：等 classic 四要素齐（按钮态 + 容器 + 真块清零 + 经典行出现）
+            // （v3.1.1：.bt-block 计数用 [data-char] 真块口径，空补块不参与）
             const toClassic = await waitPage(() => {
                 const btn = document.getElementById('layout-toggle-btn');
                 const c = document.getElementById('grid-container');
                 return !!btn && btn.getAttribute('aria-pressed') === 'false' &&
                     !!c && c.getAttribute('data-layout') === 'classic' &&
-                    document.querySelectorAll('#grid-container .bt-block').length === 0 &&
+                    document.querySelectorAll('#grid-container .bt-block[data-char]').length === 0 &&
                     document.querySelectorAll('#grid-container .grid-svg-row').length > 0;
             }, 30000);
             const classicSnap13 = await page.evaluate(() => ({
                 pressed: document.getElementById('layout-toggle-btn').getAttribute('aria-pressed'),
                 layout: document.getElementById('grid-container').getAttribute('data-layout'),
-                blocks: document.querySelectorAll('#grid-container .bt-block').length,
+                blocks: document.querySelectorAll('#grid-container .bt-block[data-char]').length,
                 rows: document.querySelectorAll('#grid-container .grid-svg-row').length
             }));
-            check('13a #layout-toggle-btn 点击（block-table 态）→ aria-pressed=false 且 data-layout=classic 且 .bt-block=0 且 .grid-svg-row 出现',
+            check('13a #layout-toggle-btn 点击（block-table 态）→ aria-pressed=false 且 data-layout=classic 且真块=0 且 .grid-svg-row 出现',
                 preSnap.pressed === 'true' && preSnap.blocks > 0 &&
                 toggleClick1 && toClassic &&
                 classicSnap13.pressed === 'false' && classicSnap13.layout === 'classic' &&
@@ -970,21 +1019,209 @@ function snapshotBlocksInPage() {
                 const c = document.getElementById('grid-container');
                 return !!btn && btn.getAttribute('aria-pressed') === 'true' &&
                     !!c && c.getAttribute('data-layout') === 'block-table' &&
-                    document.querySelectorAll('#grid-container .bt-block').length === 4;
+                    document.querySelectorAll('#grid-container .bt-block[data-char]').length === 4;
             }, 30000);
             const backSnap = await page.evaluate(() => ({
                 pressed: document.getElementById('layout-toggle-btn').getAttribute('aria-pressed'),
                 layout: document.getElementById('grid-container').getAttribute('data-layout'),
-                blocks: document.querySelectorAll('#grid-container .bt-block').length
+                blocks: document.querySelectorAll('#grid-container .bt-block[data-char]').length
             }));
-            check('13b 再点击 #layout-toggle-btn → 恢复 block-table（aria-pressed=true、data-layout=block-table、.bt-block=4）',
+            check('13b 再点击 #layout-toggle-btn → 恢复 block-table（aria-pressed=true、data-layout=block-table、真块 .bt-block[data-char]=4）',
                 toggleClick2 && backBt && backSnap.pressed === 'true' &&
                 backSnap.layout === 'block-table' && backSnap.blocks === 4,
                 { clicked: toggleClick2, after: backSnap },
                 '{pressed:"true", layout:"block-table", blocks:4}');
         } catch (e13) {
             record('HARNESS[断言 13] 自身异常', 'FAIL',
-                (e13 && e13.message ? e13.message : String(e13)), 'no throw');
+                (e13 && e13.stack ? e13.stack.split('\n').slice(0, 4).join(' | ') : String(e13)), 'no throw');
+        }
+
+        // ════════════ 断言 14：显式分页（v3.1.1 §12.A，每页固定 5 块） ════════════
+        // 默认 4 字只有单页，证明不了"每页恰 5 块"；用 22 字长文 → ceil(22/5)=5 页
+        // （前 4 页满 5 实块，末页 2 实块 + 3 空块补满），各组断言均有样本。
+        try {
+            const gen5 = await page.evaluate(setInputAndGenerateInPage, PAGES_TEXT);
+            // 期望真块数经参数传入页面（自包含纪律，见文件头坑 1）
+            const pagedReady = gen5 && gen5.ok ?
+                await waitPage(
+                    (n) => document.querySelectorAll('#grid-container .bt-block[data-char]').length === n,
+                    20000, PAGES_TEXT.length) : false;
+            if (!pagedReady) {
+                check('14-prep 22 字多页渲染就绪（真块数 = 22）', false,
+                    { gen: gen5, ready: pagedReady }, '真块数 = 22');
+            } else {
+                await sleep(1200); // 笔画异步队列沉降窗口（分页几何与笔画无关，等 DOM 稳定）
+                const pg = await page.evaluate(() => {
+                    const MM = 96 / 25.4;
+                    const sheet = document.querySelector('#grid-container .bt-sheet');
+                    const pages = sheet ? Array.from(sheet.querySelectorAll(':scope > .bt-page')) : [];
+                    const facts = pages.map((p, i) => {
+                        const blocks = Array.from(p.children).filter(n => n.classList.contains('bt-block'));
+                        const cs = getComputedStyle(p);
+                        const pr = p.getBoundingClientRect();
+                        const contentBottom = pr.bottom - (parseFloat(cs.paddingBottom) || 0);
+                        const last = blocks[blocks.length - 1];
+                        return {
+                            i,
+                            directBlocks: blocks.length,
+                            realBlocks: blocks.filter(b => b.hasAttribute('data-char')).length,
+                            hasHead: !!p.querySelector('.bt-sheet-head'),
+                            compact: p.classList.contains('bt-head-compact'),
+                            // 每页最后一块底边到页内容底的余量（mm；§12.A 内容盒口径）
+                            lastGapMM: last ? (contentBottom - last.getBoundingClientRect().bottom) / MM : null
+                        };
+                    });
+                    return {
+                        pagesAttr: sheet ? Number(sheet.getAttribute('data-bt-pages')) : null,
+                        perPageAttr: sheet ? Number(sheet.getAttribute('data-bt-per-page')) : null,
+                        blockMM: sheet ? Number(sheet.getAttribute('data-bt-block-mm')) : null,
+                        headMM: sheet ? Number(sheet.getAttribute('data-bt-head-mm')) : null,
+                        guardOk: sheet ? sheet.getAttribute('data-bt-guard-ok') : null,
+                        realChars: document.querySelectorAll('#grid-container .bt-block[data-char]').length,
+                        facts
+                    };
+                });
+                const expPages = Math.ceil(PAGES_TEXT.length / BT_PER_PAGE);
+
+                // 14a 每个 .bt-page 恰好 5 个直接 .bt-block（实块+空补块）；页数/每页数
+                // 元数据一致；实块分布加总 = 22；页头仅首页（§12.A.2/A.3）
+                const distOk = pg.facts.map(f => f.realBlocks).reduce((a, b) => a + b, 0) === pg.realChars;
+                const lastReal = pg.facts.length ? pg.facts[pg.facts.length - 1].realBlocks : -1;
+                const heads = pg.facts.filter(f => f.hasHead);
+                const headOk = heads.length === 0 ? true : (heads.length === 1 && heads[0].i === 0);
+                const badA = pg.facts.filter(f => f.directBlocks !== BT_PER_PAGE)
+                    .map(f => ({ i: f.i, directBlocks: f.directBlocks }));
+                check(`14a 每个 .bt-page 恰 ${BT_PER_PAGE} 个直接 .bt-block（页数=${expPages}、末页实块=${lastReal} 补空到 ${BT_PER_PAGE}）`,
+                    pg.facts.length === expPages && pg.pagesAttr === expPages &&
+                    pg.perPageAttr === BT_PER_PAGE && badA.length === 0 && distOk && headOk,
+                    { pages: pg.facts.length, pagesAttr: pg.pagesAttr, perPageAttr: pg.perPageAttr,
+                      facts: pg.facts.map(f => ({ i: f.i, n: f.directBlocks, real: f.realBlocks, head: f.hasHead, compact: f.compact })),
+                      badA, realChars: pg.realChars },
+                    `每页 ${BT_PER_PAGE} 块、页数 ${expPages}、实块加总 ${PAGES_TEXT.length}、页头仅首页`);
+
+                // 14b 每页最后一块 bottom ≤ 页内容底 − 1mm
+                const badB = pg.facts.map(f => ({ i: f.i, lastGapMM: f.lastGapMM === null ? null : Math.round(f.lastGapMM * 100) / 100 }))
+                    .filter(x => x.lastGapMM === null || x.lastGapMM < 1);
+                check('14b 每页最后一块底边 ≤ 页内容底 − 1mm（实测余量 gap ≥ 1mm）',
+                    badB.length === 0, badB, '[]');
+
+                // 14c 空块无内容：无 data-char/data-pinyin/data-zuci-multi、无拼音文字、
+                // 无词字、主表格内容层无 text、pill 留空（骨架断言）
+                const emptyFacts = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll('#grid-container .bt-block'))
+                        .filter(b => !b.hasAttribute('data-char'))
+                        .map(b => ({
+                            pinyinText: b.querySelectorAll('[data-ge-role="pinyin"]').length,
+                            wordText: b.querySelectorAll('[data-ge-role="bt-zuci-word"]').length,
+                            cellText: b.querySelectorAll('.ge-content-layer text').length,
+                            pillText: (b.querySelector('.bt-info .bt-pill') || { textContent: '?' }).textContent,
+                            multi: b.getAttribute('data-zuci-multi'),
+                            py: b.getAttribute('data-pinyin')
+                        }));
+                });
+                const badC = emptyFacts.filter(f =>
+                    f.pinyinText > 0 || f.wordText > 0 || f.cellText > 0 ||
+                    f.pillText !== '' || f.multi !== null || f.py !== null);
+                check(`14c 空块（${emptyFacts.length} 个）无 data-char/data-pinyin/data-zuci-multi、无拼音/词字/格内文本、pill 留空`,
+                    emptyFacts.length > 0 && badC.length === 0,
+                    { emptyCount: emptyFacts.length, bad: badC }, '{emptyCount>0, bad:[]}');
+
+                // 14d page.pdf 页数 = ceil(总块数/5)（Chrome/Skia PDF 页对象头为明文，
+                // 正则数 /Type /Page（\b 排除 /Pages）；验完删除）
+                await page.emulateMediaType('print');
+                const pdfPath14 = path.join(__dirname, '_bt_verify_pages.pdf');
+                try { if (fs.existsSync(pdfPath14)) fs.unlinkSync(pdfPath14); } catch { /* 忽略 */ }
+                let pdfPages = 0;
+                let pdfErr14 = null;
+                try {
+                    await page.pdf({ path: pdfPath14, format: 'A4', printBackground: true });
+                    if (fs.existsSync(pdfPath14)) {
+                        pdfPages = (fs.readFileSync(pdfPath14).toString('latin1')
+                            .match(/\/Type\s*\/Page\b/g) || []).length;
+                    }
+                } catch (e) {
+                    pdfErr14 = String(e && e.message ? e.message : e);
+                }
+                try { if (fs.existsSync(pdfPath14)) fs.unlinkSync(pdfPath14); } catch { /* 忽略 */ }
+                await page.emulateMediaType('screen');
+                check(`14d page.pdf 页数 = ceil(真块数 ${pg.realChars} / ${BT_PER_PAGE}) = ${expPages}`,
+                    pdfPages === expPages && pdfPages > 0,
+                    { pdfPages, pdfErr: pdfErr14 }, expPages);
+
+                // 14e 分页守卫复算（§12.A.2）：实测 页头footprint + 5×块footprint ≤ 277−2mm
+                // （数据源：引擎渲染时实测并留在 .bt-sheet 的 data-bt-head-mm/-block-mm）
+                const needMM = (pg.headMM !== null && pg.blockMM !== null)
+                    ? Math.round((pg.headMM + BT_PER_PAGE * pg.blockMM) * 100) / 100 : null;
+                check(`14e 实测分页守卫：页头 ${pg.headMM}mm + ${BT_PER_PAGE}×块 ${pg.blockMM}mm = ${needMM}mm ≤ 275mm`,
+                    needMM !== null && needMM <= 277 - 2 && pg.guardOk === '1',
+                    { headMM: pg.headMM, blockMM: pg.blockMM, needMM, budget: 275, guardOk: pg.guardOk },
+                    '{needMM<=275, guardOk:"1"}');
+            }
+        } catch (e14) {
+            record('HARNESS[断言 14] 自身异常', 'FAIL',
+                (e14 && e14.stack ? e14.stack.split('\n').slice(0, 4).join(' | ') : String(e14)), 'no throw');
+        }
+
+        // ════════════ 断言 15：拼音四线格 v3.1.1（§12.B 线字分离 + 贴左缘） ════════════
+        // 取证对象：14 组重新生成后的多页块帖（真块拼音盒结构与 4 字版完全一致）
+        try {
+            const pySnap = await page.evaluate(() => {
+                const MM = 96 / 25.4;
+                const sheet = document.querySelector('#grid-container .bt-sheet');
+                let cellMM = 13.5;
+                if (sheet) {
+                    const m = (getComputedStyle(sheet).getPropertyValue('--bt-cell') || '').match(/([\d.]+)\s*mm/);
+                    if (m) cellMM = parseFloat(m[1]);
+                }
+                const block = document.querySelector('#grid-container .bt-block[data-char]');
+                const box = block ? block.querySelector('.bt-info .bt-pinyin-box') : null;
+                const textSvg = box ? box.querySelector('svg.bt-pinyin-text') : null;
+                const text = textSvg ? textSvg.querySelector('text') : null;
+                const linesSvg = box ? box.querySelector('svg.bt-pinyin-lines') : null;
+                // 全部拼音盒（真块+空块）：四线格只许有横线，右缘不得画竖线
+                let vertLines = 0;
+                let boxCount = 0;
+                document.querySelectorAll('#grid-container .bt-pinyin-box').forEach(bx => {
+                    boxCount++;
+                    bx.querySelectorAll('line').forEach(l => {
+                        if (l.getAttribute('x1') === l.getAttribute('x2')) vertLines++;
+                    });
+                });
+                let leftDiffMM = null;
+                let widthMM = null;
+                if (block && box) {
+                    leftDiffMM = Math.abs(box.getBoundingClientRect().left
+                        - block.getBoundingClientRect().left) / MM;
+                    widthMM = box.getBoundingClientRect().width / MM;
+                }
+                return {
+                    cellMM,
+                    parText: textSvg ? textSvg.getAttribute('preserveAspectRatio') : null,
+                    parLines: linesSvg ? linesSvg.getAttribute('preserveAspectRatio') : null,
+                    role: text ? text.getAttribute('data-ge-role') : null,
+                    font: text ? text.getAttribute('font-family') : null,
+                    fill: text ? text.getAttribute('fill') : null,
+                    leftDiffMM: leftDiffMM === null ? null : Math.round(leftDiffMM * 1000) / 1000,
+                    widthMM: widthMM === null ? null : Math.round(widthMM * 1000) / 1000,
+                    vertLines, boxCount
+                };
+            });
+            check('15a 拼音文字层 SVG preserveAspectRatio 含 meet（≠none）且线条层仍为 none（线字分离）',
+                !!pySnap.parText && pySnap.parText.indexOf('meet') >= 0 && pySnap.parLines === 'none',
+                { parText: pySnap.parText, parLines: pySnap.parLines },
+                '{parText含"meet", parLines:"none"}');
+            check(`15b .bt-pinyin-box 贴块左缘（差 ${pySnap.leftDiffMM}mm ≤ 0.5mm）且宽 = ${pySnap.cellMM}mm ± 0.5mm（实测 ${pySnap.widthMM}mm）`,
+                pySnap.leftDiffMM !== null && pySnap.leftDiffMM <= 0.5 &&
+                pySnap.widthMM !== null && Math.abs(pySnap.widthMM - pySnap.cellMM) <= 0.5,
+                { leftDiffMM: pySnap.leftDiffMM, widthMM: pySnap.widthMM, cellMM: pySnap.cellMM },
+                '{leftDiffMM<=0.5, |widthMM-cellMM|<=0.5}');
+            check('15c 全部拼音盒无竖线 line 元素（四线格只保留横线，右缘不画竖线）',
+                pySnap.boxCount > 0 && pySnap.vertLines === 0,
+                { boxCount: pySnap.boxCount, vertLines: pySnap.vertLines }, '{vertLines:0}');
+            // 15d 在断言 9 经典态取证（见上文），此处不重复切换版式
+        } catch (e15) {
+            record('HARNESS[断言 15] 自身异常', 'FAIL',
+                (e15 && e15.stack ? e15.stack.split('\n').slice(0, 4).join(' | ') : String(e15)), 'no throw');
         }
 
         // 全程页面异常（与 verify-incremental-refresh 同款收尾断言）

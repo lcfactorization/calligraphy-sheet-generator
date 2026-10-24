@@ -1,8 +1,17 @@
 /* ════════════════════════════════════════════════════════════════
- * 生字卡表格版式（block-table）样式表 v3.1.0
+ * 生字卡表格版式（block-table）样式表 v3.1.1
  * ════════════════════════════════════════════════════════════════
  *
- * 依据：docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md §2.1/§2.2/§2.5/§2.6
+ * 依据：docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md
+ *       §2.1/§2.2/§2.5/§2.6 + §12（P1：A 显式分页 / B 拼音四线格，冻结设计）
+ *
+ * v3.1.1 变更：
+ *   - 纸张卡片职责由 .bt-sheet 整体移交每页 .bt-page（§12.A.5）：屏幕态为
+ *     210×297mm A4 卡片（10mm 内边距 = @page 页边距镜像，内容盒 190×277mm）；
+ *     打印态页高冻结 277mm、页间 page-break-after:always、末页 auto（§12.A.1），
+ *     分页由显式容器决定，不依赖浏览器碎片化算法。
+ *   - 拼音四线格线字分离（§12.B.7）：线条层 none 拉伸铺满、文字层 meet 等比
+ *     缩放；盒子负 margin 贴信息行左缘（§12.B.8）。
  *
  * 命名空间纪律：
  *   - 本文件只写 bt- 前缀选择器。唯一例外是两处 **.bt-sheet 作用域内**的
@@ -21,28 +30,51 @@
  * --bt-* 变量，供后续主题深度适配时覆盖。
  */
 
-/* ── 1. 纸张容器（屏幕预览；打印规则见文件末尾 @media print） ── */
+/* ── 1. 纸张容器与单页卡片（屏幕预览；打印规则见文件末尾 @media print） ──
+   v3.1.1 显式分页（§12.A.5）：.bt-sheet 只负责居中，纸张观感（底色/阴影）
+   移交每页 .bt-page 独立卡片。 */
 .bt-sheet {
     box-sizing: border-box;
     width: 210mm;
     margin: 0 auto;
-    padding: var(--bt-pad, 12mm);
-    background: var(--bt-sheet-bg, var(--paper-bg, #fff));
     color: var(--text-color, #1e293b);
+}
+/* 单页卡片：屏幕态 = 210×297mm A4 纸，内边距 10mm 模拟 @page 页边距，
+   内容盒恰为 190×277mm —— 与打印内容区（@page A4 portrait − 10mm 页边距）
+   恒等，因此引擎实测出的每页块数对屏幕与打印同时成立（WYSIWYG，§12.A.2）。
+   10mm 为 @page margin 镜像（打印几何常量，与文件末打印段的页高 277mm 配对，
+   改一处须同步另一处）。 */
+.bt-page {
+    box-sizing: border-box;
+    width: 210mm;
+    height: 297mm;
+    padding: 10mm;
+    overflow: hidden;
+    background: var(--bt-sheet-bg, var(--paper-bg, #fff));
     box-shadow: var(--bt-a4-shadow, var(--a4-shadow, 0 4px 18px rgba(0, 0, 0, 0.12)));
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
+/* 页间距（仅屏幕；打印段归零，保证 page-break-after 精确分页不出空白尾页） */
+.bt-page + .bt-page {
+    margin-top: 8mm;
+}
 
-/* ── 2. 页头（btShowHeaderMeta 开时渲染） ── */
+/* ── 2. 页头（btShowHeaderMeta 开时渲染；v3.1.1 起位于首页 .bt-page 内） ──
+   v3.1.1 页头压缩（§12.A.3，2026-10-24 用户指令"每页 5 块"配套）：收紧标题
+   字号/行高/字距、meta 行间距、页头与首块间距 —— 可读美观前提下为 5 块让位
+   （压缩后页头 ≈ 22mm，5×40mm 块足迹 + 页头 ≈ 222mm ≤ 275mm 预算，裕量大）。
+   line-height 定值：页头高度不随字体度量漂移，分页守卫实测（§12.A.2）以此为
+   输入之一，必须确定。 */
 .bt-sheet-head {
-    margin-bottom: 6mm;
+    margin-bottom: 3.5mm;
 }
 .bt-title {
-    margin: 0 0 5mm;
+    margin: 0 0 2.5mm;
     text-align: center;
-    font-size: 30px;
-    letter-spacing: 6px;
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: 4px;
     font-weight: 700;
     color: var(--title-color, currentColor);
 }
@@ -50,8 +82,21 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5mm;
+    gap: 4mm;
     font-size: 14px;
+    line-height: 1.2;
+}
+/* 守卫升级档（§12.A.2）：实测"页头 + 5×块footprint > 277−2mm"时由引擎给首页
+   追加 .bt-head-compact，进一步压缩页头间距（现行契约尺寸下不会触发） */
+.bt-page.bt-head-compact .bt-sheet-head {
+    margin-bottom: 2mm;
+}
+.bt-page.bt-head-compact .bt-title {
+    font-size: 18px;
+    margin-bottom: 1.5mm;
+}
+.bt-page.bt-head-compact .bt-meta-line {
+    gap: 3mm;
 }
 .bt-meta-item {
     display: inline-flex;
@@ -135,17 +180,35 @@
 
 /* 短四线格拼音盒：填满信息行高度，上下边由行边框提供（四线格第 1/4 条线）。
    宽度恰好一个格宽（--bt-cell，2026-10-24 用户反馈：原 20mm 近两格宽，
-   挤压笔画拆解条，笔画多的字排不下逐笔 SVG） */
+   挤压笔画拆解条，笔画多的字排不下逐笔 SVG）。
+   v3.1.1（§12.B.8）：负 margin 抵消 .bt-info 的 padding-left（3mm），四线格
+   严格贴信息行左缘（与块外框左边线重合，验收断言 15b）；margin 与 .bt-info
+   的 padding: 0 3mm 配对，改一处须同步另一处。 */
 .bt-pinyin-box {
+    position: relative;
     flex: 0 0 var(--bt-cell, 13.5mm);
     width: var(--bt-cell, 13.5mm);
     height: 100%;
     overflow: hidden;
+    margin-left: -3mm;
 }
 .bt-pinyin-box svg {
     display: block;
     width: 100%;
     height: 100%;
+}
+/* 线字分离（§12.B.7）：线条层（.bt-pinyin-lines，viewBox 0 0 100 30 + none，
+   只含 line）与文字层（.bt-pinyin-text，正方形 viewBox + xMidYMid meet）
+   绝对定位叠放于同一盒子。文字层 overflow:visible：meet 在 13.5×8mm 盒内按高
+   适配（内容宽仅 8mm），最长拼音 zhuāng≈13.2mm 允许横向超出 viewBox 画出，
+   仍被盒子 13.5mm 宽度含住（盒子自身 overflow:hidden 兜底）。 */
+.bt-pinyin-box .bt-pinyin-lines,
+.bt-pinyin-box .bt-pinyin-text {
+    position: absolute;
+    inset: 0;
+}
+.bt-pinyin-box .bt-pinyin-text {
+    overflow: visible;
 }
 
 /* 药丸（参照样张）：笔画数 "N画" 文本由 hanziDataStore 异步填充，
@@ -261,11 +324,38 @@
     .bt-sheet {
         width: auto;
         margin: 0 !important;          /* 抵消窄屏 margin-left:50%（双保险） */
-        padding: 0;                    /* 页边距交给 @page，去屏幕纸张内边距 */
+        padding: 0;
         background: #fff;
         color: #000;
         box-shadow: none;
         transform: none !important;    /* 抵消窄屏缩放，还原 1:1 物理尺寸 */
+    }
+
+    /* ── v3.1.1 显式分页（§12.A.1，任务 5）──
+       每页一张 .bt-page：高 = A4 内容区 277mm（冻结值），页边距交还 @page
+       （padding 0）；页间强制换页（page-break-after/break-after 双写），
+       末页 auto 不产生空白尾页。打印分页由显式容器决定，不依赖浏览器碎片化
+       算法；.bt-block 的 break-inside:avoid（下）保留为二级保险。
+       屏幕态的 297mm 卡片高与 10mm 模拟页边距在此全部还原为打印几何。 */
+    .bt-page {
+        width: auto;                   /* 内容宽交给 @page（190mm） */
+        height: 277mm;
+        padding: 0;
+        margin: 0;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: none;
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .bt-page + .bt-page {
+        margin-top: 0;                 /* 页间距仅屏幕态（双保险，勿带进打印） */
+    }
+    .bt-page:last-child {
+        page-break-after: auto;
+        break-after: auto;             /* 末页不产生空白尾页 */
     }
 
     /* 块帖格边长打印保持 13.5mm（双类选择器压过 grid-svg.css 的

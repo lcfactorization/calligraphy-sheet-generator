@@ -1,11 +1,30 @@
 /**
  * ════════════════════════════════════════════════════════════════
- * 生字卡表格版式渲染引擎 v3.1.0（block-table）
+ * 生字卡表格版式渲染引擎 v3.1.1（block-table）
  * ════════════════════════════════════════════════════════════════
  *
  * 依据：docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md §2（渲染规格，冻结设计）
+ *       + §12（P1 增补：A 显式分页 / B 拼音四线格，冻结设计）
  * 契约：src/contracts/blockTable.js（BLOCK_TABLE_LAYOUT / BT_DEFAULT_SETTINGS / BT_ZUCI_LEVELS，
  *       所有尺寸/档位数值一律引用契约，本文件不写魔法数）
+ *
+ * v3.1.1 变更（§12，用户实测两问题修复 + 2026-10-24 增补指令）：
+ *   A 显式分页 —— renderBlockSheet 产出 .bt-sheet > .bt-page × n，彻底不依赖浏览器
+ *      碎片化算法。**每页块数固定 5 个生字**（§12.A.2，2026-10-24 用户指令，覆盖
+ *      原"实测两档"设计）：首页（含页头）与后续页一律 5 块，末页以空网格块补满
+ *      到 5（§12.A.4，空块不写 data-char/data-pinyin/data-zuci-multi）。页头
+ *      （标题/日期/年级/姓名栏）仅出现在第 1 页（§12.A.3）且做了**压缩**（字号/
+ *      行高/间距收紧，CSS 侧），给 5 块让出空间。引擎仍实测页头高与块 footprint，
+ *      但用途改为**验证性守卫**：页头高 + 5×块footprint ≤ 277−2mm 必须成立，
+ *      不成立时 console.warn 并给首页加 .bt-head-compact 进一步压缩页头间距。
+ *      页几何：屏幕态 .bt-page = 210×297mm 纸张卡片（10mm 内边距模拟 @page 页边距，
+ *      内容盒恰为 190×277mm）；打印态 .bt-page 高冻结为 277mm（§12.A.1）、
+ *      padding 0、页间 page-break-after:always、末页 auto —— 两种媒体的内容盒
+ *      恒等，守卫实测对屏幕与打印同时成立（WYSIWYG）。
+ *   B 拼音四线格 —— 线条层与文字层分离：线条 SVG（viewBox 0 0 100 30 +
+ *      preserveAspectRatio:none，只含 line，合法）铺满贴左缘的一格宽盒子；
+ *      文字 SVG（正方形 viewBox + xMidYMid meet）**等比缩放**，字符保持原字体
+ *      宽高比，修复原先整体拉伸导致的失真（§12.B.7）。
  *
  * 复用矩阵（每个子能力都站在已验证的代码上）：
  *   - 格子绘制          → GridEngine.createGridCellSVG（userGrid:true，格型跟随用户选择）
@@ -49,6 +68,24 @@ const PINYIN_FONT_FAMILY = 'TeXGyreAdventor, serif';
 
 /** 笔画数 pill 的异步填充兜底：无数据留空（与样张"后"字一致），绝不抛错 */
 const STROKE_PILL_UNIT = '画';
+
+// ── v3.1.1 显式分页常量（§12.A 冻结值；@page 边距契约在 block-table.css 打印段）──
+// A4 纵向内容区高 = 297mm − 2 × @page margin 10mm = 277mm。
+// 屏幕态 .bt-page 是 297mm 纸张卡片（10mm 内边距 = @page 镜像），内容盒同为 277mm；
+// 打印态 .bt-page 高直接冻结 277mm。守卫预算一律按内容盒 277mm 计（§12.A.1）。
+const BT_PAGE_CONTENT_MM = 277;
+// 每页块数固定 5 个生字（§12.A.2，2026-10-24 用户指令，覆盖原"实测两档"设计）；
+// 首页（含压缩页头）与后续页一律 5 块，末页以空块补满到 5。
+const BT_BLOCKS_PER_PAGE = 5;
+// 分页守卫安全余量（§12.A.2：277 − 2mm；≥2mm，吸收打印亚像素取整与行末余量）
+const BT_PAGE_RESERVE_MM = 2;
+// CSS mm → px 换算（CSS 规范恒等式：1in = 96px = 25.4mm）。实测与契约估算共用。
+const BT_MM_TO_PX = 96 / 25.4;
+// 拼音文字层字号（正方形 viewBox 0 0 100 100 内的 SVG 单位）：
+// 渲染高 = 50/100 × 信息行高 8mm = 4.0mm ≈ 四线格中段（2.67mm）的 150%，
+// 与经典辅助行的 160% 出头观感一致；最长拼音 zhuāng ≈ 3.3em ≈ 13.2mm ≤ 一格宽 13.5mm。
+// 等比缩放由 viewBox + meet 保证，改此值不会引起宽高比失真（§12.B.7）。
+const PINYIN_TEXT_FONT_SIZE = 50;
 
 // ════════════════════════════════════════════════════════════════
 // 内部小工具
@@ -255,41 +292,63 @@ function buildSheetHead(bt, colors) {
 }
 
 /**
- * 短四线格拼音 SVG（§2.2）。
- * viewBox 0 0 100 30 + preserveAspectRatio none，与 GridEngine.createAuxRow
- * 的四线格同构：只画中间两条细线（y=10/y=20），上下两条线由信息行边框提供；
- * 文字节点同 makePinyinText 约定：TeXGyreAdventor + data-ge-role="pinyin"
- * （repaintSheetGrid 的拼音着色查询可直接命中）。
+ * 短四线格拼音盒（§2.2 + §12.B 线字分离，v3.1.1 重写）。
+ *
+ * 结构：.bt-pinyin-box（一格宽，贴信息行左缘，贴左由 CSS 负 margin 实现）
+ *   ├─ svg.bt-pinyin-lines  线条层：viewBox 0 0 100 30 + preserveAspectRatio="none"
+ *   │   铺满盒子。只含 line 无文字，"none" 拉伸对线条合法（§12.B.7）；
+ *   │   只画中间两条细线（y=10/y=20，与 GridEngine.createAuxRow 同构），
+ *   │   上下两条线由信息行边框提供；右缘不画竖线（§12.B.8）。
+ *   └─ svg.bt-pinyin-text   文字层：正方形 viewBox 0 0 100 100 +
+ *       preserveAspectRatio="xMidYMid meet" —— **等比缩放**，字符保持原字体
+ *       宽高比（修复 v3.1.0 对含文字 SVG 整体拉伸导致的变形，§12.B.7）。
+ *       meet 在 13.5×8mm 盒内按高适配并居中，文字节点垂直对准中间两线之间
+ *       （y=50 即盒高中线 = 中段两线的几何中心）。
+ *
+ * 文字节点保持 makePinyinText 同款约定：TeXGyreAdventor + data-ge-role="pinyin"
+ * （btRecolor 的拼音着色查询直接命中该 text 节点）。
  */
 function buildPinyinBoxSVG(py, colors) {
     const box = el('div', 'bt-pinyin-box');
-    const svg = svgEl('svg', {
+
+    // 线条层（只有 line，无文字 → preserveAspectRatio:"none" 合法）
+    const lines = svgEl('svg', {
+        class: 'bt-pinyin-lines',
         viewBox: '0 0 100 30',
-        preserveAspectRatio: 'none'
+        preserveAspectRatio: 'none',
+        'aria-hidden': 'true'
     });
     // 中间两条细线（stroke-width 0.8，同 createAuxRow）
-    svg.appendChild(svgEl('line', {
+    lines.appendChild(svgEl('line', {
         x1: 0, y1: 10, x2: 100, y2: 10,
         stroke: colors.secondary, 'stroke-width': 0.8
     }));
-    svg.appendChild(svgEl('line', {
+    lines.appendChild(svgEl('line', {
         x1: 0, y1: 20, x2: 100, y2: 20,
         stroke: colors.secondary, 'stroke-width': 0.8
     }));
+    box.appendChild(lines);
+
+    // 文字层（正方形 viewBox + meet：等比缩放，宽高比不失真）
     if (py) {
+        const textSvg = svgEl('svg', {
+            class: 'bt-pinyin-text',
+            viewBox: '0 0 100 100',
+            preserveAspectRatio: 'xMidYMid meet'
+        });
         const text = svgEl('text', {
-            x: 50, y: 15,
+            x: 50, y: 50,
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
             'font-family': PINYIN_FONT_FAMILY,
-            'font-size': 16,
+            'font-size': PINYIN_TEXT_FONT_SIZE,
             fill: colors.pinyin,
             'data-ge-role': 'pinyin'
         });
         text.textContent = py;
-        svg.appendChild(text);
+        textSvg.appendChild(text);
+        box.appendChild(textSvg);
     }
-    box.appendChild(svg);
     return box;
 }
 
@@ -396,21 +455,39 @@ function buildZuciPanel(words, bt, colors, fontFamily) {
  * 单字一块（§2.1）：信息行 + 主表格（左列）与 组词面板（右列）。
  * 信息行置于 .bt-main 首位：其 border-bottom:none 与主表格首行外框相接（§2.2），
  * 与参考样张 DOM 同构（样张 .main 内含 info）。
+ *
+ * @param {string} char - 生字；opts.empty=true 时忽略（传 ''）
+ * @param {Object} [opts] - { asyncFills=true, empty=false }
+ *   asyncFills=false 用于分页测量块（§12.A.2）：测量块测完即删，跳过
+ *   loadStrokes / 笔画数异步填充，避免向共享队列重复压入与正式渲染相同的任务。
+ *   empty=true 用于页末补齐的空块（§12.A.4）：保留完整骨架（信息行边框 +
+ *   四线格线条 + 空 pill 占位 + 主表空白格 + 组词面板空格与虚线），但
+ *   **不写 data-char / data-pinyin / data-zuci-multi**，拼音/笔画/词字内容全空
+ *   —— btApplyZuciLevel 按 .bt-block 的 data-zuci-multi 取词，属性缺失即
+ *   words 为空、天然跳过（不崩溃）；createGridCellSVG 对空 char 不写
+ *   data-char（GridEngine 内 "if (char)"），笔顺演示委托与 repaintSheetGrid
+ *   均不会把空块当真字处理。
  */
-function buildBlock(char, bt, colors, fontFamily, gridType) {
+function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
+    const asyncFills = opts.asyncFills !== false;
+    const empty = opts.empty === true;
     const block = el('div', 'bt-block');
-    block.setAttribute('data-char', char);
 
-    // ── 拼音与组词派生数据留在块属性上（定向改写读回，不重查词库） ──
-    const py = resolvePinyin(char);
-    block.setAttribute('data-pinyin', py);
-    const words = resolveZuciWords(char).slice(0, bt.zuciRows);
-    block.setAttribute('data-zuci-multi', words.join('|'));
+    // ── 拼音与组词派生数据留在块属性上（定向改写读回，不重查词库）──
+    // 空块一律不写属性、不留内容（§12.A.4）
+    const py = empty ? '' : resolvePinyin(char);
+    const words = empty ? [] : resolveZuciWords(char).slice(0, bt.zuciRows);
+    if (!empty) {
+        block.setAttribute('data-char', char);
+        block.setAttribute('data-pinyin', py);
+        block.setAttribute('data-zuci-multi', words.join('|'));
+    }
 
     // ── 左列：信息行 + 主表格 ──
     const main = el('div', 'bt-main');
 
     // 信息行（§2.2）：短四线格拼音 + "N画" pill + 笔画拆解序列
+    // 空块：拼音盒只有四线格线条（无文字层）、pill 留空占位、拆解序列留空
     const info = el('div', 'bt-info');
     info.appendChild(buildPinyinBoxSVG(py, colors));
     const pill = el('span', 'bt-pill');
@@ -418,27 +495,32 @@ function buildBlock(char, bt, colors, fontFamily, gridType) {
     const strip = el('div', 'bt-stroke-strip');
     info.appendChild(strip);
     // 复用 loadStrokes 异步队列（离线数据，失败静默留空，不阻塞渲染）
-    loadStrokes(char, strip);
-    fillStrokeCountPill(char, pill);
+    if (asyncFills && !empty) {
+        loadStrokes(char, strip);
+        fillStrokeCountPill(char, pill);
+    }
     main.appendChild(info);
 
     // 主表格（§2.3）：行数 = max(btMainRows, 2)，列数 = btCols，固定 cols×rows 格。
     // 格 0 = 范字（btReferenceCell=false 时改描摹）；格 1..btTraceCount = 描摹；
     // 其余 = blank 临写。全部走 createGridCellSVG（userGrid:true）。
+    // 空块：全部格子 blank（无范字/描摹字形，仅网格）。
     for (let r = 0; r < bt.rows; r++) {
         const row = el('div', 'bt-row');
         for (let c = 0; c < bt.cols; c++) {
             const gi = r * bt.cols + c;
             let mode = 'blank';
-            if (gi === 0) {
-                mode = bt.referenceCell ? 'reference' : 'trace';
-            } else if (gi <= bt.traceCount) {
-                mode = 'trace';
+            if (!empty) {
+                if (gi === 0) {
+                    mode = bt.referenceCell ? 'reference' : 'trace';
+                } else if (gi <= bt.traceCount) {
+                    mode = 'trace';
+                }
             }
             row.appendChild(createGridCellSVG({
                 gridType,
                 mode,
-                char,
+                char: empty ? '' : char,
                 pinyin: py,          // 留 data-py：切拼音田格型时定向重绘可直接读回
                 fontFamily,
                 traceOpacity: bt.traceOpacity,
@@ -452,7 +534,7 @@ function buildBlock(char, bt, colors, fontFamily, gridType) {
     }
     block.appendChild(main);
 
-    // ── 右列：组词面板（btZuciEnabled 开时） ──
+    // ── 右列：组词面板（btZuciEnabled 开时；空块传入空词表 → 全空白格） ──
     if (bt.zuciEnabled) {
         block.appendChild(buildZuciPanel(words, bt, colors, fontFamily));
     }
@@ -461,11 +543,134 @@ function buildBlock(char, bt, colors, fontFamily, gridType) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 导出 API（签名冻结，Agent-C 依赖）
+// 显式分页（§12.A，v3.1.1）：每页固定 5 块 + 页末补空块 + 分页守卫
 // ════════════════════════════════════════════════════════════════
 
 /**
- * renderBlockSheet —— 生字卡表格版式整页渲染。
+ * 分页守卫实测（§12.A.2，2026-10-24 增补：每页块数已固定为 5，实测用途由
+ * "决定每页块数"改为 **验证性守卫**）。
+ *
+ * 做法：向 document.body 挂一个临时隐藏测量容器（position:absolute +
+ * visibility:hidden + left:-9999px），内部为与正式渲染**完全同构**的
+ * .bt-sheet（注入同一组 --bt-* 变量）> .bt-page，放入页头与一个标准块
+ * （asyncFills:false，不触发笔画异步队列），getBoundingClientRect 实测：
+ *   - 页内容盒高   = .bt-page 盒高 − 上下 padding（屏幕卡片 297mm − 2×10mm
+ *                   内边距 = 277mm，与打印内容区 @page A4 − 2×10mm 恒等）
+ *   - 页头足迹     = 页头盒高 + margin-bottom（line-height 定值，不依赖字体度量）
+ *   - 标准块足迹   = 块盒高 + margin-bottom（块几何全为 mm 定值，结果确定）
+ * 守卫判据：页头足迹 + BT_BLOCKS_PER_PAGE × 块足迹 ≤ 内容盒 − 2mm（275mm）。
+ * 按现行契约尺寸估算 ≈ 23 + 5×40 = 223mm，裕量很大；若未来参数变化导致不成立，
+ * 调用方按返回的 compactNeeded 给首页追加 .bt-head-compact（CSS 侧进一步压缩
+ * 页头间距）并 console.warn 留诊断线索。测完立即移除测量节点（finally 保证）。
+ *
+ * @returns {{headFootMM:number, blockFootMM:number, contentMM:number,
+ *            guardOk:boolean, compactNeeded:boolean, measured:boolean}}
+ */
+function measurePageCapacity(bt, colors, fontFamily, gridType, sampleChar) {
+    // 契约值估算兜底：仅 document.body 不可用/测量抛错等极端防御路径，
+    // 正常浏览器路径不会走到（守卫以主路径实测为准）
+    const fallback = () => {
+        const mainH = BLOCK_TABLE_LAYOUT.infoRowMM + bt.rows * BLOCK_TABLE_LAYOUT.cellSizeMM;
+        const zuciH = bt.zuciEnabled
+            ? BLOCK_TABLE_LAYOUT.infoRowMM + bt.zuciRows * BLOCK_TABLE_LAYOUT.cellSizeMM
+            : 0;
+        const blockFoot = Math.max(mainH, zuciH) + BLOCK_TABLE_LAYOUT.blockGapMM;
+        // 压缩页头的估算值（仅兜底）：title 22px×1.2 + 3mm + meta 9mm + 4mm ≈ 23mm
+        const headFoot = bt.showHeaderMeta ? 23 : 0;
+        const guardOk = headFoot + BT_BLOCKS_PER_PAGE * blockFoot
+            <= BT_PAGE_CONTENT_MM - BT_PAGE_RESERVE_MM;
+        return {
+            headFootMM: headFoot, blockFootMM: blockFoot,
+            contentMM: BT_PAGE_CONTENT_MM, guardOk, compactNeeded: !guardOk, measured: false
+        };
+    };
+    if (typeof document === 'undefined' || !document.body) return fallback();
+    try {
+        const probe = el('div', 'bt-sheet');
+        injectSheetVars(probe, bt);
+        probe.style.position = 'absolute';
+        probe.style.left = '-9999px';
+        probe.style.top = '0';
+        probe.style.visibility = 'hidden';
+        probe.style.pointerEvents = 'none';
+
+        const mPage = el('div', 'bt-page');
+        let head = null;
+        if (bt.showHeaderMeta) {
+            head = buildSheetHead(bt, colors);
+            mPage.appendChild(head);
+        }
+        mPage.appendChild(buildBlock(sampleChar, bt, colors, fontFamily, gridType, { asyncFills: false }));
+        probe.appendChild(mPage);
+        document.body.appendChild(probe);
+        try {
+            const pcs = getComputedStyle(mPage);
+            const contentPx = mPage.getBoundingClientRect().height
+                - (parseFloat(pcs.paddingTop) || 0)
+                - (parseFloat(pcs.paddingBottom) || 0);
+            // 足迹 = 盒高 + margin-bottom（getBoundingClientRect 不含 margin）
+            const footPx = (node) => {
+                const r = node.getBoundingClientRect();
+                const mb = parseFloat(getComputedStyle(node).marginBottom) || 0;
+                return r.height + mb;
+            };
+            const headPx = head ? footPx(head) : 0;
+            const blockPx = footPx(mPage.lastChild);
+            const headFootMM = headPx / BT_MM_TO_PX;
+            const blockFootMM = blockPx / BT_MM_TO_PX;
+            const contentMM = contentPx / BT_MM_TO_PX;
+            const budgetMM = contentMM - BT_PAGE_RESERVE_MM;
+            const needMM = headFootMM + BT_BLOCKS_PER_PAGE * blockFootMM;
+            const guardOk = needMM <= budgetMM;
+            if (!guardOk) {
+                // §12.A.2：守卫不成立必须留诊断线索（勿静默）
+                console.warn(
+                    `[BlockTableEngine] 分页守卫不成立：页头 ${headFootMM.toFixed(1)}mm + ` +
+                    `${BT_BLOCKS_PER_PAGE}×块 ${blockFootMM.toFixed(1)}mm = ${needMM.toFixed(1)}mm ` +
+                    `> 预算 ${budgetMM.toFixed(1)}mm —— 首页已加 .bt-head-compact 压缩页头间距`
+                );
+            }
+            return {
+                headFootMM, blockFootMM, contentMM,
+                guardOk, compactNeeded: !guardOk, measured: true
+            };
+        } finally {
+            // 测完立即移除测量节点（§12.A.2），不留任何调试残留
+            document.body.removeChild(probe);
+        }
+    } catch (e) {
+        return fallback();
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 导出 API（签名冻结，Agent-C 依赖）
+// ════════════════════════════════════════════════════════════════
+
+/** 向 .bt-sheet（正式渲染容器或测量容器）注入契约几何变量（css 只消费变量） */
+function injectSheetVars(sheet, bt) {
+    sheet.style.setProperty('--bt-cell', `${BLOCK_TABLE_LAYOUT.cellSizeMM}mm`);
+    sheet.style.setProperty('--bt-name-cell', `${BLOCK_TABLE_LAYOUT.nameBoxCellMM}mm`);
+    sheet.style.setProperty('--bt-info-h', `${BLOCK_TABLE_LAYOUT.infoRowMM}mm`);
+    sheet.style.setProperty('--bt-block-gap', `${BLOCK_TABLE_LAYOUT.blockGapMM}mm`);
+    sheet.style.setProperty('--bt-main-zuci-gap', `${BLOCK_TABLE_LAYOUT.mainZuciGapMM}mm`);
+    sheet.style.setProperty('--bt-pad', `${BLOCK_TABLE_LAYOUT.sheetPaddingMM}mm`);
+    sheet.style.setProperty('--bt-cols', String(bt.cols));
+    sheet.style.setProperty('--bt-zcols', String(BLOCK_TABLE_LAYOUT.zuciCols));
+}
+
+/**
+ * renderBlockSheet —— 生字卡表格版式整页渲染（v3.1.1 显式分页，§12.A）。
+ *
+ * 结构：.bt-sheet > .bt-page × n。每页固定高度（屏幕 297mm 纸张卡片、打印 277mm
+ * 内容区），页间 page-break-after:always（末页 auto，CSS 见 block-table.css），
+ * 打印分页完全由显式容器决定，**不依赖浏览器碎片化算法**。
+ * 每页块数固定 BT_BLOCKS_PER_PAGE = 5（§12.A.2，2026-10-24 用户指令）：首页
+ * （含压缩页头，§12.A.3）与后续页一律 5 块；末页以空块补满到 5（§12.A.4）。
+ * 渲染时经 measurePageCapacity 实测页头/块 footprint 做**验证性守卫**，不成立时
+ * 首页追加 .bt-head-compact（CSS 进一步压缩页头间距）并 console.warn。
+ * 分页元数据（页数/每页块数/实测足迹/守卫结论）以 data-bt-* 属性留在 .bt-sheet
+ * 上，供验收关口（verify-block-table 断言组 14）直读。
  *
  * @param {string} input - 生字文本（与 renderSheet 同规则：只保留 [\u4e00-\u9fa5]）
  * @param {Object} [options] - { fontFamily='TW-Kai', gridType='mizi' }；
@@ -488,24 +693,40 @@ export function renderBlockSheet(input = '', options = {}) {
 
     // ── 纸张容器：契约尺寸以 CSS 变量注入，block-table.css 只消费变量 ──
     const sheet = el('div', 'bt-sheet');
-    sheet.style.setProperty('--bt-cell', `${BLOCK_TABLE_LAYOUT.cellSizeMM}mm`);
-    sheet.style.setProperty('--bt-name-cell', `${BLOCK_TABLE_LAYOUT.nameBoxCellMM}mm`);
-    sheet.style.setProperty('--bt-info-h', `${BLOCK_TABLE_LAYOUT.infoRowMM}mm`);
-    sheet.style.setProperty('--bt-block-gap', `${BLOCK_TABLE_LAYOUT.blockGapMM}mm`);
-    sheet.style.setProperty('--bt-main-zuci-gap', `${BLOCK_TABLE_LAYOUT.mainZuciGapMM}mm`);
-    sheet.style.setProperty('--bt-pad', `${BLOCK_TABLE_LAYOUT.sheetPaddingMM}mm`);
-    sheet.style.setProperty('--bt-cols', String(bt.cols));
-    sheet.style.setProperty('--bt-zcols', String(BLOCK_TABLE_LAYOUT.zuciCols));
+    injectSheetVars(sheet, bt);
 
-    if (bt.showHeaderMeta) {
-        sheet.appendChild(buildSheetHead(bt, colors));
+    // ── 显式分页（§12.A）：每页固定 5 块 + 末页空块补满 + 实测守卫 ──
+    const cap = measurePageCapacity(bt, colors, fontFamily, gridType, chars[0]);
+    const perPage = BT_BLOCKS_PER_PAGE;
+    const pageCount = Math.ceil(chars.length / perPage);
+
+    // 分页元数据（验收断言组 14 的判定依据，字符串直读无需全局钩子）
+    sheet.setAttribute('data-bt-pages', String(pageCount));
+    sheet.setAttribute('data-bt-per-page', String(perPage));
+    sheet.setAttribute('data-bt-block-mm', cap.blockFootMM.toFixed(2));
+    sheet.setAttribute('data-bt-head-mm', cap.headFootMM.toFixed(2));
+    sheet.setAttribute('data-bt-guard-ok', cap.guardOk ? '1' : '0');
+
+    let cursor = 0;
+    for (let pi = 0; pi < pageCount; pi++) {
+        const page = el('div', 'bt-page');
+        // 页头（标题/日期/年级/姓名栏）仅出现在第 1 页（§12.A.3）；
+        // 守卫不成立时首页追加压缩类（CSS 侧进一步收紧页头间距）
+        if (pi === 0 && bt.showHeaderMeta) {
+            page.appendChild(buildSheetHead(bt, colors));
+            if (cap.compactNeeded) page.classList.add('bt-head-compact');
+        }
+        const real = Math.min(perPage, chars.length - cursor);
+        for (let i = 0; i < real; i++) {
+            page.appendChild(buildBlock(chars[cursor++], bt, colors, fontFamily, gridType));
+        }
+        // 页末空块补满到 5（§12.A.4；非末页恒为满 5 实块，只有末页可能补空块）。
+        // 空块保留完整骨架但不写 data-char 等内容属性（见 buildBlock opts.empty）。
+        for (let f = real; f < perPage; f++) {
+            page.appendChild(buildBlock('', bt, colors, fontFamily, gridType, { empty: true }));
+        }
+        sheet.appendChild(page);
     }
-
-    const blocks = el('div', 'bt-blocks');
-    chars.forEach(char => {
-        blocks.appendChild(buildBlock(char, bt, colors, fontFamily, gridType));
-    });
-    sheet.appendChild(blocks);
 
     fragment.appendChild(sheet);
     return fragment;
@@ -521,6 +742,9 @@ export function renderBlockSheet(input = '', options = {}) {
  *      .bt-block 的 data-zuci-multi（回退 data-zuci）读词文本重建节点（透明度查
  *      BT_ZUCI_LEVELS 档位表；字体从本块 [data-ge-font="user"] 节点读回，
  *      该属性由 applySheetFont 保持最新）。
+ *
+ * 空块（§12.A.4 页末补齐块）无 data-zuci-multi → 词文本为空 → 只做档位属性与
+ * pill 高亮同步，不创建任何词字节点（天然跳过，不崩溃）。
  *
  * @param {HTMLElement} container - #grid-container
  * @param {string} level - 'hidden' | 'trace' | 'full'
@@ -607,7 +831,9 @@ export function btApplyTraceOpacity(container, opacity) {
  *
  * 覆盖范围（.bt-block 与 .bt-sheet-head 内的全部 SVG 内联颜色，共 5 组）：
  *   ① .bt-pinyin-box line            → stroke = colors.secondary（四线格两条细线）
- *   ② [data-ge-role="pinyin"]        → fill   = colors.pinyin（信息行拼音文字）
+ *   ② [data-ge-role="pinyin"]        → fill   = colors.pinyin（信息行拼音文字；
+ *      v3.1.1 线字分离后该节点位于 .bt-pinyin-text 文字层 SVG 内，后代选择器
+ *      照常命中，无需感知层级变化）
  *   ③ [data-ge-role="bt-zuci-word"]  → fill   = colors.zuci（组词词字）
  *   ④ 其他 bt- 内联颜色（本实现盘点所得）：
  *        .bt-zcell line              → stroke = colors.dashed（组词格虚线十字）
