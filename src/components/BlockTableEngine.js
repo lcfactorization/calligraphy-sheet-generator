@@ -74,9 +74,9 @@ const STROKE_PILL_UNIT = '画';
 // 屏幕态 .bt-page 是 297mm 纸张卡片（10mm 内边距 = @page 镜像），内容盒同为 277mm；
 // 打印态 .bt-page 高直接冻结 277mm。守卫预算一律按内容盒 277mm 计（§12.A.1）。
 const BT_PAGE_CONTENT_MM = 277;
-// 每页块数固定 5 个生字（§12.A.2，2026-10-24 用户指令，覆盖原"实测两档"设计）；
-// 首页（含压缩页头）与后续页一律 5 块，末页以空块补满到 5。
-const BT_BLOCKS_PER_PAGE = 5;
+// 每页块数（契约 blocksPerPage，v3.1.1 用户指令：每页 6 个生字，覆盖早前"实测两档"与
+// "固定 5 块"设计）；首页（含压缩页头）与后续页一律 6 块，末页以空块补满到 6。
+const BT_BLOCKS_PER_PAGE = BLOCK_TABLE_LAYOUT.blocksPerPage;
 // 分页守卫安全余量（§12.A.2：277 − 2mm；≥2mm，吸收打印亚像素取整与行末余量）
 const BT_PAGE_RESERVE_MM = 2;
 // CSS mm → px 换算（CSS 规范恒等式：1in = 96px = 25.4mm）。实测与契约估算共用。
@@ -153,10 +153,12 @@ function readBtSettings() {
     const minCols = Math.min(...BLOCK_TABLE_LAYOUT.colsOptions);
     const maxCols = Math.max(...BLOCK_TABLE_LAYOUT.colsOptions);
     return {
-        // 列数夹取到契约可选档位范围（8~12）；行数下限 2（§2.3"至少 2 行"），
-        // 上限 50 仅为防御脏数据（契约未定义上限）
+        // 列数夹取到契约可选档位范围（8~12）
         cols: clampInt(s.btCols, BLOCK_TABLE_LAYOUT.colsDefault, minCols, maxCols),
-        rows: clampInt(s.btMainRows, BLOCK_TABLE_LAYOUT.mainRowsDefault, 2, 50),
+        // 行数固定 2（v3.1.1 监督员 F2 加固）：每页 5 块的分页预算以 2 行主表为前提，
+        // 手改 localStorage 传入的其他值不生效（否则 overflow:hidden 会裁切末块，
+        // 重现 §12.A 要修复的缺陷类别）；行数配置留待后续版本与分页预算联动开放
+        rows: clampInt(s.btMainRows, 2, 2, 2),
         // 描摹格数契约范围 0–5；组词行数契约范围 1–4
         traceCount: clampInt(s.btTraceCount, BLOCK_TABLE_LAYOUT.traceCountDefault, 0, 5),
         traceOpacity: clampNum(s.btTraceOpacity, BLOCK_TABLE_LAYOUT.traceOpacityDefault, 0, 1),
@@ -496,8 +498,23 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
     info.appendChild(strip);
     // 复用 loadStrokes 异步队列（离线数据，失败静默留空，不阻塞渲染）
     if (asyncFills && !empty) {
+        // v3.1.1（用户反馈：爨/麤等多笔画字拆解条被静默裁切）：
+        //   ① 悬停提示 + 指针手型（点击观看动态笔顺演示，转发逻辑在 main.js 委托）；
+        //   ② loadStrokes 异步填充完成后做一次自适应归一化（btNormalizeStrokeStrip）：
+        //      按笔数均分条带宽度等比缩小（下限 2.5mm，正方形不变形），放不下时截断并
+        //      显示 "+N" 徽标（N=未展示笔数），绝不再静默裁切。
+        strip.title = '笔画笔顺拆解 · 点击观看动态演示';
         loadStrokes(char, strip);
         fillStrokeCountPill(char, pill);
+        if (typeof MutationObserver === 'function') {
+            const mo = new MutationObserver(() => {
+                if (strip.querySelector('svg')) {
+                    mo.disconnect();
+                    btNormalizeStrokeStrip(strip);
+                }
+            });
+            mo.observe(strip, { childList: true });
+        }
     }
     main.appendChild(info);
 
@@ -817,6 +834,55 @@ export function btApplyTraceOpacity(container, opacity) {
     const texts = container.querySelectorAll('.bt-block [data-ge-trace]');
     texts.forEach(t => t.setAttribute('opacity', String(v)));
     return { texts: texts.length };
+}
+
+/**
+ * btNormalizeStrokeStrip —— 拆解条自适应归一化（v3.1.1，多笔画字不裁切）。
+ *
+ * 触发：loadStrokes 异步填充出第一个 svg 后（MutationObserver 一次性触发）。
+ * 规则：
+ *   1. n 笔均分条带宽度（含 0.5mm 间距），每笔正方形等比缩放，
+ *      尺寸夹取 [2.5mm, 6mm] —— 字号宽高比不失真（与拼音四线格同原则）；
+ *   2. 全部缩到下限仍放不下（爨 30 画 / 麤 33 画级别）：截断超出部分
+ *      并显示 ".bt-strip-more" 徽标 "+N"（N = 未展示笔数），徽标与拆解条
+ *      点击均可打开动态笔顺演示（转发逻辑在 main.js 委托）。
+ * 不改变拆解条自身高度（信息行 8mm 冻结），分页预算不受影响。
+ * @param {HTMLElement} strip - .bt-stroke-strip（已填充 svg）
+ */
+function btNormalizeStrokeStrip(strip) {
+    if (!strip || !strip.isConnected) return;
+    const svgs = strip.querySelectorAll('svg');
+    const n = svgs.length;
+    if (!n) return;
+    const w = strip.clientWidth;
+    if (!w) return; // 块仍在隐藏测量容器中（不该发生：填充发生在挂载后），留待下次
+    const gap = 0.5 * BT_MM_TO_PX;
+    const minPx = 2.5 * BT_MM_TO_PX;
+    const maxPx = 6 * BT_MM_TO_PX;
+    let size = Math.min(maxPx, Math.max(minPx, (w - n * gap) / n));
+    let visible = n;
+    const moreBadge = 9 * BT_MM_TO_PX; // "+N" 徽标预留宽
+    if (n * (size + gap) > w) {
+        size = minPx;
+        visible = Math.max(1, Math.floor((w - moreBadge) / (size + gap)));
+    }
+    svgs.forEach((svg, i) => {
+        svg.style.width = size.toFixed(2) + 'px';
+        svg.style.height = size.toFixed(2) + 'px';
+        svg.style.display = i < visible ? 'block' : 'none';
+    });
+    let badge = strip.querySelector('.bt-strip-more');
+    if (visible < n) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'bt-strip-more';
+            strip.appendChild(badge);
+        }
+        badge.textContent = '+' + (n - visible);
+        badge.title = '还有 ' + (n - visible) + ' 笔未展示 · 点击观看动态笔顺演示';
+    } else if (badge) {
+        badge.remove();
+    }
 }
 
 /**

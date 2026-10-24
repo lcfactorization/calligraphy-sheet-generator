@@ -18,6 +18,14 @@
 // 注册表
 // ---------------------------------------------------------------------------
 
+import { GENERATED_PROVIDERS as GENERATED_CATALOG } from '../data/aiProviderCatalog.generated.js';
+import { BILLING_FACTS } from '../data/aiBillingFacts.generated.js';
+
+/** 未核实计费事实的厂商一律落付费区、kind=unknown —— 宁可不说，也不说错 */
+const DEFAULT_BILLING = {
+    zone: 'paid', kind: 'unknown', quota: [], priceSource: 'none', priceAsOf: ''
+};
+
 /**
  * @typedef {Object} ProviderModel
  * @property {string} id            模型 ID（发送给 API 的原值）
@@ -50,6 +58,29 @@
  * @property {number} [topP]                     v1.5.2：同上
  * @property {Object} [extraParams]              v1.5.2：额外请求体字段，浅覆盖；
  *                                               与内置字段冲突时以它为准（用户显式设置优先）
+ * @property {Billing} [billing]                 v3.1.0：计费分区事实。zone 决定 GUI 里
+ *                                               归「免费专区」还是「付费专区」，kind/quota
+ *                                               决定模型上的徽标（免费限速 / 新用户额度 /
+ *                                               订阅套餐 / 按量付费）。**生成物**，来源见下。
+ * @property {boolean} [generated]               v3.1.0：true = 来自生成目录，非手写内置
+ * @property {string} [catalogId]                v3.1.0：生成条目在 models.dev 快照里的原始 key
+ * @property {string} [sameAs]                   v3.1.0：与某内置厂商同主机（同公司的另一端点）
+ */
+
+/**
+ * @typedef {Object} BillingQuota
+ * @property {string} detail    额度说明 —— 人工读厂商官方页抄下来的原话要点，不得凭印象
+ * @property {string} source    https 出处（厂商自己的域名；聚合站不算）
+ * @property {string} asOf      YYYY-MM-DD 核实日
+ * @property {boolean} verified 已人工核实
+ *
+ * @typedef {Object} Billing
+ * @property {'free'|'paid'} zone
+ * @property {string} kind       free-tier | rate-limited-free | new-user-credits |
+ *                               time-limited-trial | subscription | pay-as-you-go | unknown
+ * @property {BillingQuota[]} quota
+ * @property {string} priceSource
+ * @property {string} priceAsOf
  */
 
 // 不变量：modelsEndpointValidatesAuth 只有在 modelsPath != null 时才有意义。
@@ -533,6 +564,68 @@ export const PROVIDERS = [
         note: '免费共享端点（不消耗额度，按 Key + IP 限流，另有每日消耗上限）；一把 Key 通用于全部共享模型，改 model 字段即可切换。Key 为 rc- 开头'
     }
 ];
+
+// ---------------------------------------------------------------------------
+// v3.1.0：生成目录（扩充厂商面）—— 手写内置 18 家 + 生成条目 + 计费事实
+// ---------------------------------------------------------------------------
+// 三份输入各有分工，缺一不可（详见 scripts/generate-provider-catalog.mjs 头部）：
+//   · models.dev 快照   → 厂商结构、模型清单、单价（单价为快照，非实时）
+//   · 浏览器直连实测    → 只有真浏览器里读得到响应的厂商才有资格内联
+//   · 人工 override     → 中文显示名、注册页、精选模型，以及**免费额度事实与出处**
+// 生成物是数据文件，不手改；要改事实就改 override 再重新生成（一条命令）。
+//
+// 为什么生成条目**不带 keyShape**：detectProviderId 的"不猜"契约靠形状唯一命中，
+// 而生成条目的 Key 前缀来自二手资料、未实测。让生成条目参与形状判定会把
+// "本来返回 null（要用户手动指定/运行检测）"变成"自信地猜错厂商"，属实质退化。
+// 因此生成条目一律**显式归属**：在目录里选中它再粘 Key（与 pi 的凭据模型一致 ——
+// 凭据自己知道自己属于哪个厂商，不靠猜前缀）。
+//
+// 为什么内置 18 家只从生成物取 billing、不取端点：内置的 baseUrl / chatPath /
+// keyShape 是逐个真机验证过的（见各家注释里的实测日期），而快照里同 id 的地址
+// 可能是另一个区域（models.dev 的 siliconflow 是 .com，内置用的是实测过的 .cn）。
+const _catalogToProvider = (e, i) => ({
+    id: e.id,
+    label: e.label,
+    baseUrl: e.baseUrl,
+    chatPath: e.chatPath || '/chat/completions',
+    modelsPath: e.modelsPath ?? null,
+    models: (e.models || []).map(m => ({
+        id: m.id,
+        tier: m.tier === 'free' || m.tier === 'cheap' ? m.tier : 'paid',
+        jsonMode: m.jsonMode === true ? true : (m.jsonMode === false ? false : null),
+        fullCheck: !!m.fullCheck,
+        price: m.price || null,
+        zeroPrice: !!m.zeroPrice,
+        context: m.context || null,
+    })),
+    authStyle: e.authStyle === 'query-key' ? 'query-key' : 'bearer',
+    keyShape: null,
+    // 未实测该厂商的 /models 是否校验鉴权 ⇒ false（不许把没测过的事写成能力）
+    modelsEndpointValidatesAuth: false,
+    // 内联资格由实测把关，所以这里必然是 verified；仍写成派生式，防止将来关口放宽后说谎
+    cors: e.direct && e.direct.verdict === 'DIRECT-CONFIRMED' ? 'verified' : 'unverified',
+    // 低于全部内置（内置最低 20）、高于自定义（10）：自动优选先挑实测过的老引擎
+    priority: 15 - Math.min(4, i),
+    signupUrl: e.signupUrl || '',
+    docUrl: e.docUrl || null,
+    protocol: e.protocol === 'anthropic' ? 'anthropic' : 'openai',
+    billing: e.billing || DEFAULT_BILLING,
+    generated: true,
+    catalogId: e.catalogId || null,
+    sameAs: e.sameAs || null,
+    direct: e.direct || null,
+    note: e.billing && e.billing.zone === 'free'
+        ? '免费专区（目录生成，额度出处见详情页）'
+        : '付费专区（目录生成；单价为快照，非实时）',
+});
+
+/** 生成目录条目（已规整为 Provider 形态）。不 participate 形状判定，见上方说明。 */
+export const GENERATED_PROVIDERS = GENERATED_CATALOG.map(_catalogToProvider);
+
+// 内置 18 家挂上计费事实：GUI 分区只读 provider.billing，缺出处一律落付费区。
+for (const p of PROVIDERS) {
+    p.billing = BILLING_FACTS[p.id] || DEFAULT_BILLING;
+}
 
 // ---------------------------------------------------------------------------
 // v1.5.1：用户自定义引擎（unknown provider 的手动添加）
@@ -1085,19 +1178,30 @@ export function registerKeyBinder(fn) {
 // ---------------------------------------------------------------------------
 
 /**
- * 返回全部引擎：内置注册表 + 用户自定义引擎。
+ * 返回全部引擎：内置注册表 + 生成目录 + 用户自定义引擎。
  * 需要「完整清单」时用它；需要「内置清单」（如冒烟脚本、CSP 白名单校验）时用 PROVIDERS。
  */
 export function listProviders() {
-    return PROVIDERS.concat(getCustomProviders());
+    return PROVIDERS.concat(GENERATED_PROVIDERS, getCustomProviders());
 }
 
-/** 按 id 取引擎（先内置后自定义）；不存在返回 null。 */
+/** 按 id 取引擎（先内置，再生成目录，最后自定义）；不存在返回 null。 */
 export function getProvider(id) {
     if (!id) return null;
     return PROVIDERS.find((p) => p.id === id)
+        || GENERATED_PROVIDERS.find((p) => p.id === id)
         || getCustomProviders().find((p) => p.id === id)
         || null;
+}
+
+/**
+ * 免费/付费分区归属。读不到 billing 一律按付费区处理 ——
+ * "没核实"不能显示成"免费"，那会让用户按免费预期用量去花钱。
+ * @param {Provider|null} p
+ * @returns {'free'|'paid'}
+ */
+export function zoneOf(p) {
+    return p && p.billing && p.billing.zone === 'free' ? 'free' : 'paid';
 }
 
 /**

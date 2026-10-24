@@ -1,0 +1,377 @@
+{
+  "target": "http://127.0.0.1:5219",
+  "text": "排前后面",
+  "rows": [
+    {
+      "name": "P0 localStorage merge 保留旧键且 layoutType=block-table",
+      "status": "PASS",
+      "observed": "{\"layoutType\":\"block-table\",\"sentinelKept\":\"sentinel\"}",
+      "expected": "{layoutType:\"block-table\", sentinelKept:\"sentinel\"}",
+      "note": ""
+    },
+    {
+      "name": "P1[block] 生成已触发（填入「排前后面」并点刷新字帖）",
+      "status": "PASS",
+      "observed": "{\"ok\":true}",
+      "expected": "{ok:true}",
+      "note": ""
+    },
+    {
+      "name": "B0 block-table 版式 15s 内渲染出 .bt-block",
+      "status": "PASS",
+      "observed": "已出现",
+      "expected": "至少 1 块",
+      "note": ""
+    },
+    {
+      "name": "1a #grid-container[data-layout=\"block-table\"] 存在",
+      "status": "PASS",
+      "observed": "block-table",
+      "expected": "\"block-table\"",
+      "note": ""
+    },
+    {
+      "name": "1b 真块 .bt-block[data-char] 数 = 4（排/前/后/面；空补块不计）",
+      "status": "PASS",
+      "observed": "{\"real\":4,\"all\":6}",
+      "expected": "4",
+      "note": ""
+    },
+    {
+      "name": "1c 每块 .bt-info=1、.bt-main 格数=btCols(9)×btMainRows(2)=18、含 .grid-svg-row-border",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "2a 每块格 0 有非空 text 范字且 opacity=1",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "2b 格 1–3 带 data-ge-trace 且 opacity≈0.2（容差 0.02）",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "2c 其余格内容层（.ge-content-layer）无 text 子节点",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "3a 每块信息行 [data-ge-role=\"pinyin\"] 存在且 font-family 含 TeXGyreAdventor",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "3b .bt-pinyin-box 计算宽 ≈ var(--bt-cell)（13.5mm=51.02px，±0.5mm=1.89px；拼音只占一格宽）",
+      "status": "PASS",
+      "observed": "{\"btCellMM\":13.5,\"bad\":[]}",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "3c 笔画数 pill 文本匹配 /^\\d+画$/（非空者）",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "3d 四字 pill 全部非空（排/前/后/面 均命中离线笔画数）",
+      "status": "PASS",
+      "observed": "形如 7画|5画|6画|9画",
+      "expected": "undefined",
+      "note": ""
+    },
+    {
+      "name": "4a 每块 .bt-zrow 数 = btZuciRows(2) 且每行 4 个 .bt-zcell",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "4b .bt-zcell 无 data-char 属性（组词区点击不得触发笔顺演示委托）",
+      "status": "PASS",
+      "observed": "0",
+      "expected": "0",
+      "note": ""
+    },
+    {
+      "name": "5a 探针已打标（第一个 .bt-block data-probe=\"BT1\"）",
+      "status": "PASS",
+      "observed": "true",
+      "expected": "true",
+      "note": ""
+    },
+    {
+      "name": "5b 初始档位 = trace（契约默认 btZuciLevel）",
+      "status": "PASS",
+      "observed": "trace",
+      "expected": "\"trace\"",
+      "note": ""
+    },
+    {
+      "name": "5c 点击 .bt-zhead 一次 → data-bt-level=full、词字 [data-ge-role=\"bt-zuci-word\"] opacity=1、探针仍在、未弹编辑浮层",
+      "status": "PASS",
+      "observed": "{\"click\":{\"clicked\":true,\"btmeOpen\":false,\"level\":\"trace\"},\"level\":\"full\",\"wordCount\":16,\"opacities\":[\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\"],\"probe\":true,\"btmeOpen\":false,\"words1\":\"安排|编排\"}",
+      "expected": "{level:\"full\", wordCount>0, opacities 全 1, probe:true, btmeOpen:false}",
+      "note": ""
+    },
+    {
+      "name": "5d 再点击 .bt-zhead 一次 → data-bt-level=hidden、词字节点为 0、探针仍在（块未重建）",
+      "status": "PASS",
+      "observed": "{\"click\":{\"clicked\":true,\"btmeOpen\":false,\"level\":\"full\"},\"level\":\"hidden\",\"wordCount\":0,\"probe\":true,\"btmeOpen\":false}",
+      "expected": "{level:\"hidden\", wordCount:0, probe:true, btmeOpen:false}",
+      "note": ""
+    },
+    {
+      "name": "5e localStorage 设 btZuciLevel=trace 派发 → 词字 opacity≈0.2（容差 0.02）且探针仍在（定向改写通道）",
+      "status": "PASS",
+      "observed": "{\"level\":\"trace\",\"wordCount\":16,\"opacities\":[\"0.2\",\"0.2\",\"0.2\",\"0.2\",\"0.2\",\"0.2\",\"0.2\",\"0.2\"],\"probe\":true}",
+      "expected": "{level:\"trace\", opacities 全≈0.2, probe:true}",
+      "note": ""
+    },
+    {
+      "name": "6a gridType 切 mizi → .bt-main .grid-svg-cell 出现对角线 line（count>0）且探针仍在",
+      "status": "PASS",
+      "observed": "{\"diag\":216,\"probe\":true}",
+      "expected": "{diag>0, probe:true}",
+      "note": ""
+    },
+    {
+      "name": "6b gridColorPreset=red → 行边框 rect fill=#9E2A2B 且 .bt-pinyin-box line stroke=#B14A4B 且词字 fill=#7A1F20（btRecolor 生效）且探针仍在",
+      "status": "PASS",
+      "observed": "{\"borderFill\":\"#9E2A2B\",\"pinyinLineStroke\":\"#B14A4B\",\"wordFill\":\"#7A1F20\",\"probe\":true}",
+      "expected": "{borderFill:\"#9E2A2B\", pinyinLineStroke:\"#B14A4B\", wordFill:\"#7A1F20\", probe:true}",
+      "note": ""
+    },
+    {
+      "name": "7a 点击主表格格子（.grid-svg-cell[data-char]）→ 出现笔顺演示弹窗（.sd-overlay/.sd-window）",
+      "status": "PASS",
+      "observed": "{\"clicked\":true,\"overlay\":true,\"windows\":1}",
+      "expected": "{overlay:true, windows>=1}",
+      "note": ""
+    },
+    {
+      "name": "7b 笔顺演示弹窗已关闭",
+      "status": "PASS",
+      "observed": "{\"closeClicked\":true,\"windows\":0}",
+      "expected": "关闭成功",
+      "note": ""
+    },
+    {
+      "name": "8a 点击 .bt-zuci（非 .bt-zhead）→ #btManualEditOverlay（.sc-modal）出现，含 #btmePinyin/#btmeZuci1/#btmeZuci2 且无新笔顺弹窗",
+      "status": "PASS",
+      "observed": "{\"clicked\":true,\"open\":true,\"scModal\":true,\"title\":\"✏️ 编辑生字卡「排」\",\"pinyin\":true,\"z1\":true,\"z2\":true,\"sdWindows\":0}",
+      "expected": "{open:true, scModal:true, pinyin:true, z1:true, z2:true, sdWindows:0}",
+      "note": ""
+    },
+    {
+      "name": "8b 浮层标题含「编辑生字卡」（btManualEdit 专属，非经典「手动修改」）",
+      "status": "PASS",
+      "observed": "✏️ 编辑生字卡「排」",
+      "expected": "含\"编辑生字卡\"",
+      "note": ""
+    },
+    {
+      "name": "8c btManualEdit 浮层已关闭",
+      "status": "PASS",
+      "observed": "{\"meClosed\":true,\"gone\":true}",
+      "expected": "关闭成功",
+      "note": ""
+    },
+    {
+      "name": "9a 经典版式：layout=classic、4 行字格、无任何 bt- 类元素",
+      "status": "PASS",
+      "observed": "{\"layout\":\"classic\",\"rows\":4,\"btAny\":0,\"btBlocks\":0}",
+      "expected": "{layout:\"classic\", rows:4, btAny:0, btBlocks:0}",
+      "note": ""
+    },
+    {
+      "name": "15d 经典辅助行（createAuxRow）零影响：四线格 line 存在、拼音 TeXGyreAdventor、preserveAspectRatio 保持 classic 冻结设计（none）",
+      "status": "PASS",
+      "observed": "{\"auxFound\":true,\"lineCount\":2,\"pyFont\":\"TeXGyreAdventor, serif\",\"par\":\"none\"}",
+      "expected": "{auxFound:true, lineCount>=2, pyFont含TeXGyreAdventor, par:\"none\"}",
+      "note": ""
+    },
+    {
+      "name": "9b 点击经典行 pinyin-zuci 格 → 经典 manualEdit 浮层（含\"手动修改\"的 .sc-modal 与拼音/组词×2 inputs）",
+      "status": "PASS",
+      "observed": "{\"clicked\":true,\"open\":true,\"scModal\":true,\"title\":\"✏️ 手动修改「排」\",\"pinyin\":true,\"z1\":true,\"z2\":true}",
+      "expected": "{open:true, scModal:true, title含\"手动修改\", pinyin/z1/z2:true}",
+      "note": ""
+    },
+    {
+      "name": "9c 点击经典左侧字格：不弹编辑浮层（笔顺演示接管，.sd-window 出现）",
+      "status": "PASS",
+      "observed": "{\"clicked\":true,\"sdWindows\":1,\"manualEdit\":false,\"btme\":false}",
+      "expected": "{sdWindows>=1, manualEdit:false, btme:false}",
+      "note": ""
+    },
+    {
+      "name": "10 窄屏 390×844 block-table：documentElement.scrollWidth ≤ 390（无横向溢出）",
+      "status": "PASS",
+      "observed": "{\"sw\":390,\"bodySw\":390,\"innerW\":390,\"sheetRight\":385,\"sheetLeft\":5}",
+      "expected": "{sw<=390}",
+      "note": ""
+    },
+    {
+      "name": "10b 窄屏 390×844：.bt-sheet 变换后视觉盒完全落在视口内（left≥0 且 right≤390）",
+      "status": "PASS",
+      "observed": "{\"sw\":390,\"bodySw\":390,\"innerW\":390,\"sheetRight\":385,\"sheetLeft\":5}",
+      "expected": "{sheetLeft>=0, sheetRight<=390}",
+      "note": ""
+    },
+    {
+      "name": "11a updateAiZuciCache 条目键集恰为 10 键（schemaVersion,source,provider,model,updatedAt,pinyin,pinyinFixed,pinyinChecked,zuci,userEdited）且无 zuciMulti",
+      "status": "PASS",
+      "observed": "{\"keys\":[\"model\",\"pinyin\",\"pinyinChecked\",\"pinyinFixed\",\"provider\",\"schemaVersion\",\"source\",\"updatedAt\",\"userEdited\",\"zuci\"],\"hasZuciMulti\":false}",
+      "expected": "{\"keys\":[\"model\",\"pinyin\",\"pinyinChecked\",\"pinyinFixed\",\"provider\",\"schemaVersion\",\"source\",\"updatedAt\",\"userEdited\",\"zuci\"],\"hasZuciMulti\":false}",
+      "note": ""
+    },
+    {
+      "name": "11b updateAiZuciMulti(测,{zuciMulti:[测试,测验工具]}) → getAiZuciMulti(测) 深度等于 [\"测试\",\"测验工具\"]",
+      "status": "PASS",
+      "observed": "[\"测试\",\"测验工具\"]",
+      "expected": "[\"测试\",\"测验工具\"]",
+      "note": ""
+    },
+    {
+      "name": "11c 再经经典 updateAiZuciCache 写 zuci 后 zuciMulti 仍在（CARRY_FIELDS 透传保留）",
+      "status": "PASS",
+      "observed": "{\"multi\":[\"测试\",\"测验工具\"],\"zuci\":[\"对策\",\"测量\"]}",
+      "expected": "{multi:[\"测试\",\"测验工具\"], zuci:[\"对策\",\"测量\"]}",
+      "note": ""
+    },
+    {
+      "name": "12a print 媒体下档位 pill（.bt-zhead .bt-pill-level）display=none",
+      "status": "PASS",
+      "observed": "{\"pillFound\":true,\"pillDisplay\":\"none\",\"blockFound\":true,\"breakInside\":\"avoid\"}",
+      "expected": "{pillDisplay:\"none\"}",
+      "note": ""
+    },
+    {
+      "name": "12b print 媒体下 .bt-block break-inside 计算值 = avoid（不跨页断块）",
+      "status": "PASS",
+      "observed": "{\"pillFound\":true,\"pillDisplay\":\"none\",\"blockFound\":true,\"breakInside\":\"avoid\"}",
+      "expected": "{breakInside:\"avoid\"}",
+      "note": ""
+    },
+    {
+      "name": "12c page.pdf() 产出非空（>5KB）",
+      "status": "PASS",
+      "observed": "101076 bytes",
+      "expected": ">5120 bytes",
+      "note": ""
+    },
+    {
+      "name": "13a #layout-toggle-btn 点击（block-table 态）→ aria-pressed=false 且 data-layout=classic 且真块=0 且 .grid-svg-row 出现",
+      "status": "PASS",
+      "observed": "{\"pre\":{\"btnFound\":true,\"pressed\":\"true\",\"layout\":\"block-table\",\"blocks\":4},\"clicked\":true,\"after\":{\"pressed\":\"false\",\"layout\":\"classic\",\"blocks\":0,\"rows\":4}}",
+      "expected": "{pre:{pressed:\"true\",blocks>0}, after:{pressed:\"false\", layout:\"classic\", blocks:0, rows>0}}",
+      "note": ""
+    },
+    {
+      "name": "13b 再点击 #layout-toggle-btn → 恢复 block-table（aria-pressed=true、data-layout=block-table、真块 .bt-block[data-char]=4）",
+      "status": "PASS",
+      "observed": "{\"clicked\":true,\"after\":{\"pressed\":\"true\",\"layout\":\"block-table\",\"blocks\":4}}",
+      "expected": "{pressed:\"true\", layout:\"block-table\", blocks:4}",
+      "note": ""
+    },
+    {
+      "name": "14a 每个 .bt-page 恰 6 个直接 .bt-block（页数=4、末页实块=4 补空到 6）",
+      "status": "PASS",
+      "observed": "{\"pages\":4,\"pagesAttr\":4,\"perPageAttr\":6,\"facts\":[{\"i\":0,\"n\":6,\"real\":6,\"head\":true,\"compact\":false},{\"i\":1,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":2,\"n\":6,\"real\":6,\"head\":false,\"compact\":false},{\"i\":3,\"n\":6,\"real\":4,\"head\":false,\"compact\":false}],\"badA\":[],\"realChars\":22}",
+      "expected": "每页 6 块、页数 4、实块加总 22、页头仅首页",
+      "note": ""
+    },
+    {
+      "name": "14b 每页最后一块底边 ≤ 页内容底 − 1mm（实测余量 gap ≥ 1mm）",
+      "status": "PASS",
+      "observed": "[]",
+      "expected": "[]",
+      "note": ""
+    },
+    {
+      "name": "14c 空块（2 个）无 data-char/data-pinyin/data-zuci-multi、无拼音/词字/格内文本、pill 留空",
+      "status": "PASS",
+      "observed": "{\"emptyCount\":2,\"bad\":[]}",
+      "expected": "{emptyCount>0, bad:[]}",
+      "note": ""
+    },
+    {
+      "name": "14d page.pdf 页数 = ceil(真块数 22 / 6) = 4",
+      "status": "PASS",
+      "observed": "{\"pdfPages\":4,\"pdfErr\":null}",
+      "expected": "4",
+      "note": ""
+    },
+    {
+      "name": "14e 实测分页守卫：页头 21.98mm + 6×块 40mm = 261.98mm ≤ 275mm",
+      "status": "PASS",
+      "observed": "{\"headMM\":21.98,\"blockMM\":40,\"needMM\":261.98,\"budget\":275,\"guardOk\":\"1\"}",
+      "expected": "{needMM<=275, guardOk:\"1\"}",
+      "note": ""
+    },
+    {
+      "name": "15e-1 拆解条零溢出：所有 .bt-stroke-strip scrollWidth ≤ clientWidth+1",
+      "status": "PASS",
+      "observed": "{\"overflow\":[],\"strips\":24}",
+      "expected": "0 条溢出",
+      "note": ""
+    },
+    {
+      "name": "15e-2 截断必有徽标：被截断的拆解条必须带 \"+N\" 徽标且数字一致",
+      "status": "PASS",
+      "observed": "{\"silentCut\":[],\"badgeMismatch\":[]}",
+      "expected": "0 条静默裁切",
+      "note": ""
+    },
+    {
+      "name": "15e-3 多笔画样本（爨）：拆解条自适应缩小或 \"+N\" 徽标（离线数据缺失记 WARN 不 FAIL）",
+      "status": "PASS",
+      "observed": "{\"chuan\":\"(离线数据未收录，条留空)\",\"hintTitle\":\"笔画笔顺拆解 · 点击观看动态演示\"}",
+      "expected": "自适应缩小或 +N 徽标",
+      "note": ""
+    },
+    {
+      "name": "15a 拼音文字层 SVG preserveAspectRatio 含 meet（≠none）且线条层仍为 none（线字分离）",
+      "status": "PASS",
+      "observed": "{\"parText\":\"xMidYMid meet\",\"parLines\":\"none\"}",
+      "expected": "{parText含\"meet\", parLines:\"none\"}",
+      "note": ""
+    },
+    {
+      "name": "15b .bt-pinyin-box 贴块左缘（差 0.265mm ≤ 0.5mm）且宽 = 13.5mm ± 0.5mm（实测 13.5mm）",
+      "status": "PASS",
+      "observed": "{\"leftDiffMM\":0.265,\"widthMM\":13.5,\"cellMM\":13.5}",
+      "expected": "{leftDiffMM<=0.5, |widthMM-cellMM|<=0.5}",
+      "note": ""
+    },
+    {
+      "name": "15c 全部拼音盒无竖线 line 元素（四线格只保留横线，右缘不画竖线）",
+      "status": "PASS",
+      "observed": "{\"boxCount\":24,\"vertLines\":0}",
+      "expected": "{vertLines:0}",
+      "note": ""
+    },
+    {
+      "name": "Z1 全程无未捕获页面异常",
+      "status": "PASS",
+      "observed": "",
+      "expected": "无异常",
+      "note": ""
+    }
+  ]
+}

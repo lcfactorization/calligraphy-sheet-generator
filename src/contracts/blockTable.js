@@ -38,6 +38,9 @@ export const BLOCK_TABLE_LAYOUT = {
     colsOptions: [8, 9, 10, 12],
     colsDefault: 9,             // 主表每行格数
     mainRowsDefault: 2,         // 主表行数（至少 2，与参考样张一致）
+    // 每页块数（v3.1.1 用户指令：每页 6 个生字，首页含压缩页头亦 6；页末空网格补满到 6）。
+    // 分页预算实测：页头 21.98mm + 6×40.0mm = 261.98mm ≤ 275mm（277 − 2mm 余量）✓
+    blocksPerPage: 6,
     traceCountDefault: 3,       // 描摹格数（格 0 为范字，格 1..N 描摹）
     traceOpacityDefault: 0.2,   // 描摹透明度（独立于经典 traceOpacity）
     referenceCellDefault: true, // 格 0 是否为范字（false 时格 0 也按描摹处理）

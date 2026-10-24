@@ -246,6 +246,10 @@
     flex: 1 1 auto;
     height: 100%;
     overflow: hidden;
+    /* v3.1.1：多笔画字拆解条可点击（转发到块内范字格 → 动态笔顺演示），见 main.js 委托 */
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
 }
 .bt-stroke-strip > span {
     display: none;
@@ -256,6 +260,22 @@
     width: 6mm;
     height: 6mm;
     margin-right: 0.5mm;
+}
+/* v3.1.1："+N" 徽标（多笔画截断标注，自适应尺寸由 btNormalizeStrokeStrip 写内联样式，
+   内联样式优先级高于上方 6mm 规则；徽标类名带 .bt- 前缀、特异性高于 "> span" 隐藏规则） */
+.bt-stroke-strip > .bt-strip-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 8mm;
+    height: 5mm;
+    padding: 0 1mm;
+    border-radius: 2px;
+    background: var(--bt-pill-bg, #edf0f2);
+    color: var(--bt-pill-fg, #6b7680);
+    font-size: 10px;
+    white-space: nowrap;
 }
 
 /* ── 5. 组词格：词字/虚线画在格内小 SVG 中（类名非 .grid-svg-cell，

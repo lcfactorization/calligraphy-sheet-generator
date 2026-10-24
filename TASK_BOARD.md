@@ -183,6 +183,7 @@
   | C UI与调度 | 接线 | `src/main.js`、`src/modules/settingsCenter.js`、`src/components/Sidebar.js`、`index.html` |
   | D 打印验收 | 关口 | `scripts/verify-block-table.cjs`(新建)、`package.json` |
   | E 文档发布 | 文档 | `CHANGELOG.md`、`README.md`、`README_EN.md`、`docs/*` |
+- **多笔画拆解条(v3.1.1)**:自适应等比缩小(下限 2.5mm)+"+N" 截断徽标+点击动态演示(转发范字格),断言组 15e 零裁切
 - **类名纪律**:主表格格子复用 `.grid-svg-cell[data-char]`(笔顺演示/定向重绘/字体切换零改动生效),
   行边框复用 `.grid-svg-row-border`;其余元素一律 `bt-` 前缀,绝不使用 `.grid-svg-row` /
   `.grid-svg-aux-row`(隔离 manualEdit 与 pdfExport 的现有委托查询)
@@ -191,8 +192,7 @@
 ### v3.1.1 P1（分页完整性 + 拼音比例，执行中→已完成待关口）(2026-10-24)
 
 - **规格依据**:`docs/生字卡表格版式_实施方案与智能体提示词_v3.1.0.md` §12 —— 显式 `.bt-page` 分页
-  (页间 `page-break-after: always`,不依赖浏览器碎片化)、每页块数 Puppeteer 实测(首页含页头/后续页两档,
-  留 ≥2mm 安全余量)、末页空网格块补满整页、标题仅首页;拼音四线格线字分离、字符等比缩放(宽高比不失真)、
+  (页间 `page-break-after: always`,不依赖浏览器碎片化)、每页固定 6 块(用户指令 2026-10-24 二次调整;实测仅作验证性守卫,页头+6×块footprint≤275mm)、末页空网格块补满整页、标题仅首页;拼音四线格线字分离、字符等比缩放(宽高比不失真)、
   贴左缘且严格一格宽、格缘竖线隐藏;经典版式零影响;页头版本经 vite define 自动跟随 package.json。
 - **分工**:
   | Agent | 职责 | 独占文件 |
@@ -202,4 +202,6 @@
   | GLM-5.3(非 Flash) | 监督与验收 | — |
 - **关口**:四关口(build / verify:refresh / verify:touch / verify:blocktable)全绿;
   verify:blocktable 新增分页断言组与拼音断言组,既有断言不减弱。
-- **实测数据(N1/N2/块高)**:关口跑完后由集成方回填。
+- **实测数据(已回填)**:每页块数固定 **5**(用户指令,首页含压缩页头亦 5);页头 footprint **21.98mm**,
+  块 footprint **40.0mm**,守卫 21.98+6×40=**261.98mm ≤ 275mm**(guardOk);四关口 build PASS / verify:refresh **68/68** /
+  verify:touch **50/50** / verify:blocktable 50+3 项(分页组14+拼音组15+拆解条组15e,6块口径复跑);23 字(含爨) → 4 页,PDF 页数=ceil(23/6)=4 无空白尾页。

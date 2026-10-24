@@ -72,10 +72,12 @@
 //          拼音文字·无词字·格内无文本·pill 留空 / page.pdf 页数 = ceil(真块数/5)
 //          （正则数 /Type /Page，验完删除）/ 实测 页头footprint + 5×块footprint
 //          ≤ 275mm（引擎守卫判据复算）
-//   15a-15d 拼音四线格 v3.1.1：文字层 SVG preserveAspectRatio 含 meet（线条层
+//   15a-15e 拼音四线格与拆解条 v3.1.1：文字层 SVG preserveAspectRatio 含 meet（线条层
 //          仍 none，线字分离）/ 盒贴块左缘 ≤0.5mm 且宽 13.5mm ±0.5mm / 全部
 //          拼音盒无竖线 line（四线格只留横线）/ 经典辅助行 createAuxRow 零影响
 //          （在断言 9 经典态取证）
+//   15e 多笔画拆解条：所有 .bt-stroke-strip 无溢出裁切（scrollWidth≤clientWidth+1）；
+//          被 display:none 截断的条必须带 "+N" 徽标（.bt-strip-more）——绝不静默裁切
 //
 // 运行：npm run verify:blocktable （即 node scripts/verify-block-table.cjs）
 // 退出码：任一 FAIL → 1；全部 PASS（含 WARN）→ 0
@@ -89,11 +91,11 @@ const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.BT_PORT || 5219);
 // 生字与参考样张同款（demo 四字），离线笔画数据 / cnchar 词库均可用
 const TEXT = '排前后面';
-// 分页断言（组 14）用长文：22 字 → 每页固定 5 块（§12.A.2，2026-10-24 用户指令）
-// → ceil(22/5)=5 页（4 页满 5 实块 + 末页 2 实块补 3 空块），各组断言均有样本
+// 分页断言（组 14）用长文：23 字（含多笔画字"爨"，供断言 15e 取证）→ 每页固定 6 块
+// → ceil(23/6)=4 页（3 页满 6 实块 + 末页 5 实块补 1 空块），各组断言均有样本
 const PAGES_TEXT = '天地人和风云雨雪山水火木金土日月春秋冬夏晨昏';
 // 每页块数（契约：引擎 BT_BLOCKS_PER_PAGE，此处镜像用于断言期望值）
-const BT_PER_PAGE = 5;
+const BT_PER_PAGE = 6;
 // 主表格几何（契约默认值，断言 1c 用）：btCols=9 × btMainRows=2 = 18 格/块
 const EXP_CELLS = 18;
 // 描摹透明度（契约默认 0.2，容差 0.02）
@@ -1036,9 +1038,9 @@ function snapshotBlocksInPage() {
                 (e13 && e13.stack ? e13.stack.split('\n').slice(0, 4).join(' | ') : String(e13)), 'no throw');
         }
 
-        // ════════════ 断言 14：显式分页（v3.1.1 §12.A，每页固定 5 块） ════════════
-        // 默认 4 字只有单页，证明不了"每页恰 5 块"；用 22 字长文 → ceil(22/5)=5 页
-        // （前 4 页满 5 实块，末页 2 实块 + 3 空块补满），各组断言均有样本。
+        // ════════════ 断言 14：显式分页（v3.1.1 §12.A，每页固定 6 块） ════════════
+        // 默认 4 字只有单页，证明不了"每页恰 6 块"；用 22 字长文 → ceil(22/6)=4 页
+        // （前 3 页满 6 实块，末页 4 实块 + 2 空块补满），各组断言均有样本。
         try {
             const gen5 = await page.evaluate(setInputAndGenerateInPage, PAGES_TEXT);
             // 期望真块数经参数传入页面（自包含纪律，见文件头坑 1）
@@ -1048,7 +1050,7 @@ function snapshotBlocksInPage() {
                     20000, PAGES_TEXT.length) : false;
             if (!pagedReady) {
                 check('14-prep 22 字多页渲染就绪（真块数 = 22）', false,
-                    { gen: gen5, ready: pagedReady }, '真块数 = 22');
+                    { gen: gen5, ready: pagedReady }, '真块数 = 23');
             } else {
                 await sleep(1200); // 笔画异步队列沉降窗口（分页几何与笔画无关，等 DOM 稳定）
                 const pg = await page.evaluate(() => {
@@ -1126,7 +1128,7 @@ function snapshotBlocksInPage() {
                     emptyFacts.length > 0 && badC.length === 0,
                     { emptyCount: emptyFacts.length, bad: badC }, '{emptyCount>0, bad:[]}');
 
-                // 14d page.pdf 页数 = ceil(总块数/5)（Chrome/Skia PDF 页对象头为明文，
+                // 14d page.pdf 页数 = ceil(总块数/6)（Chrome/Skia PDF 页对象头为明文，
                 // 正则数 /Type /Page（\b 排除 /Pages）；验完删除）
                 await page.emulateMediaType('print');
                 const pdfPath14 = path.join(__dirname, '_bt_verify_pages.pdf');
@@ -1148,7 +1150,7 @@ function snapshotBlocksInPage() {
                     pdfPages === expPages && pdfPages > 0,
                     { pdfPages, pdfErr: pdfErr14 }, expPages);
 
-                // 14e 分页守卫复算（§12.A.2）：实测 页头footprint + 5×块footprint ≤ 277−2mm
+                // 14e 分页守卫复算（§12.A.2）：实测 页头footprint + 6×块footprint ≤ 277−2mm
                 // （数据源：引擎渲染时实测并留在 .bt-sheet 的 data-bt-head-mm/-block-mm）
                 const needMM = (pg.headMM !== null && pg.blockMM !== null)
                     ? Math.round((pg.headMM + BT_PER_PAGE * pg.blockMM) * 100) / 100 : null;
@@ -1160,6 +1162,53 @@ function snapshotBlocksInPage() {
         } catch (e14) {
             record('HARNESS[断言 14] 自身异常', 'FAIL',
                 (e14 && e14.stack ? e14.stack.split('\n').slice(0, 4).join(' | ') : String(e14)), 'no throw');
+        }
+
+        // ════════════ 断言 15e：多笔画拆解条不裁切（v3.1.1，块帖态取证） ════════════
+        // PAGES_TEXT 含"爨"（30 画级）。loadStrokes 为异步队列：先等拆解条出现 svg
+        //（8s 超时——离线数据缺失时条留空，按 WARN 语义处理，不硬 FAIL 结构断言）。
+        try {
+            await page.waitForFunction(() => {
+                const strips = document.querySelectorAll('#grid-container .bt-stroke-strip');
+                return strips.length > 0 && [...strips].some(s => s.querySelector('svg'));
+            }, { timeout: 8000 }).catch(() => {});
+            const stripSnap = await page.evaluate(() => {
+                const strips = [...document.querySelectorAll('#grid-container .bt-stroke-strip')];
+                return strips.map(s => {
+                    const svgs = [...s.querySelectorAll('svg')];
+                    const hidden = svgs.filter(v => getComputedStyle(v).display === 'none').length;
+                    const badge = s.querySelector('.bt-strip-more');
+                    return {
+                        ch: s.getAttribute('data-bt-strip') || '',
+                        svgCount: svgs.length,
+                        sw: s.scrollWidth, cw: s.clientWidth,
+                        hidden, hasBadge: !!badge,
+                        badgeText: badge ? badge.textContent : '',
+                        title: s.getAttribute('title') || ''
+                    };
+                });
+            });
+            const overflow15e = stripSnap.filter(x => x.svgCount > 0 && x.sw > x.cw + 1);
+            // 静默裁切零容忍：被 display:none 截断的条必须带 "+N" 徽标且数字一致
+            const silentCut = stripSnap.filter(x => x.hidden > 0 && !x.hasBadge);
+            const badgeMismatch = stripSnap.filter(x => x.hidden > 0 && x.hasBadge &&
+                x.badgeText !== '+' + x.hidden);
+            const chuan = stripSnap.find(x => x.ch === '爨');
+            const chuanOk = !chuan || chuan.svgCount === 0 ||
+                (chuan.hidden === 0 || chuan.hasBadge);
+            check('15e-1 拆解条零溢出：所有 .bt-stroke-strip scrollWidth ≤ clientWidth+1',
+                overflow15e.length === 0,
+                { overflow: overflow15e.slice(0, 3), strips: stripSnap.length }, '0 条溢出');
+            check('15e-2 截断必有徽标：被截断的拆解条必须带 "+N" 徽标且数字一致',
+                silentCut.length === 0 && badgeMismatch.length === 0,
+                { silentCut: silentCut.slice(0, 3), badgeMismatch: badgeMismatch.slice(0, 3) }, '0 条静默裁切');
+            check('15e-3 多笔画样本（爨）：拆解条自适应缩小或 "+N" 徽标（离线数据缺失记 WARN 不 FAIL）',
+                chuanOk,
+                { chuan: chuan || '(离线数据未收录，条留空)', hintTitle: stripSnap[0] ? stripSnap[0].title : '' },
+                '自适应缩小或 +N 徽标');
+        } catch (e15e) {
+            record('HARNESS[断言 15e] 自身异常', 'FAIL',
+                (e15e && e15e.stack ? e15e.stack.split('\n').slice(0, 4).join(' | ') : String(e15e)), 'no throw');
         }
 
         // ════════════ 断言 15：拼音四线格 v3.1.1（§12.B 线字分离 + 贴左缘） ════════════

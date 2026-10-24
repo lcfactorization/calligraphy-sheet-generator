@@ -889,3 +889,109 @@
     .aic-slider,
     .aic-slider::before { transition: none; }
 }
+
+/* ---------- v3.1.0：免费 / 付费双专区 ---------- */
+/* 导航里的"免"字徽标：只在免费区出现，付费是默认档不标（标了只会更吵） */
+.aic-nav-zone {
+    margin-left: 5px;
+    padding: 0 4px;
+    font-size: 9.5px;
+    line-height: 14px;
+    color: #16a34a;
+    background: rgba(22, 163, 74, 0.12);
+    border: 1px solid rgba(22, 163, 74, 0.4);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+/* 长分组折叠按钮（付费区三十多家，一次铺开会把左栏撑成一堵墙） */
+.aic-nav-more {
+    margin-top: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--aic-muted);
+    background: transparent;
+    border: 1px dashed var(--aic-border);
+    border-radius: var(--aic-radius);
+    cursor: pointer;
+    text-align: left;
+}
+.aic-nav-more:hover { color: var(--aic-text); border-color: var(--accent); }
+
+/* 详情页顶部的专区横幅 */
+.aic-billing { margin-top: 4px; }
+.aic-zone-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--aic-radius);
+    border: 1px solid var(--aic-border);
+    background: var(--aic-surface-2);
+}
+.aic-zone-banner.is-free { border-color: rgba(22, 163, 74, .4); background: rgba(22, 163, 74, .08); }
+.aic-zone-banner.is-paid { border-color: rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .07); }
+.aic-zone-name { font-size: 12.5px; font-weight: 600; color: var(--aic-text); }
+.aic-zone-kind { font-size: 11px; color: var(--aic-muted); }
+
+/* 额度事实：正文 + 出处链接 + 核实日期 */
+.aic-quota-row {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--aic-line);
+    border-radius: var(--aic-radius);
+    background: var(--aic-surface);
+    min-width: 0;
+}
+.aic-quota-detail {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--aic-text);
+    overflow-wrap: anywhere;
+}
+.aic-quota-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: var(--aic-muted);
+    min-width: 0;
+}
+.aic-quota-source {
+    color: var(--accent);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.aic-quota-source:hover { text-decoration: underline; }
+.aic-quota-asof { white-space: nowrap; }
+.aic-billing-foot { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+/* 触屏：折叠按钮与外链给到可点面积，别让用户拿指尖瞄 11px 的字 */
+@media (hover: none) {
+    .aic-nav-more { min-height: 44px; }
+    .aic-quota-meta { gap: 12px; }
+    .aic-quota-source { display: inline-flex; align-items: center; min-height: 32px; }
+}
+
+/* 窄屏图标栏：分组标题是唯一的分区线索，不能整块藏掉 */
+@media (max-width: 780px) {
+    .aic-nav-group-head { display: block; padding: 0 0 4px; }
+    .aic-nav-group-head h2 { font-size: 9px; text-align: center; letter-spacing: 0; }
+    .aic-nav-group-badge { display: none; }
+    /* 模型行多了上下文/单价徽标，窄屏允许换行，避免把右侧动作按钮挤出容器 */
+    .aic-list-row { flex-wrap: wrap; row-gap: 4px; }
+    .aic-row-name { max-width: 100%; }
+}
+
+/* 窄屏（图标栏）里分组标题是唯一的分区线索，所以不隐藏，只缩小；
+   模型行标签变多，允许换行，避免把右侧图标挤出 52px 栏。 */
+@media (max-width: 780px) {
+    .aic-nav-group-head { display: block; padding: 0 2px 4px; text-align: center; }
+    .aic-nav-group-head h2 { font-size: 9px; line-height: 1.2; }
+    .aic-nav-group-badge { display: none; }
+    .aic-list-row { flex-wrap: wrap; row-gap: 4px; }
+    .aic-nav-more { font-size: 10px; text-align: center; }
+}

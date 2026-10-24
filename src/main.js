@@ -393,6 +393,17 @@ if (btAiZuciBtn) {
 }
 updateBtAiButtonVisibility();
 
+// ── v3.1.1：块帖笔画拆解条 / "N画" pill 点击 → 动态笔顺演示 ──
+// 多笔画字（爨/麤等）拆解条截断处有 "+N" 徽标提示；点击转发到块内范字格，
+// 由 strokeDemoModal 既有委托接管（零侵入，且尊重"笔顺演示"工具栏开关）。
+document.addEventListener('click', (e) => {
+    const hit = e.target.closest?.('.bt-stroke-strip, .bt-block .bt-info .bt-pill');
+    if (!hit) return;
+    const block = hit.closest?.('.bt-block');
+    const cell = block && block.querySelector('.grid-svg-cell[data-char]');
+    if (cell && getSettings().showStrokeDemo) cell.click();
+});
+
 // 侧栏状态变化（预设模板）时实时重渲染
 // v3.0.7：模板改的是**输入框里的生字**，属于内容变更，必须全量重建
 document.addEventListener('calligraphy:sidebar-updated', () => {

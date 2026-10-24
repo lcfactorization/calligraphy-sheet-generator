@@ -29,7 +29,7 @@
 // 新增可选字段 providerId / baseUrl / modelId / label。**本模块保持纯函数（不写注册表）** ——
 // 自定义引擎的落库由调用方（设置面板）完成，便于单测。
 
-import { PROVIDERS, detectProviderId, getProvider } from './aiProviders.js';
+import { PROVIDERS, listProviders, detectProviderId, getProvider } from './aiProviders.js';
 
 const SK_IMPORT_LABEL = 'DeepSeek（可能为其它 sk- 引擎，请用检测确认）';
 
@@ -145,9 +145,12 @@ function normalizeStructuredItem(raw, source) {
     // v1.5.1：给了 baseUrl 但没给 providerId 时，**先看它是不是某个内置引擎的地址**。
     //   否则「key,https://developer.amd.com.cn/radeon/api/v1,Qwen3.8-27B」这种行
     //   会被当成未知厂商、白白建出一个与内置 radeon 重复的自定义引擎。
+    // v3.1.0：改用 listProviders()（内置 + 生成目录 + 自定义）—— 只认 https、带 baseUrl
+    // 且非 custom 的条目，所以内置 18 家的匹配结果与旧代码逐字节相同，这里只是把
+    // 「地址已内联进目录的新厂商」也认出来，不再白白建重复引擎。
     if (!providerId && safeBaseUrl) {
         const norm = (u) => String(u || '').trim().replace(/\/+$/, '').toLowerCase();
-        const hit = PROVIDERS.find((p) => norm(p.baseUrl) === norm(safeBaseUrl));
+        const hit = listProviders().find((p) => p.baseUrl && !p.custom && norm(p.baseUrl) === norm(safeBaseUrl));
         if (hit) providerId = hit.id;
     }
 
