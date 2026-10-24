@@ -16,7 +16,8 @@
     "verify:catalog": "node scripts/verify-catalog-gate.cjs",
     "pdf": "node puppeteer-pdf.cjs",
     "pdf:help": "node puppeteer-pdf.cjs --help",
-    "pdf:test": "node puppeteer-pdf.cjs --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf"
+    "pdf:test": "node puppeteer-pdf.cjs --text \"床前明月光，疑是地上霜。举头望明月，低头思故乡。\" --output 测试字帖.pdf",
+    "deploy:cf": "node scripts/deploy-cf.cjs"
   },
   "dependencies": {
     "cnchar": "^3.0.0",
