@@ -1,0 +1,3261 @@
+{
+  "origin": "https://calligraphy-sheet-generator.pages.dev",
+  "rows": [
+    {
+      "id": "deepseek",
+      "baseUrl": "https://api.deepseek.com",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 204,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "volcano",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "verified",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zhipu",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 48,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "moonshot",
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 84,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "siliconflow",
+      "baseUrl": "https://api.siliconflow.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 56,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "dashscope",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 254,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 64,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "minimax",
+      "baseUrl": "https://api.minimax.chat/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 232,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "stepfun",
+      "baseUrl": "https://api.stepfun.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 75,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "qianfan",
+      "baseUrl": "https://qianfan.baidubce.com/v2",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 120,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "hunyuan",
+      "baseUrl": "https://api.hunyuan.cloud.tencent.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "unverified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 119,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "unverified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 96,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "sensenova",
+      "baseUrl": "https://token.sensenova.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "unverified",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "agnes",
+      "baseUrl": "https://apihub.agnes-ai.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 108,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "modelscope",
+      "baseUrl": "https://api-inference.modelscope.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "verified",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 99,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "apinex",
+      "baseUrl": "https://api.apinex.bond/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": null,
+      "corsClaim": "failed",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "radeon",
+      "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "unverified",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "302ai",
+      "baseUrl": "https://api.302.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 195,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "abacus",
+      "baseUrl": "https://routellm.abacus.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 91,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "abliteration-ai",
+      "baseUrl": "https://api.abliteration.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "above",
+      "baseUrl": "https://api.above.dev/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "agentrouter",
+      "baseUrl": "https://agentrouter.org/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 196,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ai-router",
+      "baseUrl": "https://api.ai-router.dev/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ai21",
+      "baseUrl": "https://api.ai21.com/studio/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 37,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "aiand",
+      "baseUrl": "https://api.aiand.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "aihubmix",
+      "baseUrl": "https://api.aihubmix.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 109,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ainetcafe",
+      "baseUrl": "https://microquickjs.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 116,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "aixy",
+      "baseUrl": "https://api.aixy-gateway.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "aki-io",
+      "baseUrl": "https://aki.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 122,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 264,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba-cn",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 254,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba-coding-plan",
+      "baseUrl": "https://coding-intl.dashscope.aliyuncs.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba-coding-plan-cn",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba-token-plan",
+      "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "alibaba-token-plan-cn",
+      "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ambient",
+      "baseUrl": "https://api.ambient.xyz/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "amd",
+      "baseUrl": "https://developer.amd.com.cn/radeon/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "anyapi",
+      "baseUrl": "https://api.anyapi.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 91,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "arcee",
+      "baseUrl": "https://api.arcee.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "auriko",
+      "baseUrl": "https://api.auriko.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 207,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "bailing",
+      "baseUrl": "https://api.tbox.cn/api/llm/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 106,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "baseten",
+      "baseUrl": "https://inference.baseten.co/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 50,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "bee",
+      "baseUrl": "https://api.bee.heossi.com/bee",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "berget",
+      "baseUrl": "https://api.berget.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 208,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "blueclaw",
+      "baseUrl": "https://openai.blueclaw.network/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "bothub",
+      "baseUrl": "https://openai.bothub.ru/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 63,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "cerebras",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "chutes",
+      "baseUrl": "https://llm.chutes.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "clarifai",
+      "baseUrl": "https://api.clarifai.com/v2/ext/openai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "claudinio",
+      "baseUrl": "https://api.claudin.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 176,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "cline-pass",
+      "baseUrl": "https://api.cline.bot/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "cloudferro-sherlock",
+      "baseUrl": "https://api-sherlock.cloudferro.com/openai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 9,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "cohere",
+      "baseUrl": "https://api.cohere.com/compatibility/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "coralbricks",
+      "baseUrl": "https://inference.coralbricks.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "cortecs",
+      "baseUrl": "https://api.cortecs.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 84,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "crof",
+      "baseUrl": "https://crof.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "crossmodel",
+      "baseUrl": "https://api.crossmodel.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 108,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "crusoe",
+      "baseUrl": "https://api.inference.crusoecloud.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "daoxe",
+      "baseUrl": "https://daoxe.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "digitalocean",
+      "baseUrl": "https://inference.do-ai.run/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "dinference",
+      "baseUrl": "https://api.dinference.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 154,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "drun",
+      "baseUrl": "https://chat.d.run/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 138,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ebcloud",
+      "baseUrl": "https://maas-api.ebcloud.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 154,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "echo",
+      "baseUrl": "https://echo.tracerml.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "edenai",
+      "baseUrl": "https://api.edenai.run/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "empiriolabs",
+      "baseUrl": "https://api.empiriolabs.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 135,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "engy",
+      "baseUrl": "https://api.engy.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 93,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "evroc",
+      "baseUrl": "https://models.think.evroc.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "fastrouter",
+      "baseUrl": "https://go.fastrouter.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 221,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "fireworks-ai",
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 404,
+      "bodyLen": 181,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "freemodel",
+      "baseUrl": "https://cc.freemodel.dev/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "friendli",
+      "baseUrl": "https://api.friendli.ai/serverless/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "frogbot",
+      "baseUrl": "https://app.frogbot.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 24,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "github-copilot",
+      "baseUrl": "https://api.githubcopilot.com",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 53,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "gmicloud",
+      "baseUrl": "https://api.gmi-serving.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 404,
+      "bodyLen": 47,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "google",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 119,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "greenpt",
+      "baseUrl": "https://api.greenpt.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "helicone",
+      "baseUrl": "https://ai-gateway.helicone.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "hetzner",
+      "baseUrl": "https://inference.hetzner.com/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 24,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "hpc-ai",
+      "baseUrl": "https://api.hpc-ai.com/inference/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "huggingface",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 41,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "hyper",
+      "baseUrl": "https://hyper.charm.land/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "iflowcn",
+      "baseUrl": "https://apis.iflow.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 200,
+      "bodyLen": 86,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "impossibl",
+      "baseUrl": "https://api.impossibl.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "inception",
+      "baseUrl": "https://api.inceptionlabs.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 421,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "inceptron",
+      "baseUrl": "https://api.inceptron.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "inco",
+      "baseUrl": "https://api.inco.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 167,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "infer",
+      "baseUrl": "https://infer.flow7.org/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "inference",
+      "baseUrl": "https://inference.net/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "inferx",
+      "baseUrl": "https://model.inferx.net/endpoints/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "io-net",
+      "baseUrl": "https://api.intelligence.io.solutions/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "iteracompute",
+      "baseUrl": "https://api.iteracompute.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TimeoutError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "jalapeno",
+      "baseUrl": "https://api.jalapeno-cloud.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "jiekou",
+      "baseUrl": "https://api.jiekou.ai/openai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 96,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kenari",
+      "baseUrl": "https://kenari.id/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 11,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kilo",
+      "baseUrl": "https://api.kilo.ai/api/gateway",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kimi-code-plan-cn",
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kimi-code-plan-global",
+      "baseUrl": "https://api.kimi.ai/coding/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "klokintegration",
+      "baseUrl": "https://api-gw.klok.ipaas.se/proxy/kloker-key/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kosmik",
+      "baseUrl": "https://api.koscompute.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "kuae-cloud-coding-plan",
+      "baseUrl": "https://coding-plan-endpoint.kuaecloud.net/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "lilac",
+      "baseUrl": "https://api.getlilac.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "llama",
+      "baseUrl": "https://api.llama.com/compat/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 112,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "llmgateway",
+      "baseUrl": "https://api.llmgateway.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "llmgateway-providers",
+      "baseUrl": "https://api.llmgateway.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "llmtech",
+      "baseUrl": "https://api.llmtech.eu/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "llmtr",
+      "baseUrl": "https://llmtr.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "longcat",
+      "baseUrl": "https://api.longcat.chat/openai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "lucidquery",
+      "baseUrl": "https://api.lucidquery.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "meganova",
+      "baseUrl": "https://api.meganova.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 186,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "melious",
+      "baseUrl": "https://api.melious.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "merge-gateway",
+      "baseUrl": "https://api-gateway.merge.dev/v1/ai-sdk",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "meta",
+      "baseUrl": "https://api.meta.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 104,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "minimax-cn",
+      "baseUrl": "https://api.minimax.cn/anthropic/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "minimax-cn-coding-plan",
+      "baseUrl": "https://api.minimax.cn/anthropic/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "minimax-coding-plan",
+      "baseUrl": "https://api.minimax.io/anthropic/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "mistral",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 29,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "mixlayer",
+      "baseUrl": "https://models.mixlayer.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "moark",
+      "baseUrl": "https://moark.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 71,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "modal",
+      "baseUrl": "https://inference.us-west.modal.direct/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "model-oracle-ai",
+      "baseUrl": "https://api.modeloracle.com/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 73,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "modelis",
+      "baseUrl": "https://modelishub.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 116,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "moonshotai",
+      "baseUrl": "https://api.moonshot.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 84,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "moonshotai-cn",
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 84,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "morph",
+      "baseUrl": "https://api.morphllm.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nan",
+      "baseUrl": "https://api.nan.builders/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 88,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nano-gpt",
+      "baseUrl": "https://nano-gpt.com/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 102,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nearai",
+      "baseUrl": "https://cloud-api.near.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 100,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nebius",
+      "baseUrl": "https://api.tokenfactory.nebius.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 63,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "neosmith",
+      "baseUrl": "https://router.neosmith.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "neuralwatt",
+      "baseUrl": "https://api.neuralwatt.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 94,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nova",
+      "baseUrl": "https://api.nova.amazon.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "novita-ai",
+      "baseUrl": "https://api.novita.ai/openai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 95,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "nvidia",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "oci",
+      "baseUrl": "https://inference.generativeai.us-chicago-1.oci.oraclecloud.com/openai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 178,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ofox",
+      "baseUrl": "https://api.ofox.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ollama-cloud",
+      "baseUrl": "https://ollama.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "opencode",
+      "baseUrl": "https://opencode.ai/zen/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "opencode-go",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "openreason",
+      "baseUrl": "https://api.openreason.app/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "opper",
+      "baseUrl": "https://api.opper.ai/v3/compat",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 536,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "orcarouter",
+      "baseUrl": "https://api.orcarouter.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 133,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "ovhcloud",
+      "baseUrl": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 180,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "pareto",
+      "baseUrl": "https://api.paretoinference.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "pendra",
+      "baseUrl": "https://api.pendra.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "perplexity",
+      "baseUrl": "https://api.perplexity.ai",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 129,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "perplexity-agent",
+      "baseUrl": "https://api.perplexity.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "pioneer",
+      "baseUrl": "https://api.fastino.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "poe",
+      "baseUrl": "https://api.poe.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 167,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "poolside",
+      "baseUrl": "https://inference.poolside.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 50,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "qihang-ai",
+      "baseUrl": "https://api.qhaigc.net/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 99,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "qiniu-ai",
+      "baseUrl": "https://api.qnaigc.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 189,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "regolo-ai",
+      "baseUrl": "https://api.regolo.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "requesty",
+      "baseUrl": "https://router.requesty.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 70,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "routing-run",
+      "baseUrl": "https://api.routing.run/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 89,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "runinfra",
+      "baseUrl": "https://api.runinfra.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "HOST-UNREACHABLE",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "sakana",
+      "baseUrl": "https://api.sakana.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "sarvam",
+      "baseUrl": "https://api.sarvam.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 161,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "scaleway",
+      "baseUrl": "https://api.scaleway.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "scnet-token-plan",
+      "baseUrl": "https://api.scnet.cn/api/llm/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "scx-ai",
+      "baseUrl": "https://api.scx.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "siliconflow-cn",
+      "baseUrl": "https://api.siliconflow.cn/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 56,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "stackit",
+      "baseUrl": "https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "standardcompute",
+      "baseUrl": "https://api.stdcmpt.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 74,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "stepfun-ai",
+      "baseUrl": "https://api.stepfun.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "stepfun-ai-step-plan",
+      "baseUrl": "https://api.stepfun.ai/step_plan/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "stepfun-step-plan",
+      "baseUrl": "https://api.stepfun.com/step_plan/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 75,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "subconscious",
+      "baseUrl": "https://api.subconscious.dev/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "submodel",
+      "baseUrl": "https://llm.submodel.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 94,
+      "reachable": {
+        "ok": false,
+        "error": "TypeError"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "synthetic",
+      "baseUrl": "https://api.synthetic.new/openai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 28,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tempr",
+      "baseUrl": "https://api.temprhq.io/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tencent-coding-plan",
+      "baseUrl": "https://api.lkeap.cloud.tencent.com/coding/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 145,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tencent-token-plan",
+      "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 145,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tencent-tokenhub",
+      "baseUrl": "https://tokenhub.tencentmaas.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tensorx",
+      "baseUrl": "https://api.tensorx.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 127,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "the-grid-ai",
+      "baseUrl": "https://api.thegrid.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 119,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "thinkingmachines",
+      "baseUrl": "https://tinker.thinkingmachines.dev/services/tinker-prod/anthropic/api/v1",
+      "chatPath": "/messages",
+      "protocol": "anthropic",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tinfoil",
+      "baseUrl": "https://inference.tinfoil.sh/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 404,
+      "bodyLen": 162,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "togetherai",
+      "baseUrl": "https://api.together.xyz/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 265,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tokengo",
+      "baseUrl": "https://api.tokengo.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 118,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "tokenrouter",
+      "baseUrl": "https://api.tokenrouter.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "trustedrouter",
+      "baseUrl": "https://api.trustedrouter.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "umans-ai",
+      "baseUrl": "https://api.code.umans.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "umans-ai-coding-plan",
+      "baseUrl": "https://api.code.umans.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "unorouter",
+      "baseUrl": "https://api.unorouter.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 116,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "upstage",
+      "baseUrl": "https://api.upstage.ai/v1/solar",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 305,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "vancine",
+      "baseUrl": "https://vancine.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 116,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "vercel",
+      "baseUrl": "https://ai-gateway.vercel.sh/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "vispark",
+      "baseUrl": "https://api.lab.vispark.in/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 500,
+      "bodyLen": 100,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "vivgrid",
+      "baseUrl": "https://api.vivgrid.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "volcengine",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "volcengine-coding-plan",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "vultr",
+      "baseUrl": "https://api.vultrinference.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 113,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "wafer.ai",
+      "baseUrl": "https://pass.wafer.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "wallaby",
+      "baseUrl": "https://api.wallabytoken.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 116,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "wandb",
+      "baseUrl": "https://api.inference.wandb.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 102,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xai",
+      "baseUrl": "https://api.x.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 400,
+      "bodyLen": 118,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xiaomi",
+      "baseUrl": "https://api.xiaomimimo.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 165,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xiaomi-token-plan-ams",
+      "baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 165,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xiaomi-token-plan-cn",
+      "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 165,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xiaomi-token-plan-sgp",
+      "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 165,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "xpersona",
+      "baseUrl": "https://www.xpersona.co/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 104,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zai",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zai-coding-plan",
+      "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zeldoc",
+      "baseUrl": "https://api.zeldoc.ai/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 121,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zenifra",
+      "baseUrl": "https://ai.zenifra.com/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "NEEDS-KEY",
+      "error": "Failed to fetch",
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zenmux",
+      "baseUrl": "https://zenmux.ai/api/v1",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 403,
+      "bodyLen": 176,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zhipuai",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 48,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    },
+    {
+      "id": "zhipuai-coding-plan",
+      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "chatPath": "/chat/completions",
+      "protocol": "openai",
+      "modelsPath": "/models",
+      "corsClaim": "candidate",
+      "verdict": "DIRECT-CONFIRMED",
+      "status": 401,
+      "bodyLen": 48,
+      "reachable": {
+        "ok": true,
+        "type": "opaque"
+      },
+      "probedAt": "2026-10-09"
+    }
+  ]
+}

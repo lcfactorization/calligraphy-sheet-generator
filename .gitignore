@@ -95,3 +95,21 @@ _tmp_html2md/
 _shots/
 _touch_layout_report/
 _touch_layout_report_v297/
+
+# v3.1.0：AI 厂商目录流水线
+#   _catalog_snapshot/（models.dev 快照 5.4MB，天天变，一条命令可重取）与
+#   一次性浏览器取证的原始终稿（*.txt 正文 + 运行日志）不入库；
+#   _provider_direct_probe/report.{json,md} 与 scripts/provider-catalog-override.json 必须入库 ——
+#   产物里"实测可直连""免费额度"的唯一凭据就是这两份，删掉它们等于让生成物变成无法复核的断言。
+_catalog_snapshot/
+_free_quota_docs/
+_free_quota_docs_run*.log
+_provider_direct_probe_run*.log
+_catalog_gate_fixture/
+
+# v3.1.2：红基线快照与本地 e2e 产物不入库
+_prefix_dist_snapshot/
+/e2e-bt.json
+/e2e-classic.json
+/e2e-classic.pdf
+/_v312_*.log
