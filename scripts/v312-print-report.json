@@ -1,13 +1,13 @@
 {
-  "version": "3.1.2",
+  "version": "3.1.3",
   "mode": "root",
   "root": "C:\\poem2pdf\\distribution\\dist",
-  "generatedAt": "2026-10-25T02:59:37.772Z",
+  "generatedAt": "2026-10-25T04:36:22.125Z",
   "summary": {
-    "pass": 21,
+    "pass": 30,
     "fail": 0,
     "warn": 0,
-    "total": 21
+    "total": 30
   },
   "colors": {
     "C1": {
@@ -246,6 +246,13 @@
       "via": "/Count (max of 1)",
       "btPages": 2,
       "printSections": 0
+    },
+    "C7": {
+      "pages": 2,
+      "via": "/Count (max of 1)",
+      "btPages": 2,
+      "printFrames": 0,
+      "printSections": 0
     }
   },
   "rows": [
@@ -388,6 +395,69 @@
       "observed": "24 行；横 0.270mm vs 竖 0.270mm；边界最厚 0.270mm；叠粗 0 处；边标 [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B]",
       "expected": "边界 ≤ 1.05×单条；横竖差 ≤ 5%",
       "note": ""
+    },
+    {
+      "name": "C7-pre 负控：移动端 UA + classic 命中 printViaIframe（iframe.print-frame ≥ 1）",
+      "status": "PASS",
+      "observed": "iframe.print-frame=1",
+      "expected": "≥ 1",
+      "note": "负控自证 iPhone 仿真确实命中移动端 UA 路由；负控不成立则 C7 主体判据失效"
+    },
+    {
+      "name": "C7-pre 负控：主窗口 window.print 未被调用（__printCalled=false）",
+      "status": "PASS",
+      "observed": "__printCalled=false",
+      "expected": "false",
+      "note": "__printCalled 桩只注入主窗口 —— iframe 路由不应触碰主窗口 print"
+    },
+    {
+      "name": "C7a 移动端块帖走主窗口原生 window.print（__printCalled=true）",
+      "status": "PASS",
+      "observed": "__printCalled=true",
+      "expected": "true",
+      "note": "v3.1.3：块帖早退分支先于移动端 UA 路由返回，不经 printViaIframe"
+    },
+    {
+      "name": "C7b 无 iframe.print-frame（块帖不经 printViaIframe）",
+      "status": "PASS",
+      "observed": "iframe.print-frame=0",
+      "expected": "0",
+      "note": ""
+    },
+    {
+      "name": "C7c 移动端块帖不得产生 .print-page-section",
+      "status": "PASS",
+      "observed": "print-page-section=0",
+      "expected": "0",
+      "note": ""
+    },
+    {
+      "name": "C7d 零 DOM 改造（.bt-page 前后均 2；.bt-sheet 父节点=grid-container；无 .a4-page.pdf-print-wrapper）",
+      "status": "PASS",
+      "observed": "btPages before=2 after=2；bt-sheet.parent=#grid-container；wrapper=0",
+      "expected": "btPages=2；parent=grid-container；wrapper=0",
+      "note": "块帖零 DOM 改造 —— 「wrapper 被 cleanup 销毁」失效模式对块帖不适用"
+    },
+    {
+      "name": "C7e 打印态首 .bt-page 几何 296×210mm（±0.3）",
+      "status": "PASS",
+      "observed": "h=295.998mm w=209.999mm",
+      "expected": "296×210mm（±0.3）",
+      "note": "@page margin:0 + .bt-page 210×296mm/padding 10mm（v3.1.2 打印几何）"
+    },
+    {
+      "name": "C7f page.pdf 页数 == .bt-page 数（iPhone 仿真）",
+      "status": "PASS",
+      "observed": "2 页（via /Count (max of 1)） vs .bt-page=2（生成前 2）",
+      "expected": "两者相等",
+      "note": "块帖每页 6 块，12 字 → 2 页"
+    },
+    {
+      "name": "C7g CSSOM 存在 margin 全 0 的 @page（移动端同样禁浏览器页眉页脚）",
+      "status": "PASS",
+      "observed": "margin=0px size=a4 portrait | margin=0px size=a4 portrait",
+      "expected": "存在 margin 全 0 的 @page",
+      "note": "共 2 条 CSSPageRule（与 C5c 同一递归 walk 判据）"
     },
     {
       "name": "Z1 全程无未捕获页面异常",

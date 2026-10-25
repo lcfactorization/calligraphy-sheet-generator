@@ -70,9 +70,9 @@ const PINYIN_FONT_FAMILY = 'TeXGyreAdventor, serif';
 const STROKE_PILL_UNIT = '画';
 
 // ── v3.1.1 显式分页常量（§12.A 冻结值；@page 边距契约在 block-table.css 打印段）──
-// A4 纵向内容区高 = 297mm − 2 × @page margin 10mm = 277mm。
-// 屏幕态 .bt-page 是 297mm 纸张卡片（10mm 内边距 = @page 镜像），内容盒同为 277mm；
-// 打印态 .bt-page 高直接冻结 277mm。守卫预算一律按内容盒 277mm 计（§12.A.1）。
+// v3.1.2 起 @page margin:0，页边距由 .bt-page 自身 padding 提供：
+// 打印态 .bt-page=210×296mm+padding 10mm→内容盒 190×276mm；屏幕态 297mm 卡片+10mm→内容盒 277mm。
+// 本常量取屏幕内容盒（恒等），较打印内容盒保守 1mm，守卫预算 277−2=275mm 对两种媒介同时成立。
 const BT_PAGE_CONTENT_MM = 277;
 // 每页块数（契约 blocksPerPage，v3.1.1 用户指令：每页 6 个生字，覆盖早前"实测两档"与
 // "固定 5 块"设计）；首页（含压缩页头）与后续页一律 6 块，末页以空块补满到 6。
@@ -606,8 +606,9 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
  * visibility:hidden + left:-9999px），内部为与正式渲染**完全同构**的
  * .bt-sheet（注入同一组 --bt-* 变量）> .bt-page，放入页头与一个标准块
  * （asyncFills:false，不触发笔画异步队列），getBoundingClientRect 实测：
- *   - 页内容盒高   = .bt-page 盒高 − 上下 padding（屏幕卡片 297mm − 2×10mm
- *                   内边距 = 277mm，与打印内容区 @page A4 − 2×10mm 恒等）
+ *   - 页内容盒高   = .bt-page 盒高 − 上下 padding（屏幕卡片 297mm − 2×10mm = 277mm；
+ *                   v3.1.2 打印态为 .bt-page 296mm − 2×10mm = 276mm（@page margin:0），
+ *                   守卫按 275mm 预算对两者皆保守）
  *   - 页头足迹     = 页头盒高 + margin-bottom（line-height 定值，不依赖字体度量）
  *   - 标准块足迹   = 块盒高 + margin-bottom（块几何全为 mm 定值，结果确定）
  * 守卫判据：页头足迹 + BT_BLOCKS_PER_PAGE × 块足迹 ≤ 内容盒 − 2mm（275mm）。

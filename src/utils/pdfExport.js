@@ -392,26 +392,6 @@ export async function printDirect() {
         fontName: _fontName
     });
 
-    // v2.9.0：移动端 UA 路由（含 iPadOS 13+ 触屏判定）
-    // 根因：移动端打印管线异步读取实时 DOM，cleanup 永远先于分页渲染执行，
-    //       含页眉页脚的 wrapper 被销毁后管线读到的是屏幕态 DOM（无页眉页脚）
-    // 桌面 print() 模态阻塞无此问题，维持现有路径零退化
-    const _isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-    const _mobileUA = _isIPadOS || (
-        /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(_ua)
-        && !/Windows NT|Macintosh|CrOS|X11/i.test(_ua)
-    );
-    if (_mobileUA) {
-        try {
-            return await printViaIframe();
-        } catch (e) {
-            console.error('[pdfExport] iframe 打印路径异常，回退到就地打印:', e);
-            // 清理可能已创建的 iframe（防泄漏）
-            document.querySelectorAll('iframe.print-frame').forEach(f => f.remove());
-            // 继续执行下面的现有 printDirect 逻辑作为降级
-        }
-    }
-
     const platform = detectPlatform();
     const grid = document.getElementById('grid-container');
     if (!grid) {
@@ -425,8 +405,20 @@ export async function printDirect() {
         return;
     }
 
+    // v2.9.0：移动端 UA 路由（含 iPadOS 13+ 触屏判定）
+    // 根因：移动端打印管线异步读取实时 DOM，cleanup 永远先于分页渲染执行，
+    //       含页眉页脚的 wrapper 被销毁后管线读到的是屏幕态 DOM（无页眉页脚）
+    // 桌面 print() 模态阻塞无此问题，维持现有路径零退化
+    // v3.1.3：块帖版式在下方早退分支先行返回，不进 iframe —— 块帖零 DOM 改造，本路由针对的『wrapper 被 cleanup 销毁』失效模式对块帖不适用
+    const _isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const _mobileUA = _isIPadOS || (
+        /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(_ua)
+        && !/Windows NT|Macintosh|CrOS|X11/i.test(_ua)
+    );
+
     // ════════════════════════════════════════════════════════════════
     // v3.1.2：块帖（block-table）版式专用早退分支
+    // v3.1.3：本分支必须先于移动端 UA 路由 —— 块帖在移动端与桌面统一走原生 window.print + .bt-page 显式分页（@page margin:0）
     // ════════════════════════════════════════════════════════════════
     // 根因：下面的分页逻辑按 .page-break 行分组，再包进 .print-page-section。
     //   块帖**没有** .page-break 行 —— 它自己用 .bt-page 显式分页。
@@ -437,13 +429,10 @@ export async function printDirect() {
     const isBlockTableLayout =
         grid.dataset.layout === 'block-table' || !!grid.querySelector('.bt-page');
     if (isBlockTableLayout) {
-        const _btUA = navigator.userAgent || '';
-        const _btIsMobileUA = /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(_btUA)
-            && !/Windows NT|Macintosh|CrOS|X11/i.test(_btUA);
         console.log('[pdfExport] printDirect 块帖路径：跳过 .print-page-section 包装，直接 window.print()');
         try {
             const btOverlay = showLoadingOverlay();
-            if (_btIsMobileUA) showToast('正在准备打印…', 1500);
+            if (_mobileUA) showToast('正在准备打印…', 1500);
             waitForFonts().then(async () => {
                 await waitForStrokes(2000);
                 await new Promise(r => setTimeout(r, 300));
@@ -465,6 +454,17 @@ export async function printDirect() {
             showToast('打印时出错: ' + error.message, 4000);
         }
         return;
+    }
+
+    if (_mobileUA) {
+        try {
+            return await printViaIframe();
+        } catch (e) {
+            console.error('[pdfExport] iframe 打印路径异常，回退到就地打印:', e);
+            // 清理可能已创建的 iframe（防泄漏）
+            document.querySelectorAll('iframe.print-frame').forEach(f => f.remove());
+            // 继续执行下面的现有 printDirect 逻辑作为降级
+        }
     }
 
     // 读取页眉页脚内容

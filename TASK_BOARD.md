@@ -219,3 +219,19 @@
   | A 实施 | 颜色变量链路 + 打印页几何 + 块帖打印守卫 | `src/components/GridEngine.js`、`src/components/BlockTableEngine.js`、`src/modules/settingsCenter.js`、`src/styles/grid-svg.css`、`src/styles/print.css`、`src/styles/block-table.css`、`src/utils/pdfExport.js`、`puppeteer-pdf.cjs`、`puppeteer-server.cjs` |
   | B 验收/文档 | 独立关口 + 红/绿基线 + 四份文档 | `scripts/verify-v312-print.cjs`、`CHANGELOG.md`、`README.md`、`README_EN.md`、本看板 |
 - **不变量**:Puppeteer 导出路径几何不变(`@page` 12/15.9/16/15.9mm 覆盖仍在,块帖注入 `--bt-print-page-h:269mm`/`--bt-print-pad:0`);绿色预设 PDF 颜色算子直方图与 v3.1.1 逐项相同;字格 16.2mm / 辅助行 5.4mm / 11 格 × 11 行原样。
+
+### v3.1.3 — 移动端块帖打印路由修复(已完成)(2026-10-25)
+
+- **状态**:**完成** —— 根因/修复/验证三段式见 [CHANGELOG](./CHANGELOG.md#v313-2026-10-25--移动端块帖打印路由修复)
+- **规格依据**:监督员冻结规格(多智能体任务书) —— `printDirect` 内块帖早退分支前移至
+  v2.9.0 移动端 UA 路由之前,块帖移动端与桌面统一走原生 `window.print()` + `.bt-page`
+  显式分页(`@page margin:0`),不再进 `printViaIframe`
+- **验收命令**:`node scripts/verify-v312-print.cjs`(默认 `--root dist`;报告写 `scripts/v312-print-report.json`,退出码 0 = 全通过)
+  - **红基线**(修复前构建快照 `_pre_v313_dist_snapshot/`):**28 passed / 2 failed** —— C7a FAIL(`__printCalled=false`,块帖未走主窗口原生打印)、C7b FAIL(`iframe.print-frame=1`,进了移动端 iframe 管线);C7c 观测 0 属预期(section 建在 iframe 文档内,主文档查询不可见,判别由 C7a/C7b 承担)
+  - **绿基线**(修复后 `dist/`):**30/30 PASS**,退出码 0 —— 含 C7-pre 负控(移动端 UA + classic 必须仍命中 printViaIframe 且主窗口 print 未被调,防恒真)与 C7a~C7g 七断言(iPhone 13 仿真:原生 window.print 命中 / 零 iframe / 零 section / 零 DOM 改造 / `.bt-page` 296×210mm / PDF 2 页 == `.bt-page` / `@page` margin 0);另 `npm run verify:blocktable` **56/56**、`npm run verify:touch` **50/50**、`vite build` 864 模块 0 错
+- **分工**:
+  | Agent | 职责 | 独占文件 |
+  |:------|:-----|:--------|
+  | A 实施 | printDirect 路由前移 + toast 判定统一 + BlockTableEngine 注释同步 + verify 脚本 C7 组与死代码清理 | `src/utils/pdfExport.js`、`src/components/BlockTableEngine.js`、`scripts/verify-v312-print.cjs` |
+  | B 验收/文档 | C7 组红绿双基线 + 版本号与四文档 | `scripts/v312-print-report.json`、`scripts/block-table-report.json`、`package.json`、`index.html`、`README.md`、`CHANGELOG.md`、本看板、`.gitignore` |
+- **不变量**:经典三路径零变化(桌面经典 / 桌面块帖 / 移动经典逐字节不变;唯一已知边缘差异 = 移动端经典在 grid 缺失/输入为空时改由 printDirect 守卫 alert);Puppeteer 几何零变化;`block-table.css` / `print.css` 零改动。

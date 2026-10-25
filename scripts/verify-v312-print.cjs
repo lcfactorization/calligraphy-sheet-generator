@@ -34,6 +34,12 @@
 //      g) 真实 printDirect 链路确实执行过（window.print 被 stub 调用，不是自造 DOM）
 //   C5 块帖打印：.bt-page 自承担分页，点击 #printBtn 后**不得**产生 .print-page-section；
 //      page.pdf() 页数 == .bt-page 数（若实现尚未守卫该路径，如实报 FAIL，不改断言）
+//   C7 移动端打印路由（v3.1.3，iPhone 13 仿真）：
+//      C7-pre 负控 classic+移动端 UA 必须命中 printViaIframe（iframe.print-frame ≥1 且
+//      主窗口 __printCalled=false，桩只注入主窗口）；C7 主体 block-table+移动端 UA 必须
+//      走块帖早退分支的原生 window.print（__printCalled=true、零 iframe、零
+//      .print-page-section、零 DOM 改造、打印态 .bt-page 296×210mm、page.pdf 页数 ==
+//      .bt-page 数、CSSOM 存在 margin 全 0 的 @page）
 //
 // PDF 取证细节（为什么不用现成库）：零依赖要求 → 自己走 stream…endstream 分块，
 //   逐块 zlib.inflateSync，只解析「像内容流」的块（可打印字符占比 > 0.9，排除字体
@@ -368,7 +374,7 @@ function measurePrintInPage() {
         bodyClasses: document.body.className
     };
 }
-/** 块帖打印取证（C5）：.bt-page 数 / .print-page-section 数 / 是否被 printDirect 接管 */
+/** 块帖打印取证（C5/C7）：.bt-page 数 / .print-page-section 数 / 是否被 printDirect 接管 */
 function measureBtPrintInPage() {
     const px2mm = (px) => px / (96 / 25.4);
     const bts = Array.from(document.querySelectorAll('.bt-page'));
@@ -376,6 +382,9 @@ function measureBtPrintInPage() {
         btPages: bts.length,
         btBlocks: document.querySelectorAll('.bt-block[data-char]').length,
         printSections: document.querySelectorAll('.print-page-section').length,
+        // v3.1.3：移动端 UA 路由走 printViaIframe 时会在主文档常驻 iframe.print-frame
+        //（仅 pagehide/下次打印清理）——C7 用「打印后 iframe 数 == 0」证明块帖没进该路由
+        printFrames: document.querySelectorAll('iframe.print-frame').length,
         btHeights: bts.map(p => px2mm(p.getBoundingClientRect().height)),
         printCalled: !!window.__printCalled
     };
@@ -389,9 +398,16 @@ let pageUrlBase = '';        // 模式 ①：静态服务地址；模式 ②：h
 let startedServerChild = null;
 let staticServer = null;
 
-async function newPage({ stubPrint = false } = {}) {
+async function newPage({ stubPrint = false, mobile = false } = {}) {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1400, height: 1000 });
+    if (mobile) {
+        // v3.1.3：移动端仿真（iPhone 13：390×844 / dsf3 / iOS Safari UA / touch）。
+        // 必须在导航前 emulate，printDirect 首帧的移动端 UA 路由判定才会命中；
+        // 本机 puppeteer 23.11.1 实测 KnownDevices 可用。
+        await page.emulate(puppeteer.KnownDevices['iPhone 13']);
+    } else {
+        await page.setViewport({ width: 1400, height: 1000 });
+    }
     if (stubPrint) {
         // 必须在导航前注入：真实 printDirect 代码路径照跑，只是不弹对话框
         await page.evaluateOnNewDocument(() => {
@@ -762,18 +778,6 @@ async function checkBtPrint() {
             const PX2MM = 25.4 / 96;
             // 注意：必须按 .bt-block 分组 —— 块与块之间有 5mm 块距，跨块的「上一块末行下边 +
             // 下一块首行上边」本来就不相邻，混在一起算会把正常块距误判成「叠粗」。
-            const measureRowsIn = (root) => [...root.querySelectorAll('.bt-main .bt-row')].map(row => {
-                const svg = row.querySelector('.grid-svg-row-border');
-                if (!svg) return null;
-                const r = svg.getBoundingClientRect();
-                const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
-                const sx = r.width / vb[2], sy = r.height / vb[3];
-                const rects = [...svg.querySelectorAll('rect')];
-                const isEdge = (x) => +x.getAttribute('width') > 10;   // 横边（宽度跨整行）
-                const top = rects.some(x => isEdge(x) && +x.getAttribute('y') === 0 && +x.getAttribute('height') === 2);
-                const bottom = rects.some(x => isEdge(x) && +x.getAttribute('y') === 98 && +x.getAttribute('height') === 2);
-                return { hMm: 2 * sy * PX2MM, vMm: 2 * sx * PX2MM, top, bottom };
-            }).filter(Boolean);
             const summarize = (rows) => {
                 if (!rows.length) return null;
                 const singleH = rows[0].hMm, singleV = rows[0].vMm;
@@ -837,6 +841,148 @@ async function checkBtPrint() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// C7（v3.1.3）：移动端打印路由（iPhone 13 仿真）
+//   修复契约：printDirect 内块帖早退分支必须前移到移动端 UA 路由之前 ——
+//   块帖在移动端与桌面统一走原生 window.print + .bt-page 显式分页（@page margin:0），
+//   不经 printViaIframe（块帖零 DOM 改造，「wrapper 被 cleanup 销毁」失效模式不适用）。
+//   · C7-pre 负控：classic + 移动端 UA → 必须仍命中 printViaIframe
+//     （iframe.print-frame ≥1，且主窗口 __printCalled=false —— 桩只注入主窗口）
+//   · C7 主体：block-table + 移动端 UA → 零 iframe / 零 section / 零 DOM 改造 /
+//     打印态 .bt-page 296×210mm / page.pdf 页数 == .bt-page 数 / @page margin 全 0
+// ════════════════════════════════════════════════════════════════════════
+async function checkMobilePrintRouting() {
+    // ── C7-pre：负控（classic + iPhone 仿真 → 移动端路由必须仍然可达）──
+    {
+        const page = await newPage({ stubPrint: true, mobile: true });
+        try {
+            await openWithSettings(page, { layoutType: 'classic', gridColorPreset: 'red', gridType: 'mizi', traceOpacity: 0.1 });
+            const g = await generateAndSettle(page, TEXT_10, '.grid-svg-cell');
+            if (!g.ok) {
+                check('C7-pre 生成成功（classic 10 字，iPhone 仿真）', false, g.why || g, '渲染完成');
+            } else {
+                await page.emulateMediaType('print');
+                await page.evaluate(() => document.getElementById('printBtn').click());
+                const appeared = await page.waitForFunction(
+                    () => document.querySelectorAll('iframe.print-frame').length > 0,
+                    { timeout: 12000, polling: 300 }
+                ).then(() => true).catch(() => false);
+                const m = await page.evaluate(() => ({
+                    frames: document.querySelectorAll('iframe.print-frame').length,
+                    printCalled: !!window.__printCalled
+                }));
+                check('C7-pre 负控：移动端 UA + classic 命中 printViaIframe（iframe.print-frame ≥ 1）',
+                    appeared && m.frames >= 1,
+                    `iframe.print-frame=${m.frames}${appeared ? '' : '（12s 内未出现）'}`, '≥ 1',
+                    '负控自证 iPhone 仿真确实命中移动端 UA 路由；负控不成立则 C7 主体判据失效');
+                check('C7-pre 负控：主窗口 window.print 未被调用（__printCalled=false）',
+                    m.printCalled === false, `__printCalled=${m.printCalled}`, 'false',
+                    '__printCalled 桩只注入主窗口 —— iframe 路由不应触碰主窗口 print');
+            }
+        } finally {
+            await page.close().catch(() => {});
+        }
+    }
+
+    // ── C7 主体：block-table + iPhone 仿真 → 块帖早退分支先行返回，不进 iframe ──
+    {
+        const page = await newPage({ stubPrint: true, mobile: true });
+        try {
+            await openWithSettings(page, { layoutType: 'block-table', gridColorPreset: 'red', gridType: 'mizi', traceOpacity: 0.1 });
+            const g = await generateAndSettle(page, TEXT_BT_12, '.bt-block');
+            if (!g.ok) { check('C7 生成成功（block-table 12 字，iPhone 仿真）', false, g.why || g, '渲染完成'); return; }
+            const before = await page.evaluate(measureBtPrintInPage);
+
+            await page.emulateMediaType('print');
+            await page.evaluate(() => document.getElementById('printBtn').click());
+            await sleep(3500);      // 等字体/笔画等待链走完（waitForFonts + waitForStrokes(2000) + 300ms + 双 rAF）
+            const after = await page.evaluate(measureBtPrintInPage);
+            const pdf = Buffer.from(await page.pdf({ displayHeaderFooter: false, preferCSSPageSize: true, format: 'a4' }));
+            const pg = countPdfPages(pdf);
+            summary.pages.C7 = { ...pg, btPages: after.btPages, printFrames: after.printFrames, printSections: after.printSections };
+
+            // 结构/几何取证（C7d/C7e 的补充数据；print 媒体下 block-table.css 的
+            // transform:none !important 已还原窄屏缩放，量测为 1:1 物理尺寸）
+            const dom = await page.evaluate(() => {
+                const px2mm = (px) => px * 25.4 / 96;
+                const sheet = document.querySelector('.bt-sheet');
+                const p0 = document.querySelector('.bt-page');
+                const r = p0 ? p0.getBoundingClientRect() : null;
+                return {
+                    sheetParentId: sheet && sheet.parentElement ? sheet.parentElement.id : '(无)',
+                    wrappers: document.querySelectorAll('.a4-page.pdf-print-wrapper').length,
+                    pageWmm: r ? px2mm(r.width) : NaN
+                };
+            });
+
+            // a) 真实 printDirect 块帖路径已执行（主窗口 window.print 被 stub 调用；
+            //    旧构建移动端 UA 下先进 printViaIframe，主窗口 print 不被调用 → 翻红）
+            check('C7a 移动端块帖走主窗口原生 window.print（__printCalled=true）',
+                after.printCalled === true, `__printCalled=${after.printCalled}`, 'true',
+                'v3.1.3：块帖早退分支先于移动端 UA 路由返回，不经 printViaIframe');
+            // b) 零 iframe（旧构建 printViaIframe 常驻一个 iframe.print-frame → 翻红）
+            check('C7b 无 iframe.print-frame（块帖不经 printViaIframe）',
+                after.printFrames === 0, `iframe.print-frame=${after.printFrames}`, '0');
+            // c) 零 .print-page-section
+            check('C7c 移动端块帖不得产生 .print-page-section',
+                after.printSections === 0, `print-page-section=${after.printSections}`, '0');
+            // d) 零 DOM 改造：页数不变、.bt-sheet 仍在 #grid-container 内、无打印包装
+            const dOk = after.btPages === 2 && before.btPages === 2
+                && dom.sheetParentId === 'grid-container' && dom.wrappers === 0;
+            check('C7d 零 DOM 改造（.bt-page 前后均 2；.bt-sheet 父节点=grid-container；无 .a4-page.pdf-print-wrapper）',
+                dOk,
+                `btPages before=${before.btPages} after=${after.btPages}；bt-sheet.parent=#${dom.sheetParentId}；wrapper=${dom.wrappers}`,
+                'btPages=2；parent=grid-container；wrapper=0',
+                '块帖零 DOM 改造 —— 「wrapper 被 cleanup 销毁」失效模式对块帖不适用');
+            // e) 打印态几何：首 .bt-page 296mm 高 × 210mm 宽（±0.3，getBoundingClientRect × 25.4/96）
+            const h0 = Array.isArray(after.btHeights) ? after.btHeights[0] : NaN;
+            const eOk = Math.abs(h0 - 296) <= 0.3 && Math.abs(dom.pageWmm - 210) <= 0.3;
+            check('C7e 打印态首 .bt-page 几何 296×210mm（±0.3）', eOk,
+                `h=${Number(h0).toFixed(3)}mm w=${Number(dom.pageWmm).toFixed(3)}mm`,
+                '296×210mm（±0.3）',
+                '@page margin:0 + .bt-page 210×296mm/padding 10mm（v3.1.2 打印几何）');
+            // f) page.pdf 页数 == .bt-page 数（显式分页贯穿移动端路由）
+            check('C7f page.pdf 页数 == .bt-page 数（iPhone 仿真）',
+                pg.pages === after.btPages,
+                `${pg.pages} 页（via ${pg.via}） vs .bt-page=${after.btPages}（生成前 ${before.btPages}）`,
+                '两者相等', '块帖每页 6 块，12 字 → 2 页');
+            // g) CSSOM 存在 margin 全 0 的 @page（复用 C5c 的 CSSPageRule 递归 walk 判据：
+            //    @page 在 @media print 内必须下钻；移动端块帖同样禁止浏览器页眉页脚）
+            const btPageRules = await page.evaluate(() => {
+                const out = [];
+                const walk = (rules) => {
+                    for (const r of rules) {
+                        if (r.type === 6) {                    // CSSPageRule
+                            out.push({
+                                margin: r.style.margin || '',
+                                mt: r.style.marginTop || '',
+                                mb: r.style.marginBottom || '',
+                                size: r.style.size || ''
+                            });
+                        } else if (r.cssRules) {
+                            walk(r.cssRules);
+                        }
+                    }
+                };
+                for (const ss of document.styleSheets) {
+                    let rules = null;
+                    try { rules = ss.cssRules; } catch { continue; }
+                    if (rules) walk(rules);
+                }
+                return out;
+            });
+            const zeroPage = btPageRules.some(r =>
+                r.margin === '0px' || r.margin === '0mm' || r.margin === '0'
+                || (r.mt === '0px' && r.mb === '0px'));
+            check('C7g CSSOM 存在 margin 全 0 的 @page（移动端同样禁浏览器页眉页脚）', zeroPage,
+                btPageRules.length ? btPageRules.map(r => `margin=${r.margin || `${r.mt}/${r.mb}`} size=${r.size}`).join(' | ') : '未找到 CSSPageRule',
+                '存在 margin 全 0 的 @page', `共 ${btPageRules.length} 条 CSSPageRule（与 C5c 同一递归 walk 判据）`);
+        } finally {
+            await page.close().catch(() => {});
+        }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════
 // main
 // ════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -845,7 +991,7 @@ async function checkBtPrint() {
         process.exit(0);
     }
     console.log('='.repeat(78));
-    console.log(`v3.1.2 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
+    console.log(`v3.1.3 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
     console.log('='.repeat(78));
 
     // ── 目标服务 ──
@@ -910,6 +1056,9 @@ async function checkBtPrint() {
         console.log('\n── C5 块帖打印（block-table / 12 字）──');
         await checkBtPrint();
 
+        console.log('\n── C7 移动端打印路由（iPhone 仿真）──');
+        await checkMobilePrintRouting();
+
         check('Z1 全程无未捕获页面异常', pageErrors.length === 0,
             pageErrors.slice(0, 3).join(' | ') || '无', '无异常');
     } catch (e) {
@@ -950,7 +1099,7 @@ async function checkBtPrint() {
     }
     try {
         fs.writeFileSync(REPORT_PATH, JSON.stringify({
-            version: '3.1.2', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
+            version: '3.1.3', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
             generatedAt: new Date().toISOString(),
             summary: { pass: nPass, fail: nFail, warn: nWarn, total: rows.length },
             colors: summary.colors, pages: summary.pages, rows

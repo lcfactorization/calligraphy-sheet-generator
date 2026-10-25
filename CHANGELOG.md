@@ -5,6 +5,68 @@
 
 ---
 
+## v3.1.3 (2026-10-25) — 移动端块帖打印路由修复
+
+> 缺陷修复版本：只改 `printDirect` 的路由顺序与注释、验收脚本，**不改任何打印几何与样式**
+> （`block-table.css` / `print.css` 零改动，Puppeteer 导出路径零变化）。
+> 规格依据：监督员冻结规格（多智能体任务书）。
+> 触发：移动端（iPhone 仿真）打印**块帖**字帖时，误入 v2.9.0 移动端 iframe 管线而非
+> v3.1.2 的块帖原生路径 —— 嵌套分页冲突、首页下移约 18mm、内容被截断、页眉页脚错位。
+
+### 🎯 根因（实测证据，非推测）
+
+- `printDirect` 内 **v2.9.0 移动端 UA 路由先于 v3.1.2 块帖早退分支执行**：移动端 + 块帖
+  于是进入 `printViaIframe`，块帖 DOM 被包进 `.print-page-section`，与块帖自带的
+  `.bt-page` 显式分页形成**嵌套分页冲突** —— 首页内容下移约 18mm、`.bt-page` 页高 296mm
+  超出 iframe 管线纸高、上下双边距叠加、页眉只剩首页而页脚只剩末页，
+  且 `.page-section-content` 的 258mm + `overflow:hidden` 截断内容。
+- 红基线（修复前构建快照 `_pre_v313_dist_snapshot/`）实测：`C7a` FAIL（`__printCalled=false`，
+  块帖没走主窗口原生 `window.print`）+ `C7b` FAIL（`iframe.print-frame=1`，进了移动端
+  iframe 管线）—— 合计 **28 passed / 2 failed**。
+
+### 🛠 修复
+
+- **块帖早退分支前移**：块帖判定（`grid.dataset.layout === 'block-table'` 或存在
+  `.bt-page`）提前到移动端 UA 路由之前 —— 块帖在**移动端与桌面统一走原生
+  `window.print()` + `.bt-page` 显式分页（`@page margin:0`）**，不再进 `printViaIframe`。
+  块帖零 DOM 改造；v2.9.0 路由针对的「含页眉页脚的 wrapper 被 cleanup 销毁」失效模式
+  对块帖不适用（块帖不建 wrapper，`.bt-page` 原地打印）。
+- **`_btIsMobileUA` 重复正则删除**：块帖分支内的第二份移动端 UA 判定删除，toast 改判
+  统一的 `_mobileUA`（iPadOS 13+ 触屏设备亦获得「正在准备打印…」提示）。
+- **行为矩阵**：桌面经典 / 桌面块帖 / 移动经典三条路径**逐字节不变**（移动经典仍走
+  `printViaIframe`，由 C7-pre 负控看守）；唯一已知边缘差异 = 移动端经典在 grid 缺失 /
+  输入为空时改由 `printDirect` 守卫 alert（此前该守卫被 UA 路由提前 return 跳过）。
+- **注释同步**：`BlockTableEngine.js` 两处陈旧的「@page margin 10mm / 内容区 277mm」
+  表述改为 v3.1.2 零边距几何（页边距由 `.bt-page` 自身 padding 提供，打印态内容盒
+  190×276mm，守卫预算 275mm 对屏幕/打印两媒介同时成立）；`verify-v312-print.cjs` 死代码删除。
+
+### 🧪 验证
+
+`node scripts/verify-v312-print.cjs` 新增 **C7 移动端打印路由断言组**（iPhone 13 仿真：
+390×844 / dsf 3 / iOS Safari UA / touch，导航前 `page.emulate` 保证 `printDirect` 首帧
+UA 判定命中）：
+
+| 检查 | 断言 |
+|---|---|
+| C7-pre | **负控**（防恒真）：移动端 UA + classic 必须仍命中 `printViaIframe`（`iframe.print-frame ≥ 1` 且主窗口 `__printCalled=false`，桩只注入主窗口） |
+| C7a | 移动端 + 块帖走主窗口原生 `window.print`（`__printCalled=true`） |
+| C7b | 无 `iframe.print-frame`（块帖不经 `printViaIframe`） |
+| C7c | 移动端块帖不产生 `.print-page-section` |
+| C7d | 零 DOM 改造（`.bt-page` 前后均 2；`.bt-sheet` 父节点 = grid-container；无 `.a4-page.pdf-print-wrapper`） |
+| C7e | 打印态首 `.bt-page` 几何 296×210mm（±0.3） |
+| C7f | `page.pdf()` 页数 == `.bt-page` 数（2，iPhone 仿真） |
+| C7g | CSSOM 存在 margin 全 0 的 `@page`（移动端同样禁浏览器自带页眉页脚） |
+
+- **红基线（修复前构建快照 `_pre_v313_dist_snapshot/`）**：`C7a` FAIL（`__printCalled=false`）、
+  `C7b` FAIL（`iframe.print-frame=1`）翻红 —— 合计 **28 passed / 2 failed / 30 total**；
+  `C7c` 观测为 0 **并不矛盾**：红基线的 `.print-page-section` 建在 **iframe 文档内**，
+  主文档查询不可见 —— 该侧判别由 C7a/C7b 承担。
+- **绿基线（修复后 `dist/`）**：**30/30 PASS**，退出码 0；同关口回归
+  `npm run verify:blocktable` **56/56**、`npm run verify:touch` **50/50**、
+  `vite build` 864 模块 0 错。
+
+---
+
 ## v3.1.2 (2026-10-25) — 网格颜色全量跟随预设 + 打印分页零溢出
 
 > 缺陷修复版本：只改「颜色变量链路」与「打印页几何」，**不改任何字号 / 格子物理尺寸**

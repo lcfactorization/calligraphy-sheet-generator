@@ -113,3 +113,6 @@ _prefix_dist_snapshot/
 /e2e-classic.json
 /e2e-classic.pdf
 /_v312_*.log
+
+/_pre_v313_dist_snapshot/
+/_v313_*.log
