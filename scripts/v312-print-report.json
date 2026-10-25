@@ -1,0 +1,400 @@
+{
+  "version": "3.1.2",
+  "mode": "root",
+  "root": "C:\\poem2pdf\\distribution\\dist",
+  "generatedAt": "2026-10-25T02:59:37.772Z",
+  "summary": {
+    "pass": 21,
+    "fail": 0,
+    "warn": 0,
+    "total": 21
+  },
+  "colors": {
+    "C1": {
+      "greenish": 0,
+      "top": [
+        {
+          "hex": "#000000",
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "count": 646,
+          "greenish": false
+        },
+        {
+          "hex": "#B14A4B",
+          "r": 177,
+          "g": 74,
+          "b": 75,
+          "count": 240,
+          "greenish": false
+        },
+        {
+          "hex": "#D97777",
+          "r": 217,
+          "g": 119,
+          "b": 119,
+          "count": 200,
+          "greenish": false
+        },
+        {
+          "hex": "#CCCCCC",
+          "r": 204,
+          "g": 204,
+          "b": 204,
+          "count": 166,
+          "greenish": false
+        },
+        {
+          "hex": "#FF4444",
+          "r": 255,
+          "g": 68,
+          "b": 68,
+          "count": 166,
+          "greenish": false
+        },
+        {
+          "hex": "#9E2A2B",
+          "r": 158,
+          "g": 42,
+          "b": 43,
+          "count": 44,
+          "greenish": false
+        },
+        {
+          "hex": "#7A1F20",
+          "r": 122,
+          "g": 31,
+          "b": 32,
+          "count": 20,
+          "greenish": false
+        },
+        {
+          "hex": "#FFFFFF",
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "count": 4,
+          "greenish": false
+        }
+      ],
+      "bytes": 180829,
+      "streams": 152,
+      "scanned": 61
+    },
+    "C2": {
+      "greenish": 0,
+      "top": [
+        {
+          "hex": "#000000",
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "count": 1608,
+          "greenish": false
+        },
+        {
+          "hex": "#D97777",
+          "r": 217,
+          "g": 119,
+          "b": 119,
+          "count": 1248,
+          "greenish": false
+        },
+        {
+          "hex": "#B14A4B",
+          "r": 177,
+          "g": 74,
+          "b": 75,
+          "count": 648,
+          "greenish": false
+        },
+        {
+          "hex": "#9E2A2B",
+          "r": 158,
+          "g": 42,
+          "b": 43,
+          "count": 176,
+          "greenish": false
+        },
+        {
+          "hex": "#CCCCCC",
+          "r": 204,
+          "g": 204,
+          "b": 204,
+          "count": 166,
+          "greenish": false
+        },
+        {
+          "hex": "#FF4444",
+          "r": 255,
+          "g": 68,
+          "b": 68,
+          "count": 166,
+          "greenish": false
+        },
+        {
+          "hex": "#7A1F20",
+          "r": 122,
+          "g": 31,
+          "b": 32,
+          "count": 70,
+          "greenish": false
+        },
+        {
+          "hex": "#EDF0F2",
+          "r": 237,
+          "g": 240,
+          "b": 242,
+          "count": 48,
+          "greenish": false
+        }
+      ],
+      "bytes": 218607,
+      "streams": 158,
+      "scanned": 67
+    },
+    "C3": {
+      "top": [
+        {
+          "hex": "#000000",
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "count": 11992,
+          "greenish": false
+        },
+        {
+          "hex": "#388E3C",
+          "r": 56,
+          "g": 142,
+          "b": 60,
+          "count": 4488,
+          "greenish": true
+        },
+        {
+          "hex": "#66BB6A",
+          "r": 102,
+          "g": 187,
+          "b": 106,
+          "count": 3740,
+          "greenish": true
+        },
+        {
+          "hex": "#CCCCCC",
+          "r": 204,
+          "g": 204,
+          "b": 204,
+          "count": 2894,
+          "greenish": false
+        },
+        {
+          "hex": "#FF4444",
+          "r": 255,
+          "g": 68,
+          "b": 68,
+          "count": 2894,
+          "greenish": false
+        },
+        {
+          "hex": "#2E7D32",
+          "r": 46,
+          "g": 125,
+          "b": 50,
+          "count": 782,
+          "greenish": true
+        },
+        {
+          "hex": "#1B5E20",
+          "r": 27,
+          "g": 94,
+          "b": 32,
+          "count": 374,
+          "greenish": true
+        },
+        {
+          "hex": "#FFFFFF",
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "count": 68,
+          "greenish": false
+        }
+      ],
+      "greenish": 9384,
+      "bytes": 2207386
+    },
+    "C4h": {
+      "forcedMargin": 6
+    }
+  },
+  "pages": {
+    "C3": {
+      "pages": 18,
+      "via": "/Count (max of 4)"
+    },
+    "C4_noHF": {
+      "pages": 3,
+      "via": "/Count (max of 1)"
+    },
+    "C4_tallHF": {
+      "pages": 3,
+      "via": "/Count (max of 1)"
+    },
+    "C5": {
+      "pages": 2,
+      "via": "/Count (max of 1)",
+      "btPages": 2,
+      "printSections": 0
+    }
+  },
+  "rows": [
+    {
+      "name": "C1a 绿色系颜色算子 == 0（g>60 且 g>r+25 且 g>b+25）",
+      "status": "PASS",
+      "observed": "greenish=0；top: #000000×646 #B14A4B×240 #D97777×200 #CCCCCC×166 #FF4444×166 #9E2A2B×44",
+      "expected": "greenish=0",
+      "note": "PDF 180829B，解析 61/152 个内容流"
+    },
+    {
+      "name": "C1b 预设主色 #9E2A2B 出现（>0）",
+      "status": "PASS",
+      "observed": "#9E2A2B×44",
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "C2a 绿色系颜色算子 == 0（g>60 且 g>r+25 且 g>b+25）",
+      "status": "PASS",
+      "observed": "greenish=0；top: #000000×1608 #D97777×1248 #B14A4B×648 #9E2A2B×176 #CCCCCC×166 #FF4444×166",
+      "expected": "greenish=0",
+      "note": "PDF 218607B，解析 67/158 个内容流"
+    },
+    {
+      "name": "C2b 预设主色 #9E2A2B 出现（>0）",
+      "status": "PASS",
+      "observed": "#9E2A2B×176",
+      "expected": ">0",
+      "note": ""
+    },
+    {
+      "name": "C3a 198 字 classic 页数 == 18（v3.1.1 基线）",
+      "status": "PASS",
+      "observed": "18 页（via /Count (max of 4)）",
+      "expected": "18 页",
+      "note": ""
+    },
+    {
+      "name": "C3b 绿色预设三阶主色俱在（#2E7D32/#388E3C/#66BB6A）",
+      "status": "PASS",
+      "observed": "命中 #2E7D32,#388E3C,#66BB6A；top: #000000×11992 #388E3C×4488 #66BB6A×3740 #CCCCCC×2894 #FF4444×2894 #2E7D32×782",
+      "expected": "#2E7D32,#388E3C,#66BB6A",
+      "note": ""
+    },
+    {
+      "name": "C4a .print-page-section 数 == ceil(25/11) == 3",
+      "status": "PASS",
+      "observed": "3 段",
+      "expected": "3 段",
+      "note": ""
+    },
+    {
+      "name": "C4b 每段零溢出（scrollHeight ≤ 可打印区高，零容差）",
+      "status": "PASS",
+      "observed": "段0: scrollHeight 296.069mm vs 可打印区 297.000mm (余量 -0.931mm)；clientH 296.069mm；scroll−client 0.000px",
+      "expected": "每段 ≤ 可打印区高",
+      "note": "可打印区来源：@page margin=0px；全段：#0 -0.931mm #1 -0.931mm #2(末) -196.194mm"
+    },
+    {
+      "name": "C4c 非末段恰 11 个 .print-row-pair，末段为余数",
+      "status": "PASS",
+      "observed": "#0=11 #1=11 末=3",
+      "expected": "非末段=11，末段=3",
+      "note": ""
+    },
+    {
+      "name": "C4d 非末段内容盒 == 190×276mm（±0.3）",
+      "status": "PASS",
+      "observed": "189.999×275.998mm",
+      "expected": "190×276mm（±0.3）",
+      "note": ""
+    },
+    {
+      "name": "C4e page.pdf 页数 == 段数（displayHeaderFooter:false）",
+      "status": "PASS",
+      "observed": "3 页（via /Count (max of 1)）",
+      "expected": "3 页",
+      "note": ""
+    },
+    {
+      "name": "C4e2 page.pdf 页数 == 段数（displayHeaderFooter:true + 14mm 高页眉页脚）",
+      "status": "PASS",
+      "observed": "3 页（via /Count (max of 1)）",
+      "expected": "3 页",
+      "note": "证明分页对浏览器自带页眉页脚免疫"
+    },
+    {
+      "name": "C4h 负控自证：给定 10mm 页边距时浏览器页眉页脚确实会被画出（品红算子 > 0）",
+      "status": "PASS",
+      "observed": "品红算子=6",
+      "expected": "> 0",
+      "note": "证明检测方法有效：一旦浏览器有落笔空间，日期/文件路径会真的被渲染。 应用打印路径的禁止机制是 @page margin:0（C4f/C5c 断言其 CSSOM 值）—— Chrome/Edge/Safari/Firefox 在 0 边距下不渲染自带页眉页脚； Puppeteer 的 displayHeaderFooter 是显式 API（不属于用户 window.print 路径），故只作负控，不作正控。"
+    },
+    {
+      "name": "C4f CSSOM 中 @page margin == 0",
+      "status": "PASS",
+      "observed": "margin=0px size=a4 portrait | margin=0px size=a4 portrait",
+      "expected": "存在 margin 全 0 的 @page",
+      "note": "共 2 条 CSSPageRule"
+    },
+    {
+      "name": "C4g 真实 printDirect 链路已执行（window.print 被调用）",
+      "status": "PASS",
+      "observed": "window.print 已调用",
+      "expected": "已调用",
+      "note": ""
+    },
+    {
+      "name": "C5a 打印后未产生 .print-page-section（块帖自带显式分页）",
+      "status": "PASS",
+      "observed": "print-page-section=0",
+      "expected": "0",
+      "note": ""
+    },
+    {
+      "name": "C5b page.pdf 页数 == .bt-page 数",
+      "status": "PASS",
+      "observed": "2 页（via /Count (max of 1)） vs .bt-page=2（生成前 2）",
+      "expected": "两者相等",
+      "note": "块帖每页 6 块，12 字 → 2 页"
+    },
+    {
+      "name": "C5c 块帖 @page margin == 0（同样禁止浏览器页眉页脚）",
+      "status": "PASS",
+      "observed": "margin=0px size=a4 portrait | margin=0px size=a4 portrait",
+      "expected": "存在 margin 全 0 的 @page",
+      "note": "共 2 条 CSSPageRule（含动态注入的 block-table.css）"
+    },
+    {
+      "name": "C6a 块帖主表格：行间横线不叠粗，且横/竖线等宽",
+      "status": "PASS",
+      "observed": "24 行；单条横 0.270mm vs 竖 0.270mm；行间边界最厚 0.270mm；叠粗边界 0 处；边标 [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B]",
+      "expected": "边界 ≤ 1.05×单条；横竖差 ≤ 5%",
+      "note": ""
+    },
+    {
+      "name": "C6b 组词面板：同一判据",
+      "status": "PASS",
+      "observed": "24 行；横 0.270mm vs 竖 0.270mm；边界最厚 0.270mm；叠粗 0 处；边标 [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B] [TB,-B]",
+      "expected": "边界 ≤ 1.05×单条；横竖差 ≤ 5%",
+      "note": ""
+    },
+    {
+      "name": "Z1 全程无未捕获页面异常",
+      "status": "PASS",
+      "observed": "无",
+      "expected": "无异常",
+      "note": ""
+    }
+  ]
+}
