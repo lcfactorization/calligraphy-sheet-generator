@@ -5,6 +5,63 @@
 
 ---
 
+## v3.1.4 (2026-10-25) — PWA 缓存滞后修复 + 拆解条不变量固化
+
+> 补丁版本：只改 `vite.config.js`（PWA workbox 配置）+ 验收脚本 + 文档，**不改任何 `src/` 源代码**。
+> 规格依据：监督员冻结规格（多智能体任务书）。
+> 触发：① 用户报告拆解条 SVG「循环重复排布」——排查确认当前代码无此行为，系老用户浏览器
+> 滞留旧缓存（PWA precache revision:null 缺陷）；② 借机把拆解条「每笔一次、末笔即止、
+> ≤6mm 不逾矩」的现行为固化为回归断言。
+
+### 🎯 根因（机制与后果，非推测）
+
+- `dist/sw.js` 的 `precacheAndRoute` 清单里，`index.html`、`*.html` 引导页、`icon-*.svg`
+  条目的 `revision` 均为 `null`。这些 URL 不含内容哈希，`revision:null` 等于告诉
+  Workbox「URL 自带版本信息」→ **这些条目的缓存永不失效**。
+- 后果：本项目 `index.html` 即全部应用（vite-plugin-singlefile 内联 JS/CSS），每次发版
+  内容必然变化，但其 revision 恒为 `null` → `sw.js` 字节不变 → Service Worker 不触发
+  更新，老用户浏览器长期命中旧缓存的 `index.html` —— **线上已是新版，用户看到的却是
+  已修复的旧行为**。本次「拆解条循环重复」报告即属此类。
+
+### 🛠 修复
+
+- `vite.config.js` 的 VitePWA `workbox` 配置新增 `manifestTransforms`：对 URL 不含内容
+  哈希的 precache 条目（`*.html` 与 `icon-*.svg`，判据 `/\.(?:html|svg)$/ && !e.revision`）
+  把 `revision` 补为构建版本号 `pkg.version` —— 单一真源 `package.json`，每次发版必升
+  版本，revision 随之变化，`sw.js` 字节随之变化，`autoUpdate` 重新安装生效。
+- `hanziDataWorker-*.js` 文件名自带内容哈希，保持 `revision:null` 不动。
+
+### 🧪 验证
+
+`node scripts/verify-v312-print.cjs` 新增 **C8 拆解条不变量断言组**（块帖 + 经典双版式；
+「每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；尺寸自适应封顶 6mm 不逾矩」）：
+
+| 检查 | 断言 |
+|---|---|
+| C8a 块帖 | 每个 `.bt-block[data-char]` → `.bt-pill` 文本 N画 解析 N；`.bt-stroke-strip` 内 svg 数 == N；无 `.bt-strip-more` 徽标（N≤5 不截断）；每张 svg 宽度 ≤ 6.01mm（封顶 6mm） |
+| C8b 经典 | 每个 `.grid-svg-stroke-box` → span 文本 N画 解析 N；box 内 svg 数 == N |
+
+可伪性说明：svg 数为实测 DOM `querySelectorAll` 计数，N 独立取自「N画」pill/span 文本
+—— 未来若引入循环补满（svg 数 > N）或截断/徽标，断言立即翻红，并非恒真式。
+
+- **C8 实测计数（块帖与经典一致）**：三=3、大=3、人=2、木=4、永=5 —— 17 张 svg 逐笔
+  累计、末笔即止，零徽标，最宽 6.001mm ≤ 6.01mm。
+- **绿基线（修复后 `dist/`）**：**43/43 PASS**，退出码 0（原 30 + C8 新增 13）；
+  `npm run verify:blocktable` 回归 **56/56**。
+- **build 后断言**：`npm run build` 864 模块 0 错；重建后 `dist/sw.js` 的 `index.html`
+  条目为 `{url:"index.html",revision:"3.1.4"}`，`revision:null` 的 `*.html` /
+  `icon-*.svg` 条目归零，`hanziDataWorker-*.js` 保持 `revision:null`（取证见 `_v314_build.log`）。
+
+### 📌 说明
+
+全 git 历史核查确认**从未存在「循环补满」代码**：`loadStrokesDirect` 恒为
+`for (let k = 0; k < strokeCount; k++) createStrokeSVG(strokes, k)`，k 逐笔 +1、
+`strokeCount-1` 即止。用户观察到的「循环重复排布」来自旧缓存构建 —— 本版本的
+precache revision 修复正是治本：此后每次发版，老用户浏览器都会因 `sw.js` 字节变化
+自动更新缓存，不再滞留旧行为。
+
+---
+
 ## v3.1.3 (2026-10-25) — 移动端块帖打印路由修复
 
 > 缺陷修复版本：只改 `printDirect` 的路由顺序与注释、验收脚本，**不改任何打印几何与样式**

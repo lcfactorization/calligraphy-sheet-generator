@@ -1,6 +1,6 @@
 {
   "name": "calligraphy-sheet-generator",
-  "version": "3.1.3",
+  "version": "3.1.4",
   "type": "module",
   "description": "字帖生成器 — Vite 工程化 + Puppeteer PDF矢量生成工具（双轨方案）·v3.0.8 触屏/移动端布局修复（消除整页横向溢出这条主因，fixed 控件不再跑出屏幕）+ 页头横排 + FAB 拖拽限桌面 + 触摸目标 ≥44px + 可重跑布局关口 verify:touch",
   "scripts": {

@@ -278,7 +278,7 @@
     {
       "name": "12c page.pdf() 产出非空（>5KB）",
       "status": "PASS",
-      "observed": "100476 bytes",
+      "observed": "97557 bytes",
       "expected": ">5120 bytes",
       "note": ""
     },

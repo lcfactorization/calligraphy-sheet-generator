@@ -1,13 +1,13 @@
 {
-  "version": "3.1.3",
+  "version": "3.1.4",
   "mode": "root",
   "root": "C:\\poem2pdf\\distribution\\dist",
-  "generatedAt": "2026-10-25T04:36:22.125Z",
+  "generatedAt": "2026-10-25T05:11:49.161Z",
   "summary": {
-    "pass": 30,
+    "pass": 43,
     "fail": 0,
     "warn": 0,
-    "total": 30
+    "total": 43
   },
   "colors": {
     "C1": {
@@ -458,6 +458,97 @@
       "observed": "margin=0px size=a4 portrait | margin=0px size=a4 portrait",
       "expected": "存在 margin 全 0 的 @page",
       "note": "共 2 条 CSSPageRule（与 C5c 同一递归 walk 判据）"
+    },
+    {
+      "name": "C8a「三」pill=\"3画\" 解析 N=3，且 strip svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "pill 解析 3；svg=3",
+      "expected": "pill=N画（N=3）；svg=3",
+      "note": ""
+    },
+    {
+      "name": "C8a「大」pill=\"3画\" 解析 N=3，且 strip svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "pill 解析 3；svg=3",
+      "expected": "pill=N画（N=3）；svg=3",
+      "note": ""
+    },
+    {
+      "name": "C8a「人」pill=\"2画\" 解析 N=2，且 strip svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "pill 解析 2；svg=2",
+      "expected": "pill=N画（N=2）；svg=2",
+      "note": ""
+    },
+    {
+      "name": "C8a「木」pill=\"4画\" 解析 N=4，且 strip svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "pill 解析 4；svg=4",
+      "expected": "pill=N画（N=4）；svg=4",
+      "note": ""
+    },
+    {
+      "name": "C8a「永」pill=\"5画\" 解析 N=5，且 strip svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "pill 解析 5；svg=5",
+      "expected": "pill=N画（N=5）；svg=5",
+      "note": ""
+    },
+    {
+      "name": "C8a 无 .bt-strip-more 徽标（N≤5 不会截断）",
+      "status": "PASS",
+      "observed": "三:0 大:0 人:0 木:0 永:0",
+      "expected": "全部 0",
+      "note": ""
+    },
+    {
+      "name": "C8a 每张 svg 宽度 ≤ 6.01mm（自适应封顶 6mm 不逾矩）",
+      "status": "PASS",
+      "observed": "最宽 6.001mm（共 17 张）",
+      "expected": "全部 ≤ 6.01mm",
+      "note": ""
+    },
+    {
+      "name": "C8b 拆解盒数 == 5（classic 每字一盒，序列 三大人木永）",
+      "status": "PASS",
+      "observed": "5 盒",
+      "expected": "5 盒",
+      "note": ""
+    },
+    {
+      "name": "C8b「三」span=\"3画\" 解析 N=3，且 svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "span 解析 3；svg=3",
+      "expected": "span=N画（N=3）；svg=3",
+      "note": ""
+    },
+    {
+      "name": "C8b「大」span=\"3画\" 解析 N=3，且 svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "span 解析 3；svg=3",
+      "expected": "span=N画（N=3）；svg=3",
+      "note": ""
+    },
+    {
+      "name": "C8b「人」span=\"2画\" 解析 N=2，且 svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "span 解析 2；svg=2",
+      "expected": "span=N画（N=2）；svg=2",
+      "note": ""
+    },
+    {
+      "name": "C8b「木」span=\"4画\" 解析 N=4，且 svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "span 解析 4；svg=4",
+      "expected": "span=N画（N=4）；svg=4",
+      "note": ""
+    },
+    {
+      "name": "C8b「永」span=\"5画\" 解析 N=5，且 svg 数 == N（实测 DOM 计数）",
+      "status": "PASS",
+      "observed": "span 解析 5；svg=5",
+      "expected": "span=N画（N=5）；svg=5",
+      "note": ""
     },
     {
       "name": "Z1 全程无未捕获页面异常",

@@ -235,3 +235,27 @@
   | A 实施 | printDirect 路由前移 + toast 判定统一 + BlockTableEngine 注释同步 + verify 脚本 C7 组与死代码清理 | `src/utils/pdfExport.js`、`src/components/BlockTableEngine.js`、`scripts/verify-v312-print.cjs` |
   | B 验收/文档 | C7 组红绿双基线 + 版本号与四文档 | `scripts/v312-print-report.json`、`scripts/block-table-report.json`、`package.json`、`index.html`、`README.md`、`CHANGELOG.md`、本看板、`.gitignore` |
 - **不变量**:经典三路径零变化(桌面经典 / 桌面块帖 / 移动经典逐字节不变;唯一已知边缘差异 = 移动端经典在 grid 缺失/输入为空时改由 printDirect 守卫 alert);Puppeteer 几何零变化;`block-table.css` / `print.css` 零改动。
+
+### v3.1.4 — PWA 缓存滞后修复 + 拆解条不变量固化(已完成)(2026-10-25)
+
+- **状态**:**完成** —— 根因/修复/验证/说明四段式见 [CHANGELOG](./CHANGELOG.md#v314-2026-10-25--pwa-缓存滞后修复--拆解条不变量固化)
+- **规格依据**:监督员冻结规格(多智能体任务书) —— vite.config.js PWA workbox 新增
+  `manifestTransforms`(URL 不含内容哈希的 precache 条目 revision 取构建版本号 pkg.version,
+  单一真源 package.json,每次发版必升 → sw.js 字节随之变化 → autoUpdate 生效) +
+  verify 脚本新增 C8 断言组(块帖+经典,svg 数为实测 DOM 计数、可伪)
+- **验收命令**:`node scripts/verify-v312-print.cjs`(默认 `--root dist`;报告写 `scripts/v312-print-report.json`,退出码 0 = 全通过)
+  - **绿基线**(修复后 `dist/`):**43/43 PASS**,退出码 0 —— C8 实测计数 块帖与经典一致:
+    三3/大3/人2/木4/永5(svg 数 == N,共 17 张)、零 `.bt-strip-more` 徽标、最宽
+    6.001mm ≤ 6.01mm(封顶 6mm 不逾矩);`npm run verify:blocktable` 回归 **56/56**;
+    `vite build` 864 模块 0 错 + build 后断言:`dist/sw.js` 的 index.html 条目
+    `revision:"3.1.4"`、`revision:null` 的 \*.html / icon-\*.svg 条目归零、
+    `hanziDataWorker-*.js` 保持 `revision:null`(取证见 `_v314_build.log`)
+  - 备注:首轮 `verify:blocktable` 曾报 P1/P3 FAIL,系关口运行期间并发编辑 README.md
+    触发 vite dev 热重载自伤(日志含 `[vite] page reload README.md`);静置重跑 **56/56**,
+    非产品回归
+- **分工**:
+  | Agent | 职责 | 独占文件 |
+  |:------|:-----|:--------|
+  | A 实施 | manifestTransforms + C8 断言组 | `vite.config.js`、`scripts/verify-v312-print.cjs` |
+  | B 验收/文档 | 版本号与文档 + 发布 | `package.json`、`index.html`、`README.md`、`CHANGELOG.md`、本看板、`.gitignore`、`scripts/v312-print-report.json`、`scripts/block-table-report.json` |
+- **不变量**:`src/` 源代码零改动;Puppeteer 导出路径与打印几何零变化;C1~C7 既有断言不减弱;`hanziDataWorker-*.js` 保持 `revision:null`(文件名自带内容哈希,按设计不动)。

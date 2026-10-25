@@ -40,6 +40,12 @@
 //      走块帖早退分支的原生 window.print（__printCalled=true、零 iframe、零
 //      .print-page-section、零 DOM 改造、打印态 .bt-page 296×210mm、page.pdf 页数 ==
 //      .bt-page 数、CSSOM 存在 margin 全 0 的 @page）
+//   C8 拆解条不变量（v3.1.4）：「每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
+//      尺寸自适应封顶 6mm 不逾矩」——
+//      C8a 块帖：每个 .bt-block[data-char] → .bt-pill 文本 N画 解析 N；
+//          .bt-stroke-strip 内 svg 数 == N（实测 DOM 计数，可伪）；无 .bt-strip-more
+//          徽标（N≤5 不截断）；每张 svg 宽度 ≤ 6.01mm（封顶 6mm）。期望 三3/大3/人2/木4/永5
+//      C8b 经典：每个 .grid-svg-stroke-box → span 文本 N画 解析 N；box 内 svg 数 == N
 //
 // PDF 取证细节（为什么不用现成库）：零依赖要求 → 自己走 stream…endstream 分块，
 //   逐块 zlib.inflateSync，只解析「像内容流」的块（可打印字符占比 > 0.9，排除字体
@@ -983,6 +989,123 @@ async function checkMobilePrintRouting() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// C8（v3.1.4）：拆解条不变量 —— 每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
+//   尺寸自适应封顶 6mm 不逾矩。
+//   背景：v3.1.4 有用户报告拆解条 SVG「循环重复排布」（1,2,3,1,2,3…）。全 git 历史
+//   核查确认代码从未存在循环补满实现 —— loadStrokesDirect 恒为
+//   `for (let k = 0; k < strokeCount; k++) createStrokeSVG(strokes, k)`，k 逐笔 +1、
+//   strokeCount-1 即止；重复排布来自旧缓存构建（PWA precache revision:null 缺陷，
+//   见 vite.config.js v3.1.4 注释与本版本 CHANGELOG）。本组断言把现行为固化为回归
+//   断言，防未来回归（尤其帅小呆移植）。
+//   可伪性说明：svg 数是对真实 DOM 的 querySelectorAll 计数，N 独立取自「N画」pill/span
+//   文本 —— 若未来引入循环补满（svg 数 > N）或截断/徽标，断言立即翻红，并非恒真式。
+//   C8a 块帖：每个 .bt-block[data-char] → .bt-pill 文本解析 N（块帖计数由 pill 承担，
+//       序列内计数 span 按 block-table.css 隐藏）；strip.querySelectorAll('svg').length
+//       === N；无 .bt-strip-more（N≤5 不截断）；每张 svg 宽度 ≤ 6.01mm（封顶 6mm）。
+//   C8b 经典：每个 .grid-svg-stroke-box → span 文本解析 N；box 内 svg 数 == N。
+// ════════════════════════════════════════════════════════════════════════
+const C8_TEXT = '三大人木永';
+const C8_EXPECT_N = { '三': 3, '大': 3, '人': 2, '木': 4, '永': 5 };
+const C8_STRIP_MAX_MM = 6.01;   // 封顶 6mm（+0.01 换算余量：6mm → 22.68px → 6.001mm）
+
+/** 解析「N画」文本 → N（整体匹配；失败返回 null） */
+function parseStrokeCount(text) {
+    const m = /^(\d+)画$/.exec((text || '').trim());
+    return m ? Number(m[1]) : null;
+}
+
+async function checkStrokeStripInvariant() {
+    const settings = { gridColorPreset: 'red', gridType: 'mizi', traceOpacity: 0.1 };
+
+    // ── C8a 块帖 ──
+    {
+        const page = await newPage();
+        try {
+            await openWithSettings(page, Object.assign({ layoutType: 'block-table' }, settings));
+            const g = await generateAndSettle(page, C8_TEXT, '.bt-block');
+            if (!g.ok) { check('C8a 生成成功（block-table 三大人木永）', false, g.why || g, '渲染完成'); return; }
+            // 队列已排空（generateAndSettle 等到 pending=0）；再留 MutationObserver
+            // 归一化（btNormalizeStrokeStrip）与 pill 异步填充的完成余量
+            await sleep(1500);
+            const blocks = await page.evaluate(() => {
+                const px2mm = (px) => px * 25.4 / 96;
+                return Array.from(document.querySelectorAll('.bt-block[data-char]')).map(b => {
+                    const pill = b.querySelector('.bt-pill');
+                    const strip = b.querySelector('.bt-stroke-strip');
+                    const svgs = strip ? Array.from(strip.querySelectorAll('svg')) : [];
+                    return {
+                        char: b.getAttribute('data-char'),
+                        pill: pill ? (pill.textContent || '').trim() : '(无 .bt-pill)',
+                        svgCount: svgs.length,
+                        moreBadges: strip ? strip.querySelectorAll('.bt-strip-more').length : -1,
+                        // style.width 为主（归一化写入处）；为空回退 computed style（防假绿）
+                        widthsMm: svgs.map(s => {
+                            const w = (s.style && s.style.width) || getComputedStyle(s).width;
+                            return px2mm(parseFloat(w) || 0);
+                        })
+                    };
+                });
+            });
+            if (blocks.length !== C8_TEXT.length || blocks.some(b => !(b.char in C8_EXPECT_N))) {
+                check('C8a 块帖块数与字符序列 == 三大人木永', false,
+                    blocks.map(b => b.char).join(',') || '(无 .bt-block[data-char])',
+                    C8_TEXT.split('').join(','));
+                return;
+            }
+            for (const b of blocks) {
+                const N = C8_EXPECT_N[b.char];
+                const nParsed = parseStrokeCount(b.pill);
+                check(`C8a「${b.char}」pill="${b.pill}" 解析 N=${N}，且 strip svg 数 == N（实测 DOM 计数）`,
+                    nParsed === N && b.svgCount === N,
+                    `pill 解析 ${nParsed}；svg=${b.svgCount}`,
+                    `pill=N画（N=${N}）；svg=${N}`);
+            }
+            check('C8a 无 .bt-strip-more 徽标（N≤5 不会截断）',
+                blocks.every(b => b.moreBadges === 0),
+                blocks.map(b => `${b.char}:${b.moreBadges}`).join(' '), '全部 0');
+            const totalSvgs = blocks.reduce((a, b) => a + b.widthsMm.length, 0);
+            const widest = blocks.reduce((a, b) => Math.max(a, ...b.widthsMm, 0), 0);
+            check(`C8a 每张 svg 宽度 ≤ ${C8_STRIP_MAX_MM}mm（自适应封顶 6mm 不逾矩）`,
+                blocks.every(b => b.widthsMm.length === b.svgCount && b.widthsMm.every(w => w <= C8_STRIP_MAX_MM)),
+                `最宽 ${widest.toFixed(3)}mm（共 ${totalSvgs} 张）`,
+                `全部 ≤ ${C8_STRIP_MAX_MM}mm`);
+        } finally {
+            await page.close().catch(() => {});
+        }
+    }
+
+    // ── C8b 经典 ──
+    {
+        const page = await newPage();
+        try {
+            await openWithSettings(page, Object.assign({ layoutType: 'classic' }, settings));
+            const g = await generateAndSettle(page, C8_TEXT, '.grid-svg-cell');
+            if (!g.ok) { check('C8b 生成成功（classic 三大人木永）', false, g.why || g, '渲染完成'); return; }
+            await sleep(1500);
+            const boxes = await page.evaluate(() =>
+                Array.from(document.querySelectorAll('.grid-svg-stroke-box')).map(box => ({
+                    span: box.querySelector('span') ? (box.querySelector('span').textContent || '').trim() : '(无 span)',
+                    svgCount: box.querySelectorAll('svg').length
+                }))
+            );
+            check('C8b 拆解盒数 == 5（classic 每字一盒，序列 三大人木永）', boxes.length === C8_TEXT.length,
+                `${boxes.length} 盒`, `${C8_TEXT.length} 盒`);
+            for (let i = 0; i < boxes.length; i++) {
+                const ch = C8_TEXT[i];
+                const N = C8_EXPECT_N[ch];
+                const nParsed = parseStrokeCount(boxes[i].span);
+                check(`C8b「${ch}」span="${boxes[i].span}" 解析 N=${N}，且 svg 数 == N（实测 DOM 计数）`,
+                    nParsed === N && boxes[i].svgCount === N,
+                    `span 解析 ${nParsed}；svg=${boxes[i].svgCount}`,
+                    `span=N画（N=${N}）；svg=${N}`);
+            }
+        } finally {
+            await page.close().catch(() => {});
+        }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════
 // main
 // ════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -991,7 +1114,7 @@ async function checkMobilePrintRouting() {
         process.exit(0);
     }
     console.log('='.repeat(78));
-    console.log(`v3.1.3 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
+    console.log(`v3.1.4 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
     console.log('='.repeat(78));
 
     // ── 目标服务 ──
@@ -1059,6 +1182,9 @@ async function checkMobilePrintRouting() {
         console.log('\n── C7 移动端打印路由（iPhone 仿真）──');
         await checkMobilePrintRouting();
 
+        console.log('\n── C8 拆解条不变量（每笔一次·末笔即止）──');
+        await checkStrokeStripInvariant();
+
         check('Z1 全程无未捕获页面异常', pageErrors.length === 0,
             pageErrors.slice(0, 3).join(' | ') || '无', '无异常');
     } catch (e) {
@@ -1099,7 +1225,7 @@ async function checkMobilePrintRouting() {
     }
     try {
         fs.writeFileSync(REPORT_PATH, JSON.stringify({
-            version: '3.1.3', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
+            version: '3.1.4', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
             generatedAt: new Date().toISOString(),
             summary: { pass: nPass, fail: nFail, warn: nWarn, total: rows.length },
             colors: summary.colors, pages: summary.pages, rows

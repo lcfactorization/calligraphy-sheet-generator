@@ -56,6 +56,16 @@ export default defineConfig({
                     '**/fonts/*.otf',
                     '**/fonts/*.woff2'
                 ],
+                // v3.1.4：无内容哈希 URL 的 precache 条目补 revision（此前 revision:null，
+                // 发版后 sw.js 字节不变 → 老用户浏览器长期用旧缓存、看到已修复的旧行为）。
+                // revision 取构建版本号（单一真源 package.json，每次发版必升）——
+                // 版本一升 revision 随之变化，sw.js 字节随之变化，autoUpdate 重新安装生效。
+                // 只补 *.html 与 icon-*.svg 这类 URL 不含内容哈希的条目；
+                // hanziDataWorker-*.js 文件名自带内容哈希，保持 revision:null 不动。
+                manifestTransforms: [async (manifest) => ({
+                    manifest: manifest.map(e => /\.(?:html|svg)$/.test(e.url) && !e.revision
+                        ? { ...e, revision: pkg.version } : e)
+                })],
                 runtimeCaching: [
                     {
                         urlPattern: /\/hanzi-data\/.+\.(?:bin|js)$/,
