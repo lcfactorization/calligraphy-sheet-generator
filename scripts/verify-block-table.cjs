@@ -1357,6 +1357,61 @@ function snapshotBlocksInPage() {
                 pySnap.boxCount > 0 && pySnap.vertLines === 0,
                 { boxCount: pySnap.boxCount, vertLines: pySnap.vertLines }, '{vertLines:0}');
             // 15d 在断言 9 经典态取证（见上文），此处不重复切换版式
+
+            // ── 15f（v3.1.5 用户反馈：chuáng 等长拼音被拼音盒两侧裁切）──
+            // 原则：网格/四线格是辅助层，文字必须完整可见且位于其上（允许压线）。
+            // 重生成单字「床」（chuáng，6 字母，渲染宽必超 13.5mm 盒宽），三级判据：
+            // ① CSSOM：盒与文字层 overflow 均 visible、盒 z-index≥2；
+            // ② 几何：文字渲染宽 > 盒宽（证明确需溢出，防恒真）；
+            // ③ 行为探针：elementFromPoint 打在盒左缘外 1px / 右缘外 1px 的字形
+            //    极值带上，必须命中 .bt-pinyin-box 内元素 —— 若被 overflow:hidden
+            //    裁切，命中将是信息行/块背景，断言即红。
+            const genBed = await page.evaluate(setInputAndGenerateInPage, '床');
+            const bedReady = genBed && genBed.ok ? await waitPage(
+                () => document.querySelectorAll('#grid-container .bt-block[data-char]').length >= 1,
+                20000) : false;
+            if (!bedReady) {
+                check('15f-prep 单字「床」渲染就绪', false,
+                    { gen: genBed, ready: bedReady }, '真块 ≥ 1');
+            } else {
+                await sleep(600);
+                const pyClip = await page.evaluate(() => {
+                    const box = document.querySelector('.bt-block[data-char="床"] .bt-pinyin-box');
+                    const svg = box ? box.querySelector('.bt-pinyin-text') : null;
+                    const text = svg ? svg.querySelector('text') : null;
+                    if (!box || !svg || !text) return { ok: false, why: 'box/svg/text 缺失' };
+                    const MM = 96 / 25.4;
+                    const cs = getComputedStyle(box);
+                    const csSvg = getComputedStyle(svg);
+                    const boxR = box.getBoundingClientRect();
+                    const textR = text.getBoundingClientRect();
+                    const y = Math.round(textR.top + textR.height / 2);
+                    const inBox = (el) => !!(el && el.closest && el.closest('.bt-pinyin-box'));
+                    // 溢出带每侧 ≥2.5px 才在带中点打行为探针（墨迹必在、非边缘 AA 带）；
+                    // 溢出 <2.5px 的侧（如字体度量使然仅溢 ~1px）无可观测裁切，由 CSSOM+几何判定承载。
+                    const ovfL = boxR.left - textR.left;
+                    const ovfR = textR.right - boxR.right;
+                    const hitL = ovfL >= 2.5 ? document.elementFromPoint(boxR.left - ovfL / 2, y) : null;
+                    const hitR = ovfR >= 2.5 ? document.elementFromPoint(boxR.right + ovfR / 2, y) : null;
+                    return {
+                        ok: true,
+                        boxOverflow: cs.overflow, svgOverflow: csSvg.overflow, zIndex: cs.zIndex,
+                        boxWmm: Math.round(boxR.width / MM * 100) / 100,
+                        textWmm: Math.round(textR.width / MM * 100) / 100,
+                        textExceedsBox: textR.width > boxR.width,
+                        ovfLpx: Math.round(ovfL * 100) / 100, ovfRpx: Math.round(ovfR * 100) / 100,
+                        hitLInBox: ovfL >= 2.5 ? inBox(hitL) : true,
+                        hitRInBox: ovfR >= 2.5 ? inBox(hitR) : true
+                    };
+                });
+                check('15f-1 拼音盒不裁切（CSSOM）：盒与文字层 overflow=visible 且盒 z-index≥2（文字层在网格之上）',
+                    pyClip.ok && pyClip.boxOverflow === 'visible' &&
+                    pyClip.svgOverflow === 'visible' && Number(pyClip.zIndex) >= 2,
+                    pyClip, '{boxOverflow:"visible", svgOverflow:"visible", zIndex>=2}');
+                check(`15f-2 长拼音（chuáng）渲染宽 ${pyClip.textWmm}mm > 盒宽 ${pyClip.boxWmm}mm 且盒缘外两侧极值点命中拼音层（完整画出、未被裁）`,
+                    pyClip.ok && pyClip.textExceedsBox && pyClip.hitLInBox && pyClip.hitRInBox,
+                    pyClip, '{textExceedsBox:true, hitLInBox:true, hitRInBox:true}');
+            }
         } catch (e15) {
             record('HARNESS[断言 15] 自身异常', 'FAIL',
                 (e15 && e15.stack ? e15.stack.split('\n').slice(0, 4).join(' | ') : String(e15)), 'no throw');

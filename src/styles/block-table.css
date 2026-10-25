@@ -196,7 +196,12 @@
     flex: 0 0 var(--bt-cell, 13.5mm);
     width: var(--bt-cell, 13.5mm);
     height: 100%;
-    overflow: hidden;
+    /* v3.1.5（用户反馈：chuáng 等长拼音被盒子两侧裁切）：
+       网格/四线格只是辅助层，文字必须完整可见且位于其上。
+       允许拼音横向溢出盒子、压过边框线（z-index 抬到 pill/拆解条之上），
+       不再裁切；纵向仍由 .bt-info 8mm 行高约束。 */
+    overflow: visible;
+    z-index: 2;
     margin-left: -3mm;
 }
 .bt-pinyin-box svg {
@@ -207,8 +212,9 @@
 /* 线字分离（§12.B.7）：线条层（.bt-pinyin-lines，viewBox 0 0 100 30 + none，
    只含 line）与文字层（.bt-pinyin-text，正方形 viewBox + xMidYMid meet）
    绝对定位叠放于同一盒子。文字层 overflow:visible：meet 在 13.5×8mm 盒内按高
-   适配（内容宽仅 8mm），最长拼音 zhuāng≈13.2mm 允许横向超出 viewBox 画出，
-   仍被盒子 13.5mm 宽度含住（盒子自身 overflow:hidden 兜底）。 */
+   适配，长拼音（chuáng/zhuāng ≈ 13.2–16mm）允许横向超出 viewBox 与盒子画出，
+   v3.1.5 起盒子亦 overflow:visible + z-index:2 —— 拼音完整显示并压在
+   四线格/边框线之上（文字层级高于网格辅助层，验收断言 15f）。 */
 .bt-pinyin-box .bt-pinyin-lines,
 .bt-pinyin-box .bt-pinyin-text {
     position: absolute;

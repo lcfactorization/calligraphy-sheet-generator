@@ -1,8 +1,8 @@
 {
-  "version": "3.1.4",
+  "version": "3.1.5",
   "mode": "root",
   "root": "C:\\poem2pdf\\distribution\\dist",
-  "generatedAt": "2026-10-25T05:11:49.161Z",
+  "generatedAt": "2026-10-25T09:38:36.617Z",
   "summary": {
     "pass": 43,
     "fail": 0,
@@ -150,7 +150,7 @@
           "greenish": false
         }
       ],
-      "bytes": 218607,
+      "bytes": 218492,
       "streams": 158,
       "scanned": 67
     },
@@ -275,7 +275,7 @@
       "status": "PASS",
       "observed": "greenish=0；top: #000000×1608 #D97777×1248 #B14A4B×648 #9E2A2B×176 #CCCCCC×166 #FF4444×166",
       "expected": "greenish=0",
-      "note": "PDF 218607B，解析 67/158 个内容流"
+      "note": "PDF 218492B，解析 67/158 个内容流"
     },
     {
       "name": "C2b 预设主色 #9E2A2B 出现（>0）",

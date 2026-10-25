@@ -278,7 +278,7 @@
     {
       "name": "12c page.pdf() 产出非空（>5KB）",
       "status": "PASS",
-      "observed": "97557 bytes",
+      "observed": "97583 bytes",
       "expected": ">5120 bytes",
       "note": ""
     },
@@ -385,6 +385,20 @@
       "status": "PASS",
       "observed": "{\"boxCount\":24,\"vertLines\":0}",
       "expected": "{vertLines:0}",
+      "note": ""
+    },
+    {
+      "name": "15f-1 拼音盒不裁切（CSSOM）：盒与文字层 overflow=visible 且盒 z-index≥2（文字层在网格之上）",
+      "status": "PASS",
+      "observed": "{\"ok\":true,\"boxOverflow\":\"visible\",\"svgOverflow\":\"visible\",\"zIndex\":\"2\",\"boxWmm\":13.5,\"textWmm\":14.81,\"textExceedsBox\":true,\"ovfLpx\":2.48,\"ovfRpx\":2.48,\"hitLInBox\":true,\"hitRInBox\":true}",
+      "expected": "{boxOverflow:\"visible\", svgOverflow:\"visible\", zIndex>=2}",
+      "note": ""
+    },
+    {
+      "name": "15f-2 长拼音（chuáng）渲染宽 14.81mm > 盒宽 13.5mm 且盒缘外两侧极值点命中拼音层（完整画出、未被裁）",
+      "status": "PASS",
+      "observed": "{\"ok\":true,\"boxOverflow\":\"visible\",\"svgOverflow\":\"visible\",\"zIndex\":\"2\",\"boxWmm\":13.5,\"textWmm\":14.81,\"textExceedsBox\":true,\"ovfLpx\":2.48,\"ovfRpx\":2.48,\"hitLInBox\":true,\"hitRInBox\":true}",
+      "expected": "{textExceedsBox:true, hitLInBox:true, hitRInBox:true}",
       "note": ""
     },
     {

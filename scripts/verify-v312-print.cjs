@@ -40,7 +40,7 @@
 //      走块帖早退分支的原生 window.print（__printCalled=true、零 iframe、零
 //      .print-page-section、零 DOM 改造、打印态 .bt-page 296×210mm、page.pdf 页数 ==
 //      .bt-page 数、CSSOM 存在 margin 全 0 的 @page）
-//   C8 拆解条不变量（v3.1.4）：「每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
+//   C8 拆解条不变量（v3.1.5）：「每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
 //      尺寸自适应封顶 6mm 不逾矩」——
 //      C8a 块帖：每个 .bt-block[data-char] → .bt-pill 文本 N画 解析 N；
 //          .bt-stroke-strip 内 svg 数 == N（实测 DOM 计数，可伪）；无 .bt-strip-more
@@ -989,13 +989,13 @@ async function checkMobilePrintRouting() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// C8（v3.1.4）：拆解条不变量 —— 每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
+// C8（v3.1.5）：拆解条不变量 —— 每笔恰好一张、逐笔累计、末笔即止、绝不循环重复排布；
 //   尺寸自适应封顶 6mm 不逾矩。
-//   背景：v3.1.4 有用户报告拆解条 SVG「循环重复排布」（1,2,3,1,2,3…）。全 git 历史
+//   背景：v3.1.5 有用户报告拆解条 SVG「循环重复排布」（1,2,3,1,2,3…）。全 git 历史
 //   核查确认代码从未存在循环补满实现 —— loadStrokesDirect 恒为
 //   `for (let k = 0; k < strokeCount; k++) createStrokeSVG(strokes, k)`，k 逐笔 +1、
 //   strokeCount-1 即止；重复排布来自旧缓存构建（PWA precache revision:null 缺陷，
-//   见 vite.config.js v3.1.4 注释与本版本 CHANGELOG）。本组断言把现行为固化为回归
+//   见 vite.config.js v3.1.5 注释与本版本 CHANGELOG）。本组断言把现行为固化为回归
 //   断言，防未来回归（尤其帅小呆移植）。
 //   可伪性说明：svg 数是对真实 DOM 的 querySelectorAll 计数，N 独立取自「N画」pill/span
 //   文本 —— 若未来引入循环补满（svg 数 > N）或截断/徽标，断言立即翻红，并非恒真式。
@@ -1114,7 +1114,7 @@ async function checkStrokeStripInvariant() {
         process.exit(0);
     }
     console.log('='.repeat(78));
-    console.log(`v3.1.4 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
+    console.log(`v3.1.5 验收关口 | mode=${MODE} | root=${MODE === 'root' ? ROOT_DIR : '(服务端 dist)'}`);
     console.log('='.repeat(78));
 
     // ── 目标服务 ──
@@ -1225,7 +1225,7 @@ async function checkStrokeStripInvariant() {
     }
     try {
         fs.writeFileSync(REPORT_PATH, JSON.stringify({
-            version: '3.1.4', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
+            version: '3.1.5', mode: MODE, root: MODE === 'root' ? ROOT_DIR : API_BASE,
             generatedAt: new Date().toISOString(),
             summary: { pass: nPass, fail: nFail, warn: nWarn, total: rows.length },
             colors: summary.colors, pages: summary.pages, rows

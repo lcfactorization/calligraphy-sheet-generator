@@ -259,3 +259,11 @@
   | A 实施 | manifestTransforms + C8 断言组 | `vite.config.js`、`scripts/verify-v312-print.cjs` |
   | B 验收/文档 | 版本号与文档 + 发布 | `package.json`、`index.html`、`README.md`、`CHANGELOG.md`、本看板、`.gitignore`、`scripts/v312-print-report.json`、`scripts/block-table-report.json` |
 - **不变量**:`src/` 源代码零改动;Puppeteer 导出路径与打印几何零变化;C1~C7 既有断言不减弱;`hanziDataWorker-*.js` 保持 `revision:null`(文件名自带内容哈希,按设计不动)。
+
+### v3.1.5 — 块帖拼音盒不裁切长拼音(已完成)(2026-10-25)
+
+- **状态**:已发布(release v3.1.5 / GitHub Pages + Cloudflare Pages 同步部署)
+- **根因**:`.bt-pinyin-box` 的 `overflow:hidden` 兜底把超出 13.5mm 盒宽的长拼音(chuáng 等)两侧裁掉;违反「网格是辅助层,文字必须完整且在其上」原则。
+- **修复**:`overflow:visible` + `z-index:2`,拼音压线完整画出;仅动 `block-table.css` 一条规则。
+- **验收**:新增 15f 断言(CSSOM + 几何 + elementFromPoint 盒外行为探针),`npm run verify:blocktable` 全绿;`verify-v312-print` 43/43 复跑全绿。
+- **附**:拆解条「循环重复」报告取证结论(两仓全历史 + 各版本 DOM + 导出计数均无循环逻辑,详见 CHANGELOG v3.1.5 附注),最可能来源为 PWA 旧缓存(v3.1.4 已根治,需两次加载切换)。
