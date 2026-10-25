@@ -5,8 +5,13 @@
  *  1. 分断承载元素 .print-page-section 是普通 block：
  *     不用 flex、不写 overflow、不写 transform —— 最大化各引擎对
  *     page-break-after / break-after 的遵守率
- *  2. 几何唯一来源：@page{size:A4;margin:10mm} → 打印区 190mm×277mm
- *     section 严格 190mm×277mm，内部 header8 + content261 + footer8 = 277mm
+ *  2. 几何唯一来源（v3.1.2 改版）：@page{margin:0} + 页容器 padding:10mm
+ *     → 纸张 210mm×297mm，section 210mm×296mm（1mm 页级余量），
+ *       内容盒 190mm×276mm；内部 header8 + content258 + footer8 = 274mm（2mm 段内余量）
+ *     把页边距从 @page 搬进容器是分页修复的关键：@page 边距为 0 时
+ *     Chrome/Edge/Safari/Firefox 都不再渲染浏览器自带页眉页脚，
+ *     可打印区不会被二次压缩（旧版 @page margin:10mm 恰好 277mm 可打印区，
+ *     与 277mm 高的 section 零余量，实测溢出 0.019mm → 分页级联错乱）
  *     任何元素宽度不得超过 190mm，杜绝移动端 fit-to-width 自动缩放
  *  3. overflow:hidden 只出现在内部 .page-section-content（裁剪用），
  *     绝不出现在带 break-after 的元素上
@@ -56,7 +61,9 @@
 
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        /* v3.1.2：margin 归零 —— 0 边距下浏览器不渲染自带页眉页脚（不再二次压缩可打印区）。
+           视觉 10mm 页边距改由 .print-page-section 的 padding 提供。 */
+        margin: 0;
     }
 
     html, body {
@@ -103,15 +110,16 @@
         margin: 0 !important;
     }
 
-    /* ── 分页段：普通 block，严格等于打印区 190mm×277mm ──
+    /* ── 分页段：普通 block，外框 210mm×296mm（@page margin:0），
+       padding 10mm → 内容盒 190mm×276mm（比 297mm 少 1mm 作页级余量）
        break-after + page-break-after 双写；元素本身无 flex/overflow/transform
        RC3 修复：不用 flex、不写 overflow，最大化各引擎对强制分页的遵守率 */
     .print-page-section {
         display: block !important;
-        width: 190mm;
-        height: 277mm;
+        width: 210mm;
+        height: 296mm;
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 10mm;
         position: relative;
         background: #fff;
         box-sizing: border-box;
@@ -128,7 +136,7 @@
         page-break-after: auto !important;
         break-after: auto !important;
         height: auto !important;
-        max-height: 277mm;
+        max-height: 296mm;
     }
 
     /* wrapper 自身不分页（分页由 section 承担） */
@@ -170,23 +178,24 @@
     .page-section-header .ph-center { width: 34%; text-align: center; }
     .page-section-header .ph-right  { width: 33%; text-align: right; }
 
-    /* ── 内容区：固定 261mm = 277 - 8(header) - 8(footer) ──
-       11 行 × 21.6mm = 237.6mm ≤ 261mm，余 23.4mm
+    /* ── 内容区：固定 258mm = 274 - 8(header) - 8(footer)，内容盒 276mm 留 2mm 余量 ──
+       11 行 × 21.6mm = 237.6mm ≤ 258mm，余 20.4mm
+       （旧版 261mm 让 8+261+8 恰好 277mm 顶满可打印区，实测溢出 0.019mm）
        overflow 只在这里出现，绝不出现在分断元素上
        RC3 修复：overflow 下沉到内部 content */
     .page-section-content {
         display: block !important;
-        height: 261mm;
+        height: 258mm;
         margin: 0;
         padding: 0 !important;
         overflow: hidden;
     }
     .print-page-section.last-page-section .page-section-content {
         height: auto;
-        max-height: 261mm;
+        max-height: 258mm;
     }
 
-    /* ── 页脚：固定 8mm，紧跟 content 之后（277mm 内自然到底） ──
+    /* ── 页脚：固定 8mm，紧跟 content 之后（内容盒 276mm 内自然到底） ──
        v2.8.9 修复 P0-2 + P0-3：同页眉
        v2.9.0 回退：删除 font-size:0 防御（同页眉） */
     .page-section-footer {

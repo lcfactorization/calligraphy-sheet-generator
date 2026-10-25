@@ -122,10 +122,18 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
                     }
                     localStorage.setItem(KEY, JSON.stringify(cur));
                     // v3.1.1：块帖打印页高直写内联变量（269mm = 297 − 12 − 16 页眉页脚边距）
+                    // v3.1.2：同步写 --bt-print-page-*（190/269/padding 0），保持 Puppeteer 路径
+                    //          与 v3.1.1 打印几何逐像素一致；经典路径清除，回到 210/296/10mm 默认
                     if (cur.layoutType === 'block-table') {
                         document.documentElement.style.setProperty('--bt-page-h', '269mm');
+                        document.documentElement.style.setProperty('--bt-print-page-w', '190mm');
+                        document.documentElement.style.setProperty('--bt-print-page-h', '269mm');
+                        document.documentElement.style.setProperty('--bt-print-pad', '0');
                     } else {
                         document.documentElement.style.removeProperty('--bt-page-h');
+                        document.documentElement.style.removeProperty('--bt-print-page-w');
+                        document.documentElement.style.removeProperty('--bt-print-page-h');
+                        document.documentElement.style.removeProperty('--bt-print-pad');
                     }
                     console.log('[Puppeteer] 已注入全量设置: layoutType=' + (cur.layoutType || 'classic') + ', 键数=' + Object.keys(cur).length);
                 } catch (e) {
@@ -221,13 +229,14 @@ async function generatePDF(text, fontDisplayName, fontValue, tempFontPath, gridT
             //   此 <style> 只存在于 Puppeteer 加载的页面，window.print() 路径不经过 puppeteer-server.cjs，零影响。
             const puppeteerPageStyle = document.createElement('style');
             puppeteerPageStyle.id = 'puppeteer-page-margin-override';
-            // v3.1.1：块帖 .bt-page 冻结 277mm（@page 10mm 前提）—— 12/15.9mm 覆盖会让内容盒缩到 269mm 重现跨页裁切
-            // v3.1.1：块帖与经典共用 @page 几何（页眉页脚完整），另注入 --bt-page-h:269mm
-            // （297−12−16）使 .bt-page 打印页高与页眉页脚边距匹配，6 块（262mm）仍 ≤ 267mm 预算
-            // v3.1.1：块帖左右边距收窄 10mm（块宽 181.5mm ≤ 内容宽 190mm，修复组词面板右缘裁切）；
-            // 上下 12/16mm 保留给页眉页脚模板，--bt-page-h 同步 269mm
+            // v3.1.1：块帖与经典共用 @page 几何（页眉页脚完整）；块帖页高/左右边距另调：
+            //   页高 269mm（297−12−16）匹配页眉页脚边距，左右 10mm（块宽 181.5mm ≤ 内容宽 190mm，
+            //   修复组词面板右缘裁切），6 块（262mm）仍 ≤ 267mm 预算。
+            // v3.1.2：块帖打印几何改为变量驱动。window.print 路径默认 210/296/10mm（@page margin:0），
+            // Puppeteer 路径必须保持 v3.1.1 的 190mm/269mm/padding 0（配 12/16mm @page 边距），
+            // 否则页高变化会重现跨页裁切。--bt-page-h 保留（旧注入点向后兼容）。
             puppeteerPageStyle.textContent = isBT
-                ? '@media print{@page{size:A4 portrait;margin:12mm 10mm 16mm 10mm !important;}} :root{--bt-page-h:269mm;}'
+                ? '@media print{@page{size:A4 portrait;margin:12mm 10mm 16mm 10mm !important;}} :root{--bt-page-h:269mm;--bt-print-page-w:190mm;--bt-print-page-h:269mm;--bt-print-pad:0}'
                 : '@media print{@page{size:A4 portrait;margin:12mm 15.9mm 16mm 15.9mm !important;}}';
             document.head.appendChild(puppeteerPageStyle);
             const fontSelect = document.getElementById('font-select');

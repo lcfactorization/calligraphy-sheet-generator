@@ -140,6 +140,37 @@ function truncate(text, max) {
 }
 
 /**
+ * v3.1.2：解析当前网格主色，供 jsPDF 页眉页脚 setTextColor 使用。
+ *
+ * 根因：原实现硬编码 setTextColor(46, 125, 50)（#2E7D32 绿），
+ *       切换朱砂红/靛青蓝/墨黑后矢量 PDF 的页眉页脚仍是绿色。
+ * 来源：与 CSS 同源 —— documentElement 内联样式的 --grid-theme-color
+ *       （回退 --grid-primary-color）。变量缺失/非法时回落 #2E7D32。
+ * @returns {[number, number, number]} [r, g, b]，各 0-255
+ */
+function resolveHeaderFooterRGB() {
+    const FALLBACK = [46, 125, 50];
+    try {
+        const style = document.documentElement.style;
+        const raw = (
+            style.getPropertyValue('--grid-theme-color') ||
+            style.getPropertyValue('--grid-primary-color') ||
+            ''
+        ).trim();
+        const m = /^#([0-9a-fA-F]{6})$/.exec(raw);
+        if (!m) return FALLBACK;
+        const hex = m[1];
+        return [
+            parseInt(hex.slice(0, 2), 16),
+            parseInt(hex.slice(2, 4), 16),
+            parseInt(hex.slice(4, 6), 16)
+        ];
+    } catch (e) {
+        return FALLBACK;
+    }
+}
+
+/**
  * 客户端矢量 PDF 导出（jsPDF + svg2pdf.js）
  * 直接读取 DOM 中的 SVG 节点，按 1:1 毫米矢量坐标生成 PDF
  * @param {Object} opts - { headerLeft, headerCenter, headerRight, footerText, format, landscape }
@@ -228,6 +259,8 @@ export async function exportVectorPDF(opts = {}) {
         const pdf = new jsPDF({ orientation, unit: 'mm', format });
 
         const totalPages = Math.ceil(svgRows.length / ROWS_PER_PAGE);
+        // v3.1.2：页眉页脚颜色跟随当前网格预设（每页重置字体后仍需重新 setTextColor）
+        const hfRGB = resolveHeaderFooterRGB();
         console.log('[pdfExport] 计算总页数:', {
             totalPages,
             ROWS_PER_PAGE,
@@ -288,7 +321,7 @@ export async function exportVectorPDF(opts = {}) {
             // 页眉（左/中/右）— 重置字体设置后绘制
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(10);
-            pdf.setTextColor(46, 125, 50);  // 绿色 #2E7D32
+            pdf.setTextColor(hfRGB[0], hfRGB[1], hfRGB[2]);  // v3.1.2：跟随网格主色预设
             pdf.text(headerLeft, START_X_MM, HEADER_Y_MM, { align: 'left' });
             pdf.text(headerCenter, CENTER_X_MM, HEADER_Y_MM, { align: 'center' });
             const _headerRightText = `${headerRight} · 第 ${pageIdx + 1} 页共 ${totalPages} 页`;
@@ -297,7 +330,7 @@ export async function exportVectorPDF(opts = {}) {
             // 页脚 — 重置字体设置后绘制
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(10);
-            pdf.setTextColor(46, 125, 50);  // 绿色 #2E7D32
+            pdf.setTextColor(hfRGB[0], hfRGB[1], hfRGB[2]);  // v3.1.2：跟随网格主色预设
             pdf.text(footerText, CENTER_X_MM, FOOTER_Y_MM, { align: 'center' });
             // 页脚右下角页码
             pdf.setFontSize(8);
@@ -389,6 +422,48 @@ export async function printDirect() {
     const inputText = document.getElementById('inputText');
     if (inputText && !inputText.value.trim()) {
         alert('请先输入汉字并生成字帖');
+        return;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // v3.1.2：块帖（block-table）版式专用早退分支
+    // ════════════════════════════════════════════════════════════════
+    // 根因：下面的分页逻辑按 .page-break 行分组，再包进 .print-page-section。
+    //   块帖**没有** .page-break 行 —— 它自己用 .bt-page 显式分页。
+    //   若照旧走包装路径，会把所有 .bt-page 塞进单个 .print-page-section 里，
+    //   形成「section 分页 × .bt-page 分页」的嵌套分页，每页内容被裁切。
+    // 处理：块帖直接交给浏览器原生打印（.bt-page 自带 break-after:page），
+    //   不构建 wrapper、不插入 page-top、不改动任何 DOM 节点。
+    const isBlockTableLayout =
+        grid.dataset.layout === 'block-table' || !!grid.querySelector('.bt-page');
+    if (isBlockTableLayout) {
+        const _btUA = navigator.userAgent || '';
+        const _btIsMobileUA = /Mobile|Android|iPhone|iPad|iPod|HarmonyOS|HuaweiBrowser|Mobile Safari/i.test(_btUA)
+            && !/Windows NT|Macintosh|CrOS|X11/i.test(_btUA);
+        console.log('[pdfExport] printDirect 块帖路径：跳过 .print-page-section 包装，直接 window.print()');
+        try {
+            const btOverlay = showLoadingOverlay();
+            if (_btIsMobileUA) showToast('正在准备打印…', 1500);
+            waitForFonts().then(async () => {
+                await waitForStrokes(2000);
+                await new Promise(r => setTimeout(r, 300));
+                btOverlay();
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        try {
+                            window.print();
+                            console.log('[pdfExport] 块帖 window.print() 调用成功');
+                        } catch (e) {
+                            console.error('[pdfExport] 块帖 window.print 抛错:', e);
+                            showToast('打印失败：' + (e && e.message ? e.message : '未知错误') + '，建议使用浏览器菜单的「网页转 PDF」', 5000);
+                        }
+                    });
+                });
+            });
+        } catch (error) {
+            console.error('[pdfExport] 块帖打印错误:', error);
+            showToast('打印时出错: ' + error.message, 4000);
+        }
         return;
     }
 

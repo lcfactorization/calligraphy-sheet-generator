@@ -334,7 +334,7 @@ async function generatePDF() {
         // Puppeteer 加载全新页面，localStorage 为空，必须显式设置
         if (options.gridType || options.gridColorPreset || options.traceOpacity != null) {
             console.log(`▶ 设置网格: type=${options.gridType || '默认'}, color=${options.gridColorPreset || '默认'}, opacity=${options.traceOpacity != null ? options.traceOpacity : '默认'}`);
-            await page.evaluate((gt, gcp, to) => {
+            await page.evaluate((gt, gcp, to, lt) => {
                 try {
                     const KEY = 'calligraphy_settings';
                     let settings = {};
@@ -343,6 +343,9 @@ async function generatePDF() {
                     if (gt) settings.gridType = gt;
                     // v3.1.1：版式注入（--layout block-table，经 evaluate 入参传入——监督 F1：
                     //   此前在页面上下文引用 Node 侧 options 抛 ReferenceError，连带三参数注入整体失败）
+                    // v3.1.2：补上第 4 个形参 lt。此前形参只有 (gt,gcp,to)，函数体却引用 lt
+                    //   → ReferenceError 被 catch 吞掉 → gridColor/gridType/layout 三个 CLI 参数
+                    //   全部静默失效（PDF 永远全绿）。调用点一直是 4 参数，只补形参即可。
                     if (lt) settings.layoutType = lt;
                     if (gcp) settings.gridColorPreset = gcp;
                     if (to != null) settings.traceOpacity = to;
@@ -486,6 +489,12 @@ async function generatePDF() {
                 32
             );
 
+            // v3.1.2：页眉页脚颜色跟随当前网格预设（与 puppeteer-server.cjs 的 hColor 同源）
+            //   旧版 header/footer 模板硬编码 color:#2E7D32，换朱砂红/靛青蓝后 CLI 导出仍是绿色。
+            const gridColor = (document.documentElement.style.getPropertyValue('--grid-theme-color') || '').trim()
+                || (document.documentElement.style.getPropertyValue('--grid-primary-color') || '').trim()
+                || '#2E7D32';
+
             // 返回诊断信息 + 页眉页脚文本
             const cells = grid.querySelectorAll('.grid-svg-cell');
             const rows = grid.querySelectorAll('.grid-svg-row');
@@ -493,7 +502,7 @@ async function generatePDF() {
                 cellCount: cells.length,
                 rowCount: rows.length,
                 hasWrapper: !!grid.parentNode.closest('.a4-page'),
-                hLeft, hCenter, hRight, fText
+                hLeft, hCenter, hRight, fText, gridColor
             };
         });
 
@@ -559,16 +568,19 @@ async function generatePDF() {
         const hR = escapeHtml(hfInfo?.hRight || '');
         const fT = escapeHtml(hfInfo?.fText || '');
 
+        // v3.1.2：页眉页脚颜色从页面读取（--grid-theme-color → --grid-primary-color → #2E7D32）
+        const hColor = hfInfo?.gridColor || '#2E7D32';
+
         const headerTemplateHtml = `
             <style>body{margin:0!important;padding:0!important;}</style>
-            <div style="font-size:9pt; color:#2E7D32; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:10mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
+            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; margin:0; padding:10mm 15.9mm 0 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-start; -webkit-print-color-adjust:exact;">
                 <span>${hL}</span>
                 <span style="flex:1;text-align:center;">${hC}</span>
                 <span>${hR}</span>
             </div>`;
         const footerTemplateHtml = `
             <style>body{margin:0!important;padding:0!important;}</style>
-            <div style="font-size:9pt; color:#2E7D32; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; height:16mm; margin:0; padding:0 15.9mm 8mm 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; -webkit-print-color-adjust:exact;">
+            <div style="font-size:9pt; color:${hColor}; font-family:'Microsoft YaHei','PingFang SC','SimSun',sans-serif; width:100%; height:16mm; margin:0; padding:0 15.9mm 8mm 15.9mm; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; -webkit-print-color-adjust:exact;">
                 <span style="flex:1;text-align:center;">${fT}</span>
                 <span>第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页</span>
             </div>`;

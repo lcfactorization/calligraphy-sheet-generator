@@ -92,9 +92,9 @@
 /* v2.5.0：页顶实线改用 border-top 实现
    v2.4.10 用 background-image (linear-gradient)，但在 PDF/打印中无法渲染
    border-top 天然撑满行宽，打印/PDF自动显示，线宽与格子边框一致
-   线宽 0.324mm，颜色 #2E7D32 (GRID_COLORS.primary) */
+   线宽 0.324mm；颜色 v3.1.2 起跟随 --grid-primary-color（字面量仅作兜底） */
 .grid-svg-aux-row.page-top {
-    border-top: 0.324mm solid #2E7D32;
+    border-top: 0.324mm solid var(--grid-primary-color, #2E7D32);
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -126,7 +126,8 @@
 .grid-svg-stroke-box span {
     font-family: 'TeXGyreAdventor', serif;
     font-size: 3.5mm;
-    color: #1B5E20;
+    /* v3.1.2：跟随预设组词色（旧版硬编码 #1B5E20，换朱砂红/靛青蓝后「N画」仍是深绿） */
+    color: var(--grid-zuci-color, #1B5E20);
     margin-right: 2mm;
     flex: 0 0 auto;
     line-height: 1;
@@ -233,7 +234,7 @@
         page-break-after: always !important;
         break-after: page !important;
     }
-    /* 强制绿色打印（避免浏览器去除背景色） */
+    /* 强制保留打印颜色（避免浏览器去除背景色）——颜色本身由 CSS 变量决定，此处不锁定任何色值 */
     .grid-svg-cell rect,
     .grid-svg-cell line,
     .pinyin-four-line line,

@@ -78,17 +78,25 @@ function applySettings(settings) {
     // 修复根因：print.css 的 .page-section-header/footer 原硬编码 #2E7D32，
     //   切换朱砂红/靛青蓝/墨黑时页眉页脚不跟随。改用 var(--grid-primary-color)。
     const presetId = settings.gridColorPreset;
-    let primaryColor = GRID_COLORS.primary;
+    // v3.1.2：解析整套色阶（不只主色）。grid-svg.css 的辅助行顶线 / 「N画」文字
+    //   改为消费 --grid-secondary-color / --grid-zuci-color 等变量后，这些变量必须有来源，
+    //   否则换预设时它们仍回落到字面量绿色（旧 bug 的根因之一）。
+    //   回退语义不变：'green' / 未知预设 → GRID_COLORS。
+    let presetColors = GRID_COLORS;
     if (presetId && presetId !== 'green') {
         const preset = GRID_COLOR_PRESETS.find(p => p.id === presetId);
         if (preset && preset.colors && preset.colors.primary) {
-            primaryColor = preset.colors.primary;
+            presetColors = { ...GRID_COLORS, ...preset.colors };
         }
     }
     // v2.8.5-hotfix：同时设置 --grid-theme-color 和 --grid-primary-color（向后兼容）
     //   页眉页脚颜色与网格线条颜色保持完全同步
-    root.style.setProperty('--grid-primary-color', primaryColor);
-    root.style.setProperty('--grid-theme-color', primaryColor);
+    root.style.setProperty('--grid-primary-color', presetColors.primary);
+    root.style.setProperty('--grid-theme-color', presetColors.primary);
+    if (presetColors.secondary) root.style.setProperty('--grid-secondary-color', presetColors.secondary);
+    if (presetColors.dashed) root.style.setProperty('--grid-dashed-color', presetColors.dashed);
+    if (presetColors.pinyin) root.style.setProperty('--grid-pinyin-color', presetColors.pinyin);
+    if (presetColors.zuci) root.style.setProperty('--grid-zuci-color', presetColors.zuci);
 
     // v3.1.0（监督员 pass2 F1）：设置面板 DOM 持久化（createPanel 有 already-exists 守卫），
     // layoutType / btZuciLevel 可能经侧栏、设置中心、块帖 zhead 点击等**外部路径**变更，

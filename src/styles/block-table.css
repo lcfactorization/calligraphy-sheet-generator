@@ -7,8 +7,9 @@
  *
  * v3.1.1 变更：
  *   - 纸张卡片职责由 .bt-sheet 整体移交每页 .bt-page（§12.A.5）：屏幕态为
- *     210×297mm A4 卡片（10mm 内边距 = @page 页边距镜像，内容盒 190×277mm）；
- *     打印态页高冻结 277mm、页间 page-break-after:always、末页 auto（§12.A.1），
+ *     210×297mm A4 卡片（10mm 内边距，内容盒 190×277mm）；
+ *     v3.1.2 打印态改为 @page margin:0 + .bt-page 210×296mm/padding 10mm
+ *     （内容盒 190×276mm），页间 page-break-after:always、末页 auto（§12.A.1），
  *     分页由显式容器决定，不依赖浏览器碎片化算法。
  *   - 拼音四线格线字分离（§12.B.7）：线条层 none 拉伸铺满、文字层 meet 等比
  *     缩放；盒子负 margin 贴信息行左缘（§12.B.8）。
@@ -39,11 +40,11 @@
     margin: 0 auto;
     color: var(--text-color, #1e293b);
 }
-/* 单页卡片：屏幕态 = 210×297mm A4 纸，内边距 10mm 模拟 @page 页边距，
-   内容盒恰为 190×277mm —— 与打印内容区（@page A4 portrait − 10mm 页边距）
-   恒等，因此引擎实测出的每页块数对屏幕与打印同时成立（WYSIWYG，§12.A.2）。
-   10mm 为 @page margin 镜像（打印几何常量，与文件末打印段的页高 277mm 配对，
-   改一处须同步另一处）。 */
+/* 单页卡片：屏幕态 = 210×297mm A4 纸，内边距 10mm 模拟页边距，
+   内容盒恰为 190×277mm；打印态（文件末 @media print）为 210×296mm/padding 10mm
+   → 内容盒 190×276mm（v3.1.2），与 BT_PAGE_CONTENT_MM(277) − RESERVE(2) = 275mm
+   预算相容，因此引擎实测出的每页块数对屏幕与打印同时成立（WYSIWYG，§12.A.2）。
+   改打印段尺寸须同步检查该预算。 */
 .bt-page {
     box-sizing: border-box;
     width: 210mm;
@@ -369,7 +370,9 @@
 @media print {
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        /* v3.1.2：margin 归零 —— 0 边距下浏览器不再渲染自带页眉页脚，
+           可打印区不被二次压缩；视觉 10mm 页边距改由 .bt-page 的 padding 提供 */
+        margin: 0;
     }
 
     .bt-sheet {
@@ -383,15 +386,18 @@
     }
 
     /* ── v3.1.1 显式分页（§12.A.1，任务 5）──
-       每页一张 .bt-page：高 = A4 内容区 277mm（冻结值），页边距交还 @page
-       （padding 0）；页间强制换页（page-break-after/break-after 双写），
+       每页一张 .bt-page：外框 210mm×296mm（v3.1.2 起 @page margin:0），
+       padding 10mm → 内容盒 190mm×276mm；页间强制换页（page-break-after/break-after 双写），
        末页 auto 不产生空白尾页。打印分页由显式容器决定，不依赖浏览器碎片化
        算法；.bt-block 的 break-inside:avoid（下）保留为二级保险。
-       屏幕态的 297mm 卡片高与 10mm 模拟页边距在此全部还原为打印几何。 */
+       屏幕态的 297mm 卡片高与 10mm 模拟页边距在此全部还原为打印几何。
+       尺寸全部走变量：--bt-print-page-w/h/pad（Puppeteer 路径注入 190/269/0
+       以保持 v3.1.1 的 12/16mm 页眉页脚几何，window.print 用默认 210/296/10mm）。
+       --bt-page-h 仅作旧注入点的向后兼容保留。 */
     .bt-page {
-        width: 190mm;                  /* 显式内容宽（@page 左右 10mm），水平居中确定性锚点 */                   /* 内容宽交给 @page（190mm） */
-        height: var(--bt-page-h, 277mm);   /* Puppeteer 导出注入 269mm（12/16mm 页眉页脚边距），window.print 用默认 277mm */
-        padding: 0;
+        width: var(--bt-print-page-w, 210mm);        /* 显式纸张宽（@page margin:0），水平居中确定性锚点 */
+        height: var(--bt-print-page-h, 296mm);       /* Puppeteer 导出注入 269mm（12/16mm 页眉页脚边距），window.print 用默认 296mm */
+        padding: var(--bt-print-pad, 10mm);          /* 视觉页边距（@page 已归零） */
         margin: 0 auto;
         display: flex;
         flex-direction: column;

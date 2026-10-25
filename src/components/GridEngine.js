@@ -450,9 +450,18 @@ function drawStrokeOrder(layer, strokeOrder) {
  *
  * @param {number} cellCount - 每行格子数（默认 11）
  * @param {Object} [colors] - v2.5.3 可选颜色覆盖（需含 primary 字段）
+ * @param {Object} [opts] - v3.1.2：上下横边的绘制开关，默认都画（经典版式行为不变）
+ *   - opts.top    {boolean} 是否画上边（默认 true）
+ *   - opts.bottom {boolean} 是否画下边（默认 true）
+ *   为什么需要它：块帖（block-table）的 .bt-row 是**上下紧邻**的，每行都画上下两边时，
+ *   行间边界会叠出 2 条 2 单位横线 = 4 单位（0.54mm），而竖线只有 2 单位（0.27mm），
+ *   肉眼就是「行间横线比竖线粗一倍」。块帖因此改为「首行画上边 + 每行只画下边」。
+ *   经典版式行与行之间隔着辅助行，不存在相邻叠线，保持默认即可。
  * @returns {SVGElement} SVG.grid-svg-row-border
  */
-export function createRowBorderSVG(cellCount = 11, colors) {
+export function createRowBorderSVG(cellCount = 11, colors, opts = {}) {
+    const drawTop = opts.top !== false;
+    const drawBottom = opts.bottom !== false;
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('class', 'grid-svg-row-border');
     svg.setAttribute('viewBox', `0 0 ${cellCount * 100} 100`);
@@ -475,13 +484,18 @@ export function createRowBorderSVG(cellCount = 11, colors) {
     const COLOR = (colors && colors.primary) || getActiveGridColors().primary;
     const W = cellCount * 100;
 
-    // 上边
-    svg.appendChild(svgEl('rect', { x: 0, y: 0, width: W, height: BORDER_SW, fill: COLOR }));
-    // 下边
-    svg.appendChild(svgEl('rect', { x: 0, y: 100 - BORDER_SW, width: W, height: BORDER_SW, fill: COLOR }));
+    // 上边（opts.top=false 时跳过：避免与上一行的下边叠成双倍粗线）
+    if (drawTop) {
+        svg.appendChild(svgEl('rect', { x: 0, y: 0, width: W, height: BORDER_SW, fill: COLOR }));
+    }
+    // 下边（opts.bottom=false 时跳过）
+    if (drawBottom) {
+        svg.appendChild(svgEl('rect', { x: 0, y: 100 - BORDER_SW, width: W, height: BORDER_SW, fill: COLOR }));
+    }
     // 左边
     svg.appendChild(svgEl('rect', { x: 0, y: 0, width: BORDER_SW, height: 100, fill: COLOR }));
     // 右边
+
     svg.appendChild(svgEl('rect', { x: W - BORDER_SW, y: 0, width: BORDER_SW, height: 100, fill: COLOR }));
     // 内部竖线（居中于网格线，cellCount-1 条，把行分成 cellCount 格）
     // 相邻格子共用的边只绘制一次（统一绘制，无重复）
@@ -856,12 +870,20 @@ export { STROKE_ORDER_COLORS, SHEET_LAYOUT, GRID_COLORS, GRID_COLOR_PRESETS };
  * 操作后标记仍在即证明节点未被重建。
  */
 
-/** 把网格主色同步到 CSS 变量（页眉页脚跟随，与 renderSheet 中的逻辑一致） */
+/** 把网格色阶同步到 CSS 变量（页眉页脚 / 辅助行 / 笔画数文字跟随，与 renderSheet 中的逻辑一致）
+ *  v3.1.2：原实现只写主色两个变量，导致 grid-svg.css 里只能硬编码 #2E7D32 / #1B5E20 兜底，
+ *          换预设（朱砂红等）后辅助行顶线与「N画」文字仍是绿色。这里一次写全六色。 */
 function syncGridColorVars(colors) {
-    if (colors && colors.primary) {
-        document.documentElement.style.setProperty('--grid-primary-color', colors.primary);
-        document.documentElement.style.setProperty('--grid-theme-color', colors.primary);
+    if (!colors) return;
+    const root = document.documentElement;
+    if (colors.primary) {
+        root.style.setProperty('--grid-primary-color', colors.primary);
+        root.style.setProperty('--grid-theme-color', colors.primary);
     }
+    if (colors.secondary) root.style.setProperty('--grid-secondary-color', colors.secondary);
+    if (colors.dashed) root.style.setProperty('--grid-dashed-color', colors.dashed);
+    if (colors.pinyin) root.style.setProperty('--grid-pinyin-color', colors.pinyin);
+    if (colors.zuci) root.style.setProperty('--grid-zuci-color', colors.zuci);
 }
 
 /** 取当前用户选择的字体（与 main.js getRenderOptions 同源） */

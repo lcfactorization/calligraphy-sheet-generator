@@ -205,3 +205,17 @@
 - **实测数据(已回填)**:每页块数固定 **5**(用户指令,首页含压缩页头亦 5);页头 footprint **21.98mm**,
   块 footprint **40.0mm**,守卫 21.98+6×40=**261.98mm ≤ 275mm**(guardOk);四关口 build PASS / verify:refresh **68/68** /
   verify:touch **50/50** / verify:blocktable 50+3 项(分页组14+拼音组15+拆解条组15e,6块口径复跑);23 字(含爨) → 4 页,PDF 页数=ceil(23/6)=4 无空白尾页。
+
+### v3.1.2 — 网格颜色全量跟随预设 + 打印分页零溢出(已完成)(2026-10-25)
+
+- **状态**:**完成** —— 根因/修复/验证/影响面四段式见 [CHANGELOG](./CHANGELOG.md#v312-2026-10-25--网格颜色全量跟随预设--打印分页零溢出)
+- **规格依据**:`docs/v3.1.2_修复方案_网格颜色与打印分页.md`(执行契约;颜色变量清单与页几何参数一律以该文档为准,实施与验收两侧不得各自改设计)
+- **验收命令**:`node scripts/verify-v312-print.cjs`(默认 `--root dist`;`--server` 走真实 `http://127.0.0.1:3210/api/generate-pdf`;报告写 `scripts/v312-print-report.json`,退出码 0 = 全通过)
+  - **红基线**(修复前构建快照):`node scripts/verify-v312-print.cjs --root _prefix_dist_snapshot` → **12 passed / 9 failed** —— C1a `greenish=20(#1B5E20×20)`、C4b `277.019mm > 277.000mm(+0.019mm)`、C4d `内容盒 276.998mm`、C4f `@page margin=10mm`、C5a/C5b(块帖被 printDirect 多包一层,PDF 1 页 vs .bt-page 2)、C5c(块帖 @page margin=10mm)、C6a/C6b(块帖行间横线叠粗 0.540mm vs 竖线 0.270mm)
+  - **绿基线**(修复后 `dist/`):**21/21 PASS**,退出码 0 —— `greenish=0`、段 `296.069mm ≤ 297.000mm`(余量 0.931mm)、内容盒 `189.999×275.998mm`、`@page margin=0px`、198 字 **18 页**、块帖 `print-page-section=0` 且 PDF 2 页 = `.bt-page` 2;另 C6a/C6b 横竖线宽一致(均 0.270mm、0 处叠粗)、C4h 负控自证(10mm 边距下含「打印时间/file:// 路径」的品红页眉确实被画出)证明检测方法有效,应用打印路径靠 @page margin:0 将其彻底禁止
+- **分工**:
+  | Agent | 职责 | 独占文件 |
+  |:------|:-----|:--------|
+  | A 实施 | 颜色变量链路 + 打印页几何 + 块帖打印守卫 | `src/components/GridEngine.js`、`src/components/BlockTableEngine.js`、`src/modules/settingsCenter.js`、`src/styles/grid-svg.css`、`src/styles/print.css`、`src/styles/block-table.css`、`src/utils/pdfExport.js`、`puppeteer-pdf.cjs`、`puppeteer-server.cjs` |
+  | B 验收/文档 | 独立关口 + 红/绿基线 + 四份文档 | `scripts/verify-v312-print.cjs`、`CHANGELOG.md`、`README.md`、`README_EN.md`、本看板 |
+- **不变量**:Puppeteer 导出路径几何不变(`@page` 12/15.9/16/15.9mm 覆盖仍在,块帖注入 `--bt-print-page-h:269mm`/`--bt-print-pad:0`);绿色预设 PDF 颜色算子直方图与 v3.1.1 逐项相同;字格 16.2mm / 辅助行 5.4mm / 11 格 × 11 行原样。

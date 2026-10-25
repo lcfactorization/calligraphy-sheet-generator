@@ -5,6 +5,97 @@
 
 ---
 
+## v3.1.2 (2026-10-25) — 网格颜色全量跟随预设 + 打印分页零溢出
+
+> 缺陷修复版本：只改「颜色变量链路」与「打印页几何」，**不改任何字号 / 格子物理尺寸**
+> （16.2mm 字格、5.4mm 辅助行、11 格 × 11 行原样），Puppeteer 导出路径几何零变化。
+> 规格依据：`docs/v3.1.2_修复方案_网格颜色与打印分页.md`（执行契约）。
+> 触发：① 用户把网格换成朱砂红后，打印 / 导出的 PDF 里仍有深绿；② 打印预览勾选浏览器
+> 自带「页眉和页脚」后，每页尾部（页脚 + 最后一行）被裁切或被挤到下一页，分页级联错乱。
+
+### 🎨 根因（实测证据，非推测）
+
+- **颜色**：`gridColorPreset=red` 时用真实 Puppeteer 服务生成 PDF，解压内容流统计颜色算子 ——
+  仍出现 **20 次 `#1B5E20`（深绿）**，其余为 `#9E2A2B`×44 / `#B14A4B`×240 / `#D97777`×200。
+  print 媒体截图 + `elementFromPoint` 像素反查显示 **402/411 个绿像素落在
+  `.grid-svg-stroke-box > span`** —— 即辅助行里的「N画」笔画数文字。
+  硬编码点共 5 处：`grid-svg.css` 的 `.grid-svg-stroke-box span { color:#1B5E20 }` 与
+  `.grid-svg-aux-row.page-top { border-top: 0.324mm solid #2E7D32 }`（后者只被 `createAuxRow`
+  的内联 `borderTopColor` 掩盖，任何「只加类不写内联」的路径都会露绿）、`pdfExport.js` 的
+  jsPDF 页眉页脚 `setTextColor(46,125,50)`、`puppeteer-pdf.cjs` 的 header/footer 模板
+  `color:#2E7D32`；此外 `puppeteer-pdf.cjs` 里 `lt` 不是 evaluate 形参（形参只有 `gt,gcp,to`），
+  `if (lt) settings.layoutType = lt;` 抛 **ReferenceError 被 catch 吞掉**，使 CLI 的
+  `--grid-color` / `--grid-type` / `--layout` 整体失效（PDF 全绿）。
+- **分页**：`@page { margin:10mm }` 的可打印区恰为 **190×277mm**，而 `.print-page-section`
+  高也是 277mm —— **零余量**。实测 `scrollHeight` = **277.019mm > 277mm**（子像素溢出
+  0.019mm，段内 header 8 + content 261 + footer 8 逐项取整累积）。一旦浏览器自带页眉页脚
+  参与，可打印区再缩水，每个 277mm 分段都溢出 → 分段尾部被裁切 / 被挤到下一页 → 级联错乱。
+
+### 🛠 修复
+
+- **颜色变量单一来源**：`GridEngine.syncGridColorVars` 与 `settingsCenter` 统一写全 6 个变量
+  （`--grid-primary-color` / `--grid-theme-color` / `--grid-secondary-color` /
+  `--grid-dashed-color` / `--grid-pinyin-color` / `--grid-zuci-color`）；`BlockTableEngine`
+  渲染入口也主动调用一次（此前完全依赖 settingsCenter 初始化，属隐患）。
+- **CSS 去硬编码**：`grid-svg.css` 两处改为 `var(--grid-*-color, <原字面量>)`，字面量只作兜底。
+- **页眉页脚同源**：`pdfExport.js` 的 jsPDF 页眉页脚颜色从 CSS 变量解析（hex → rgb，解析失败
+  才回落 `#2E7D32`）；`puppeteer-pdf.cjs` 补齐 `lt` 形参，header/footer 模板颜色改为从页面读取
+  （与 server 同源）。
+- **页边距从 `@page` 搬进页容器**：`print.css` / `block-table.css` 打印段改
+  `@page { size:A4 portrait; margin:0 }`；经典分页段 `.print-page-section` 改为
+  `width:210mm; height:296mm; padding:10mm; box-sizing:border-box` → 内容盒 **190×276mm**
+  （比旧 277mm 少 1mm 作页级余量）；段内 header 8 + content **258** + footer 8 = 274mm
+  （2mm 段内余量，11 行 237.6mm 远小于 258）；末页 `height:auto; max-height:296mm`。
+  块帖打印态 `.bt-page` 同步为 `210mm × var(--bt-print-page-h,296mm)` + `padding:var(--bt-print-pad,10mm)`。
+  `@page` 边距为 0 时 Chrome/Edge/Safari/Firefox 都不再渲染自带页眉页脚，可打印区不再被二次压缩。
+- **只保留应用自绘的页眉页脚**：界面里设定的页眉（日期 / 标题 / 字体名）与页脚（评分栏 / 第 N 页共 M 页）
+  原样保留；浏览器在纸边额外加的**打印时间、页面标题、`file://` 文件路径 / URL、浏览器自己的页码**
+  一律禁止 —— 手段就是 `@page margin:0`（0 边距下浏览器没有落笔空间，Chrome/Edge 会把「页眉和页脚」
+  选项置灰）。这条**不能**靠 `displayHeaderFooter:false` 之类的 API 实现（那是 Puppeteer 的显式参数，
+  用户 `window.print()` 路径不经过它），只能靠页面几何。
+- **Puppeteer 路径零变化**：其注入的 `@page{...12mm/16mm !important}`（后注入 + `!important`）
+  仍覆盖应用样式，并同步注入 `--bt-print-page-h:269mm; --bt-print-pad:0`，块帖打印几何与 v3.1.1 完全一致。
+- **块帖行间横线不再叠粗**（用户反馈：分隔行的横实线比边框竖线粗）：根因是 `.bt-row` **每行都画上边+下边**，
+  而块帖的行是**上下紧邻**的，行间边界于是叠出 2 条 2 单位横线 = 4 单位（**0.540mm**），
+  竖线只有 2 单位（**0.270mm**），正好 2 倍。修复：`createRowBorderSVG(cellCount, colors, { top, bottom })`
+  新增上下边开关（默认都画，经典版式零变化），块帖主表格与组词面板改为「**首行画上边 + 每行只画下边**」。
+  实测：行间边界 0.540mm → **0.270mm**，与竖线完全一致；200dpi 渲染的像素游程 5px → 3px（AA 后等价）。
+- **块帖打印守卫**：块帖已有显式 `.bt-page` 分页，`printDirect` 不再为其套 `.print-page-section`
+  （避免多包一层 277/296mm 分页段导致页数翻倍与空白页）。
+
+### 🧪 验证
+
+新增独立验收关口 **`node scripts/verify-v312-print.cjs`**（零新增依赖，真实浏览器 + 真实 PDF，
+不 mock 应用逻辑；报告写 `scripts/v312-print-report.json`，退出码 0 = 全通过）：
+
+| 检查 | 断言 |
+|---|---|
+| C1 | classic + `red`：PDF 内容流中绿色系算子（g>60 且 g>r+25 且 g>b+25）**= 0**，主色 `#9E2A2B` > 0 |
+| C2 | block-table + `red`：同上 |
+| C3 | `green` + 198 字 classic：**18 页**，且 `#2E7D32`/`#388E3C`/`#66BB6A` 俱在（v3.1.1 基线回归） |
+| C4 | classic 25 字：段数 = ceil(25/11) = 3；每段 `scrollHeight` ≤ 可打印区高（**零容差**）；非末段恰 11 个 `.print-row-pair`；内容盒 190×276mm（±0.3）；`page.pdf()` 页数 = 段数（含 `displayHeaderFooter:true` + 14mm 高页眉页脚模板仍相等）；CSSOM `@page` margin = 0；`C4h` 负控自证 —— 显式给 10mm 页边距时，含「打印时间 + `file://` 路径」的品红页眉模板确实被画出（品红算子 > 0），证明该检测方法有效 |
+| C5 | block-table 12 字：打印后**不产生** `.print-page-section`，`page.pdf()` 页数 = `.bt-page` 数（2）；`C5c` 块帖动态注入的 `block-table.css` 里 `@page` margin 同样为 0（经典禁了、块帖没禁就会漏） |
+| C6 | 块帖网格线宽一致性（按 `.bt-block` 分组）：行间边界厚度 = 上一行下边 + 下一行上边，必须 ≤ 1.05× 单条；横线与竖线厚度差 ≤ 5%。修复前 `0.540mm`（12 处叠粗）→ 修复后 `0.270mm`（0 处） |
+
+- **红基线（修复前构建快照 `_prefix_dist_snapshot/`）**：`C1a` FAIL —— `greenish=20（#1B5E20×20）`；
+  `C4b` FAIL —— `scrollHeight 277.019mm vs 可打印区 277.000mm (+0.019mm)`；另 `C4d`（内容盒
+  276.998mm）、`C4f`（`@page margin=10mm`）、`C5a/C5b`（块帖被多包一层，PDF 1 页 vs `.bt-page` 2）、
+  `C5c`（块帖 `@page margin=10mm`）同时翻红 —— 合计 **12 passed / 9 failed**。
+- **绿基线（修复后 `dist/`）**：**21/21 PASS**，退出码 0。关键实测值：`greenish=0`；
+  段 `scrollHeight 296.069mm ≤ 297.000mm`（余量 0.931mm）；内容盒 `189.999×275.998mm`；
+  `@page margin=0px`；198 字 **18 页**；块帖 `print-page-section=0`、PDF 2 页 = `.bt-page` 2。
+
+### 📦 影响面
+
+- **Puppeteer 路径几何不变**：`@page` 12/15.9/16/15.9mm（经典）与 12/10/16/10mm（块帖）覆盖仍在，
+  块帖 `--bt-print-page-h:269mm` / `--bt-print-pad:0` 使页高与页眉页脚边距匹配，198 字仍稳定 18 页。
+- **绿色预设逐像素等价**：`green` 预设的 PDF 颜色算子直方图与 v3.1.1 完全一致
+  （`#000000`×11992 / `#388E3C`×4488 / `#66BB6A`×3740 / `#2E7D32`×782，逐项相同）。
+- **格子物理尺寸不变**：字格 16.2mm、辅助行 5.4mm、11 格/行、11 行/页原样，仅页级容器几何调整。
+- **不新增 UI 开关**：本轮只修几何与颜色，控制风险。
+
+---
+
 ## v3.1.1 (2026-10-24) — 分页完整性 + 拼音四线格修复（生字卡表格版式）
 
 > P1 修复版本：仅改块帖（block-table）文件与验收脚本，经典版式代码路径零改动。

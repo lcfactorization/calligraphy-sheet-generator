@@ -7,7 +7,7 @@
 [![Deploy to GitHub Pages](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml/badge.svg?branch=retake)](https://github.com/lcfactorization/calligraphy-sheet-generator/actions/workflows/deploy.yml)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-online-brightgreen)](https://calligraphy-sheet-generator.pages.dev/)
 [![PWA](https://img.shields.io/badge/PWA-installable-blueviolet)](https://calligraphy-sheet-generator.pages.dev/manifest.webmanifest)
-[![Version](https://img.shields.io/badge/version-3.1.1-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.1.2-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 🆕 v3.1.1 新功能：生字卡表格版式（block-table）
@@ -30,7 +30,7 @@
 | **GitHub Pages**（备） | https://lcfactorization.github.io/calligraphy-sheet-generator/ | GitHub Actions 自动：push 到 `main` / `retake` 后构建部署 |
 
 - **PWA 支持**:可安装到桌面/手机主屏,离线可用
-- **最新版本**:v3.1.1(🆕 生字卡表格版式 + 每生字行数可变(1/2/3,控制符上限 5 行) + 显式分页完整 + 拼音等比四线格 + 多笔画拆解条自适应 + Puppeteer 导出适配,新增关口 `npm run verify:blocktable` 56 项全绿;详见 [CHANGELOG](./CHANGELOG.md) 与 [生字卡指南](./public/block-table-guide.html));v3.0.8(触屏 / 移动端布局修复:根因是页头把整页撑出横向溢出、`position:fixed` 的 `right/bottom` 于是按被撑大的布局视口解析 → 4 个 FAB / toast / 引导气泡全部画到屏外。现消除溢出 + 页头横排并为 FAB 让位 + FAB 拖拽限桌面 + 触摸目标 ≥44px,新增可重跑关口 `npm run verify:touch`)
+- **最新版本**:v3.1.2(修复:网格颜色全量跟随预设 + 打印分页零溢出 + **浏览器自带页眉页脚(打印时间/file:// 路径/URL)彻底禁止**,界面自设的页眉页脚与页码保留 + **块帖行间横线与边框竖线等宽(0.270mm,消除 2 倍叠粗)**,新增关口 `node scripts/verify-v312-print.cjs`);v3.1.1(🆕 生字卡表格版式 + 每生字行数可变(1/2/3,控制符上限 5 行) + 显式分页完整 + 拼音等比四线格 + 多笔画拆解条自适应 + Puppeteer 导出适配,新增关口 `npm run verify:blocktable` 56 项全绿;详见 [CHANGELOG](./CHANGELOG.md) 与 [生字卡指南](./public/block-table-guide.html));v3.0.8(触屏 / 移动端布局修复:根因是页头把整页撑出横向溢出、`position:fixed` 的 `right/bottom` 于是按被撑大的布局视口解析 → 4 个 FAB / toast / 引导气泡全部画到屏外。现消除溢出 + 页头横排并为 FAB 让位 + FAB 拖拽限桌面 + 触摸目标 ≥44px,新增可重跑关口 `npm run verify:touch`)
 - **最新更新**:v3.0.8 — 触屏/移动端布局修复(8 设备 × 7 类几何断言关口 **FAIL=0 WARN=0 PASS=50**,运行前先跑 10 项负控夹具自证;同一关口回跑 v2.9.7 基线得 **FAIL=12 WARN=6**,证明判据能区分好坏两侧。根因数据:390px 视口下修复前 `scrollWidth=1480`、`.fab-settings` 左边缘在 1412px;修复后 `scrollWidth=390`、左边缘 322px。详见 CHANGELOG);v3.0.7 — 定向重绘(GridEngine 字格 SVG 拆成网格层 + 内容层,新增 `applySheetFont`/`applySheetTraceOpacity`/`repaintSheetGrid` 三个 API;`main.js` 按「设置快照 diff」分流外观变更与内容变更;真浏览器取证 `npm run verify:refresh` 对**构建产物**跑 68 项断言全绿**含负控**)+「导入生字」正名与派发时序修复 + 部编版整册生字预设(五上 217/五下 180/六上 180);v3.0.6 — AI Key 体系完整移植(新增 `aiConsole`/`aiDiagView`/`aiProbeHttp` 等 7 个模块、Key 默认不落盘 + 旧明文一次性迁移、18 家引擎注册表 + 自定义引擎、AI 控制台连通性体检)+ 笔顺弹窗按**可视视口**精确居中(单窗口 0 偏差、2/3/4 窗口末行孤窗居中)+ 修复 `callDeepSeekDirect` 在只传 apiKey 时的空指针;v3.0.5 — 隐私与合规加固(移除硬编码个人邮箱与默认密钥、访问统计改为 IP 假名化、补齐 LICENSE/ARPHICPL.TXT/第三方署名、移除商业字体默认引用)+ file:// 双击启动修复(就绪信标 + 加载进度 + 重试);v3.0.4 — 多引擎 AI 自动优选(16 家引擎 + 「自动选择(推荐)」+ 检测全部 Key 可用性)+ 触屏/平板笔顺弹窗自适应(自动排列/缩放 + 手机药丸收纳 + 触摸目标放大);v3.0.3 访问统计系统;v3.0.2 弹窗优化;v3.0.1 多 Key 管理与手动修改;详见 [CHANGELOG.md](./CHANGELOG.md)
 - **部署链路修复**(2026-09-19,版本号不变):v3.0.4 起 CI 字体下载脚本双重失效(pip PEP 668 + TW-Kai 上游 404),导致每次部署都在 `set -e` 下中断、线上长期停在 v3.0.3。现改为字体随仓库分发 + CI 只做校验,详见 [CHANGELOG](./CHANGELOG.md#v305-2026-09-18--隐私与合规加固--双击启动修复)。
 

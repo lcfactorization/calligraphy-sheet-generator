@@ -110,6 +110,23 @@ function getActiveGridColors() {
     return GRID_COLORS;
 }
 
+/** 把网格色阶同步到 CSS 变量（与 GridEngine.syncGridColorVars 同构）。
+ *  v3.1.2：块帖渲染此前完全不写 CSS 变量，只依赖 settingsCenter.applySettings 初始化时写过；
+ *          一旦走到未初始化的路径（首次渲染顺序变化 / 独立调用），.bt-* 的
+ *          var(--grid-primary-color, #2E7D32) 就回落到绿色。渲染入口显式写一次消除该隐患。 */
+function syncGridColorVars(colors) {
+    if (!colors) return;
+    const root = document.documentElement;
+    if (colors.primary) {
+        root.style.setProperty('--grid-primary-color', colors.primary);
+        root.style.setProperty('--grid-theme-color', colors.primary);
+    }
+    if (colors.secondary) root.style.setProperty('--grid-secondary-color', colors.secondary);
+    if (colors.dashed) root.style.setProperty('--grid-dashed-color', colors.dashed);
+    if (colors.pinyin) root.style.setProperty('--grid-pinyin-color', colors.pinyin);
+    if (colors.zuci) root.style.setProperty('--grid-zuci-color', colors.zuci);
+}
+
 /** 创建 SVG 子元素并批量设置属性（与 GridEngine.svgEl 同款） */
 function svgEl(name, attrs = {}) {
     const el = document.createElementNS(SVG_NS, name);
@@ -456,7 +473,8 @@ function buildZuciPanel(words, bt, colors, fontFamily, gridType, zrows) {
         }
         // 行级统一边框复用 createRowBorderSVG（.grid-svg-row-border 类被
         // repaintSheetGrid 的重着色查询覆盖，颜色预设切换自动生效）
-        zrow.appendChild(createRowBorderSVG(BLOCK_TABLE_LAYOUT.zuciCols, colors));
+        // v3.1.2：同主表格 —— 首行画上边、每行只画下边，杜绝相邻行叠成双倍粗横线
+        zrow.appendChild(createRowBorderSVG(BLOCK_TABLE_LAYOUT.zuciCols, colors, { top: r === 0 }));
         panel.appendChild(zrow);
     }
     return panel;
@@ -560,7 +578,10 @@ function buildBlock(char, bt, colors, fontFamily, gridType, opts = {}) {
             }));
         }
         // 行级统一边框（消除竖线粗细不一，复用 GridEngine 产出）
-        row.appendChild(createRowBorderSVG(bt.cols, colors));
+        // v3.1.2：.bt-row 上下紧邻 —— 只让首行画上边、每行画下边，
+        //   否则行间边界会叠成 2 条横线（4 单位 = 0.54mm）而竖线只有 2 单位（0.27mm），
+        //   视觉上「分隔行的横实线比边框竖线粗一倍」。改后横竖线同为 0.27mm。
+        row.appendChild(createRowBorderSVG(bt.cols, colors, { top: r === 0 }));
         main.appendChild(row);
     }
     block.appendChild(main);
@@ -717,6 +738,8 @@ export function renderBlockSheet(input = '', options = {}) {
     const { fontFamily = 'TW-Kai', gridType = 'mizi' } = options || {};
     const bt = readBtSettings();
     const colors = getActiveGridColors();
+    // v3.1.2：块帖渲染入口同步写全 CSS 变量（见 syncGridColorVars 注释）
+    syncGridColorVars(colors);
 
     // ── v3.1.1 输入解析（含控制符，§12.A.2 三次调整）：──
     //   生字后跟数字（1-9）→ 该字按数字行（至少 1 行）【最高优先级】；
