@@ -28,7 +28,7 @@ if (!env.CLOUDFLARE_API_TOKEN) {
     process.exit(1);
 }
 const project = env.CLOUDFLARE_PAGES_PROJECT || 'calligraphy-sheet-generator';
-const branch = env.CLOUDFLARE_PAGES_BRANCH || 'retake';
+const branch = env.CLOUDFLARE_PAGES_BRANCH || 'main';   // 生产域名跟随 main
 console.log('[deploy-cf] 项目=' + project + ' 分支=' + branch + ' 产物=dist（token 已从本地凭据读取）');
 
 const r = spawnSync('npx', ['wrangler', 'pages', 'deploy', 'dist',
